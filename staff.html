@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="th">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>รายการคำขอประกันภัย · เจ้าหน้าที่</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+
+<header>
+  <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+    <ellipse cx="24" cy="24" rx="22" ry="14" fill="none" stroke="#fff" stroke-width="3"/>
+    <ellipse cx="24" cy="18" rx="8" ry="12" fill="none" stroke="#fff" stroke-width="3"/>
+    <ellipse cx="24" cy="24" rx="13" ry="7" fill="none" stroke="#fff" stroke-width="3"/>
+  </svg>
+  <div class="brand">
+    <h1>รายการคำขอประกันภัย</h1>
+    <p>สำหรับเจ้าหน้าที่ · โตโยต้า กาญจนบุรี</p>
+  </div>
+  <span class="spacer"></span>
+  <span class="who-chip" id="whoChip" hidden></span>
+  <a class="hbtn" href="index.html">📝 ฟอร์มยื่นคำขอ</a>
+  <button class="hbtn" id="btnOut" hidden>ออกจากระบบ</button>
+</header>
+
+<main>
+  <section class="card login panel" id="loginBox" hidden>
+    <h2>เข้าสู่ระบบ</h2>
+    <p class="sub">ใบคำขอมีที่อยู่และเบอร์โทรของลูกค้า จึงเปิดดูได้เฉพาะเจ้าหน้าที่ที่ได้รับสิทธิ์
+      (บัญชีถูกสร้างไว้ให้โดยผู้ดูแลระบบ)</p>
+    <div class="err" id="loginErr"></div>
+    <div class="grid">
+      <label class="f c12">อีเมล<input id="lgEmail" type="email" autocomplete="username"></label>
+      <label class="f c12">รหัสผ่าน<input id="lgPw" type="password" autocomplete="current-password"></label>
+    </div>
+    <div style="margin-top:14px"><button class="btn primary" id="btnIn">เข้าสู่ระบบ</button></div>
+  </section>
+
+  <section class="panel" id="listPanel" hidden>
+    <h2 id="listHead">รายการคำขอทั้งหมด</h2>
+    <p class="sub">กดที่ใบเพื่อดูรายละเอียด อัปเดตสถานะ และเปิดเอกสารแนบ</p>
+    <div class="bar">
+      <input id="find" placeholder="ค้นหา เลขที่ / ชื่อผู้ทำประกัน / เบอร์โทร / ทะเบียน / ผู้แนะนำ" style="max-width:360px">
+      <label class="f" style="font-size:0">
+        <select id="fltStatus">
+          <option value="">ทุกสถานะ</option>
+          <option value="new">รอตรวจสอบ</option>
+          <option value="contacted">ติดต่อแล้ว</option>
+          <option value="quoted">เสนอราคาแล้ว</option>
+          <option value="done">ปิดการขาย</option>
+          <option value="cancelled">ยกเลิก</option>
+        </select>
+      </label>
+      <span class="grow"></span>
+      <button class="btn sm" id="btnReload">🔄 โหลดใหม่</button>
+    </div>
+    <div id="listBody"></div>
+  </section>
+
+  <div id="cfgWarn" class="panel" hidden style="border-color:#f0cfcc;background:var(--bad-soft)">
+    <h2 style="color:var(--bad-ink)">ยังตั้งค่าเชื่อมฐานข้อมูลไม่เสร็จ</h2>
+    <p class="sub" style="color:var(--bad-ink)">แก้ไฟล์ <b>config.js</b> ให้ใส่ Project URL และ anon key ก่อน (ดู README.md)</p>
+  </div>
+</main>
+
+<div class="ov" id="ovView">
+  <div class="card">
+    <div class="hd"><h3 id="vTitle">รายละเอียดคำขอ</h3><p id="vSub"></p></div>
+    <div class="bd" id="vBody"></div>
+    <div class="ft"><span class="grow"></span><button class="btn" id="vClose">ปิด</button></div>
+  </div>
+</div>
+
+<div class="ov" id="ovAsk">
+  <div class="card" style="max-width:430px">
+    <div class="hd"><h3 id="askTitle">ยืนยัน</h3></div>
+    <div class="bd"><p id="askMsg" style="font-size:13.5px;margin:0;line-height:1.65"></p></div>
+    <div class="ft"><button class="btn" id="askNo">ยกเลิก</button><button class="btn primary" id="askYes">ตกลง</button></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script type="module">
+/* ==========================================================================
+   หน้าเจ้าหน้าที่ — อ่านรายการคำขอ + อัปเดตสถานะ + เปิดเอกสารแนบ
+   ต้องล็อกอินด้วย Supabase Auth (บัญชีถูกสร้างไว้ให้ในแดชบอร์ด ไม่มีปุ่มสมัครที่หน้านี้)
+   🔑 อ่านผ่าน view `ins_requests_view` ไม่ใช่ตารางตรง — view ไม่มีคอลัมน์ upload_token
+      (Postgres ไม่มี RLS ระดับคอลัมน์ ถ้า select ตารางตรงกุญแจแนบไฟล์จะหลุดมาด้วย)
+   ========================================================================== */
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const $  = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TH_MON = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+const CFG = window.SUPA || {};
+const cfgReady = !!(CFG.url && CFG.anonKey
+  && !CFG.url.includes('YOUR-PROJECT-REF') && !CFG.anonKey.includes('YOUR-ANON-KEY'));
+const sb = cfgReady ? createClient(CFG.url, CFG.anonKey) : null;
+
+const COVERS = { type1:'ประเภท 1', type2plus:'ประเภท 2 พลัส', type3:'ประเภท 3', type3plus:'ประเภท 3 พลัส', act:'พ.ร.บ.' };
+const RELS = { self:'ตัวพนักงานเอง', father:'บิดา', mother:'มารดา', husband:'สามี', wife:'ภรรยา', child:'บุตร', other:'อื่น ๆ' };
+const STATUS = { new:'รอตรวจสอบ', contacted:'ติดต่อแล้ว', quoted:'เสนอราคาแล้ว', done:'ปิดการขาย', cancelled:'ยกเลิก' };
+const DOC_LABEL = { carReg:'สำเนาทะเบียนรถ', idCard:'สำเนาบัตรประชาชนผู้ทำประกัน', oldPolicy:'สำเนากรมธรรม์เดิม', relDoc:'เอกสารแสดงความสัมพันธ์' };
+
+let LIST = [], FILES = {};
+
+/* ⚠️ ห้ามใช้ toISOString() หาวันที่ — ไทยเป็น UTC+7 ช่วงเช้ามืดจะได้วันของเมื่อวาน */
+function thDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return d.getDate() + ' ' + TH_MON[d.getMonth()] + ' ' + (d.getFullYear()+543)
+    + ' · ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+const fileSize = n => n >= 1048576 ? (n/1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n/1024)) + ' KB';
+
+let askResolve = null;
+function ask(o){
+  o = o || {};
+  $('askTitle').textContent = o.title || 'ยืนยัน';
+  $('askMsg').textContent   = o.msg || '';
+  $('askYes').textContent   = o.okText || 'ตกลง';
+  $('ovAsk').setAttribute('open','');
+  setTimeout(()=>$('askYes').focus(), 30);
+  return new Promise(res=>{ askResolve = res; });
+}
+function askDone(v){ const r = askResolve; askResolve = null; $('ovAsk').removeAttribute('open'); if(r) r(v); }
+$('askYes').onclick = ()=> askDone(true);
+$('askNo').onclick  = ()=> askDone(null);
+
+function toast(msg, kind){
+  const d = document.createElement('div');
+  d.className = 'toast ' + (kind||'');
+  d.textContent = msg; $('toasts').appendChild(d);
+  setTimeout(()=>d.remove(), 4600);
+}
+function showErr(msg){ const e=$('loginErr'); if(msg){ e.textContent=msg; e.setAttribute('open',''); } else e.removeAttribute('open'); }
+
+/* ---------- ดรอปดาวน์ของเราเอง ---------- */
+function csel(sel){
+  if(!sel) return;
+  let box = sel.closest('.csel');
+  if(!box){
+    box = document.createElement('span'); box.className='csel';
+    sel.parentNode.insertBefore(box, sel); box.appendChild(sel);
+    sel.setAttribute('aria-hidden','true'); sel.tabIndex = -1;
+    const btn = document.createElement('button');
+    btn.type='button'; btn.className='csel-btn';
+    btn.setAttribute('aria-haspopup','listbox'); btn.setAttribute('aria-expanded','false');
+    btn.innerHTML = '<span class="csel-lbl"></span><i class="csel-ar" aria-hidden="true"></i>';
+    box.appendChild(btn); box.__btn = btn;
+    btn.addEventListener('click', ()=> box.__open ? cselClose(box) : cselOpen(box));
+    btn.addEventListener('keydown', e=>{ if(e.key==='ArrowDown'||e.key==='Enter'||e.key===' '){ e.preventDefault(); cselOpen(box); } });
+    sel.addEventListener('change', ()=> cselLabel(box));
+  }
+  cselLabel(box);
+}
+function cselLabel(box){
+  const sel = box.querySelector('select'), o = sel.options[sel.selectedIndex];
+  box.__btn.querySelector('.csel-lbl').textContent = o ? o.textContent : '';
+}
+function cselClose(box){
+  if(!box.__open) return;
+  box.__open=false; box.__btn.setAttribute('aria-expanded','false');
+  if(box.__menu){ box.__menu.remove(); box.__menu=null; }
+}
+function cselCloseAll(){ document.querySelectorAll('.csel').forEach(cselClose); }
+function cselOpen(box){
+  cselCloseAll();
+  const sel = box.querySelector('select');
+  const menu = document.createElement('div');
+  menu.className='csel-menu'; menu.setAttribute('role','listbox');
+  menu.innerHTML = [...sel.options].map((o,i)=>
+    '<button type="button" role="option" class="csel-item'+(i===sel.selectedIndex?' sel':'')
+    +'" data-i="'+i+'" aria-selected="'+(i===sel.selectedIndex)+'">'+esc(o.textContent)+'</button>').join('');
+  document.body.appendChild(menu);
+  box.__menu=menu; box.__open=true; box.__btn.setAttribute('aria-expanded','true');
+  const r = box.__btn.getBoundingClientRect();
+  menu.style.minWidth = r.width+'px';
+  const h = menu.offsetHeight, down = innerHeight - r.bottom - 8;
+  menu.style.left = Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8))+'px';
+  menu.style.top  = (down>=h||down>=r.top ? r.bottom+4 : Math.max(8, r.top-h-4))+'px';
+  menu.querySelectorAll('.csel-item').forEach(it=> it.addEventListener('click', ()=>{
+    sel.selectedIndex = +it.dataset.i;
+    cselLabel(box); cselClose(box); box.__btn.focus();
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+  }));
+  const cur = menu.querySelector('.csel-item.sel') || menu.querySelector('.csel-item');
+  if(cur) cur.focus();
+  menu.addEventListener('keydown', e=>{
+    const items=[...menu.querySelectorAll('.csel-item')], i=items.indexOf(document.activeElement);
+    if(e.key==='ArrowDown'){ e.preventDefault(); (items[i+1]||items[0]).focus(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); (items[i-1]||items[items.length-1]).focus(); }
+    else if(e.key==='Escape'){ e.preventDefault(); cselClose(box); box.__btn.focus(); }
+    else if(e.key==='Tab'){ cselClose(box); }
+  });
+}
+document.addEventListener('mousedown', e=>{
+  if(!e.target.closest('.csel') && !e.target.closest('.csel-menu')) cselCloseAll();
+});
+addEventListener('scroll', cselCloseAll, true);
+addEventListener('resize', cselCloseAll);
+
+/* ---------- เข้าสู่ระบบ ---------- */
+async function signIn(){
+  showErr('');
+  const email = $('lgEmail').value.trim(), password = $('lgPw').value;
+  if(!email || !password) return showErr('กรอกอีเมลและรหัสผ่าน');
+  $('btnIn').disabled = true;
+  try{
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if(error) throw new Error(error.message === 'Invalid login credentials'
+      ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : error.message);
+    $('lgPw').value = '';
+    await start();
+  }catch(e){ showErr(e.message); }
+  finally{ $('btnIn').disabled = false; }
+}
+$('btnIn').onclick = signIn;
+$('lgPw').addEventListener('keydown', e=>{ if(e.key==='Enter') signIn(); });
+$('lgEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') $('lgPw').focus(); });
+$('btnOut').onclick = async ()=>{
+  await sb.auth.signOut();
+  LIST = []; FILES = {};
+  $('listPanel').hidden = true; $('loginBox').hidden = false;
+  $('whoChip').hidden = true; $('btnOut').hidden = true;
+  toast('ออกจากระบบแล้ว');
+};
+
+/* ---------- รายการ ---------- */
+async function loadList(){
+  $('listBody').innerHTML = Array.from({length:3},()=>
+    '<div class="reqcard"><span class="sk" style="width:120px;margin-bottom:8px"></span>'
+    + '<span class="sk" style="width:60%"></span></div>').join('');
+  try{
+    const { data, error } = await sb.from('ins_requests_view').select('*').order('created_at', {ascending:false});
+    if(error) throw error;
+    LIST = data || [];
+    // ดึงไฟล์แนบทั้งชุดครั้งเดียว แล้วจับกลุ่มตามใบ (เลี่ยงยิงทีละใบ)
+    const f = await sb.from('ins_files').select('*').order('created_at');
+    FILES = {};
+    for(const x of (f.data || [])) (FILES[x.req_id] = FILES[x.req_id] || []).push(x);
+    renderList();
+  }catch(e){
+    $('listBody').innerHTML = '<div class="empty"><b>โหลดรายการไม่สำเร็จ</b>' + esc(e.message||'') + '</div>';
+  }
+}
+const norm = s => String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+function renderList(){
+  const q = norm($('find').value), st = $('fltStatus').value;
+  const rows = LIST.filter(r=>{
+    if(st && r.status !== st) return false;
+    if(!q) return true;
+    return norm([r.no, r.insured_name, r.phone_mobile, r.car_plate, r.emp_name].join(' ')).includes(q);
+  });
+  if(!rows.length){
+    $('listBody').innerHTML = '<div class="empty"><b>' + (LIST.length ? 'ไม่พบคำขอที่ตรงกับที่ค้นหา' : 'ยังไม่มีคำขอ')
+      + '</b>' + (LIST.length ? 'ลองเปลี่ยนคำค้นหรือตัวกรองสถานะ' : 'คำขอที่ส่งเข้ามาจะแสดงที่นี่') + '</div>';
+    return;
+  }
+  $('listBody').innerHTML = rows.map(r=>{
+    const nf = (FILES[r.id] || []).length;
+    return '<div class="reqcard s-' + esc(r.status) + '" data-id="' + esc(r.id) + '" tabindex="0" role="button">'
+      + '<div class="top">'
+      +   '<span class="no">' + esc(r.no) + '</span>'
+      +   '<span class="pill kind">' + (r.kind==='refer' ? '🤝 แนะนำลูกค้า' : '🚗 พนักงานทำเอง') + '</span>'
+      +   '<span class="pill ' + esc(r.status) + '">' + esc(STATUS[r.status] || r.status) + '</span>'
+      +   (nf ? '<span class="pill clip">📎 ' + nf + '</span>' : '')
+      +   (r.emp_verified ? '' : '<span class="pill quoted">⚠️ รหัสพนักงานยังไม่ยืนยัน</span>')
+      + '</div>'
+      + '<div class="nm">' + esc(r.insured_name)
+      +   ' <span style="font-weight:400;color:var(--muted-on-bg)">· ' + esc(r.phone_mobile) + '</span></div>'
+      + '<div class="meta">'
+      +   '<span>' + esc((r.covers||[]).map(c=>COVERS[c]||c).join(' · ') || '—') + '</span>'
+      +   (r.car_brand||r.car_plate ? '<span>🚗 ' + esc([r.car_brand, r.car_model, r.car_plate].filter(Boolean).join(' ')) + '</span>' : '')
+      +   '<span>👤 ' + esc(r.emp_name) + '</span>'
+      +   '<span>🕒 ' + esc(thDate(r.created_at)) + '</span>'
+      + '</div></div>';
+  }).join('');
+  $('listBody').querySelectorAll('.reqcard').forEach(c=>{
+    c.onclick = ()=> openView(c.dataset.id);
+    c.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openView(c.dataset.id); } };
+  });
+}
+$('find').addEventListener('input', renderList);
+$('fltStatus').addEventListener('change', renderList);
+$('btnReload').onclick = loadList;
+
+/* ---------- รายละเอียด ---------- */
+function openView(id){
+  const r = LIST.find(x=>x.id===id);
+  if(!r) return;
+  $('vTitle').textContent = r.no;
+  $('vSub').textContent = (r.kind==='refer' ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง')
+    + ' · ส่งเมื่อ ' + thDate(r.created_at);
+
+  const addr = [
+    r.addr && ('เลขที่ ' + r.addr), r.moo && ('หมู่ ' + r.moo), r.road && ('ถ.' + r.road),
+    r.tambon && ('ต.' + r.tambon), r.amphoe && ('อ.' + r.amphoe), r.province && ('จ.' + r.province),
+  ].filter(Boolean).join(' ') || '—';
+  const dl = rows => '<dl class="dl">' + rows.filter(Boolean).map(([k,v])=>
+    '<dt>' + esc(k) + '</dt><dd>' + esc(v || '—') + '</dd>').join('') + '</dl>';
+  const docs = Object.entries(DOC_LABEL)
+    .filter(([k])=> r['doc_' + k.replace(/[A-Z]/g, m=>'_'+m.toLowerCase())])
+    .map(([,v])=>v);
+
+  $('vBody').innerHTML =
+      '<div class="sec">ผู้ทำประกันภัย</div>'
+    + dl([
+        ['ชื่อ–นามสกุล', r.insured_name],
+        ['เบอร์มือถือ', r.phone_mobile],
+        ['เบอร์บ้าน', r.phone_home],
+        ['ที่อยู่', addr],
+        r.kind !== 'refer' ? ['ความสัมพันธ์', (RELS[r.relation]||r.relation) + (r.relation_note ? ' (' + r.relation_note + ')' : '')] : null,
+      ])
+    + '<div class="sec">รถและความคุ้มครอง</div>'
+    + dl([
+        ['รถ', [r.car_brand, r.car_model, r.car_year && ('ปี ' + r.car_year)].filter(Boolean).join(' ')],
+        ['ทะเบียน', r.car_plate],
+        ['ความคุ้มครอง', (r.covers||[]).map(c=>COVERS[c]||c).join(' · ')],
+      ])
+    + '<div class="sec">' + (r.kind==='refer' ? 'ผู้แนะนำ' : 'พนักงานผู้ยื่น') + '</div>'
+    + dl([
+        ['ชื่อพนักงาน', r.emp_name + (r.emp_verified ? '' : '  ⚠️ รหัสไม่ตรงทำเนียบ')],
+        ['รหัสพนักงาน', r.emp_id],
+        ['แผนก', r.emp_dept],
+        ['สาขา', r.emp_branch],
+        r.emp_typed_name ? ['ชื่อที่ผู้กรอกพิมพ์มา', r.emp_typed_name] : null,
+      ])
+    + (r.note ? '<div class="sec">หมายเหตุจากผู้ยื่น</div><p style="font-size:13.5px;margin:0;white-space:pre-line">' + esc(r.note) + '</p>' : '')
+    + '<div class="sec">เอกสารแนบ</div>'
+    + (docs.length ? '<p style="font-size:12.5px;color:var(--muted-on-bg);margin:0 0 10px">แจ้งว่ามี: ' + esc(docs.join(' · '))
+        + (r.doc_rel_note ? ' (' + esc(r.doc_rel_note) + ')' : '') + '</p>' : '')
+    + '<div class="flist" id="vFiles"></div>'
+    + '<div class="sec">สถานะการติดตาม</div>'
+    + '<div class="grid" style="gap:11px">'
+    +   '<label class="f c4">สถานะ<select id="vSt">'
+    +     Object.entries(STATUS).map(([k,v])=>'<option value="'+k+'"'+(k===r.status?' selected':'')+'>'+esc(v)+'</option>').join('')
+    +   '</select></label>'
+    +   '<label class="f c8">บันทึกของเจ้าหน้าที่<input id="vNote" value="' + esc(r.status_note||'') + '" placeholder="เช่น โทรแล้ว รอส่งสำเนา"></label>'
+    + '</div>'
+    + '<div style="margin-top:11px"><button class="btn primary" id="vSaveSt">บันทึกสถานะ</button></div>';
+
+  renderFiles(r);
+  csel($('vSt'));
+  $('vSaveSt').onclick = async ()=>{
+    $('vSaveSt').disabled = true;
+    try{
+      const { error } = await sb.rpc('ins_set_status', {
+        p_req: r.id, p_status: $('vSt').value, p_note: $('vNote').value });
+      if(error) throw error;
+      r.status = $('vSt').value; r.status_note = $('vNote').value;
+      renderList(); toast('บันทึกสถานะแล้ว', 'ok');
+    }catch(e){ toast(e.message || 'บันทึกไม่สำเร็จ', 'no'); }
+    finally{ const b=$('vSaveSt'); if(b) b.disabled = false; }
+  };
+  $('ovView').setAttribute('open','');
+}
+$('vClose').onclick = ()=> $('ovView').removeAttribute('open');
+$('ovView').addEventListener('mousedown', e=>{ if(e.target === $('ovView')) $('ovView').removeAttribute('open'); });
+addEventListener('keydown', e=>{
+  if(e.key !== 'Escape') return;
+  if(askResolve) return askDone(null);
+  $('ovView').removeAttribute('open');
+});
+
+function renderFiles(r){
+  const box = $('vFiles'), list = FILES[r.id] || [];
+  if(!list.length){ box.innerHTML = '<p style="font-size:12.5px;color:var(--muted);margin:0">ยังไม่มีไฟล์แนบ</p>'; return; }
+  box.innerHTML = list.map(f=>{
+    const img = /^image\//.test(f.mime||'');
+    return '<div class="frow">'
+      + '<span class="ft2' + (img?' img':'') + '">' + (img?'IMG':'PDF') + '</span>'
+      + '<span class="nm" title="' + esc(f.name) + '">' + esc(f.name)
+      +   (f.tag && DOC_LABEL[f.tag] ? ' <span style="font-weight:400;color:var(--muted-on-bg)">· ' + esc(DOC_LABEL[f.tag]) + '</span>' : '') + '</span>'
+      + '<span class="sz">' + fileSize(f.size||0) + '</span>'
+      + '<button class="btn sm" data-path="' + esc(f.path) + '">เปิดดู</button>'
+      + '</div>';
+  }).join('');
+  box.querySelectorAll('[data-path]').forEach(b=> b.onclick = ()=> openFile(b.dataset.path));
+}
+/* bucket ไม่ public → ต้องขอ signed URL อายุสั้น ไม่ใช่ลิงก์ถาวร */
+async function openFile(path){
+  try{
+    const { data, error } = await sb.storage.from('ins-files').createSignedUrl(path, 120);
+    if(error) throw error;
+    window.open(data.signedUrl, '_blank', 'noopener');
+  }catch(e){ toast(e.message || 'เปิดไฟล์ไม่สำเร็จ', 'no'); }
+}
+
+/* ---------- เริ่มทำงาน ---------- */
+async function start(){
+  const { data } = await sb.auth.getUser();
+  const u = data && data.user;
+  if(!u){ $('loginBox').hidden = false; $('listPanel').hidden = true; return; }
+  $('loginBox').hidden = true; $('listPanel').hidden = false;
+  $('whoChip').hidden = false; $('btnOut').hidden = false;
+  $('whoChip').textContent = u.email || '';
+  csel($('fltStatus'));
+  await loadList();
+}
+if(!cfgReady){ $('cfgWarn').hidden = false; }
+else { start(); }
+</script>
+</html>

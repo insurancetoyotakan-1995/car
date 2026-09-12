@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="th">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ขอทำประกันภัยรถยนต์ · โตโยต้า กาญจนบุรี</title>
+<meta name="description" content="แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงานโตโยต้า กาญจนบุรี และลูกค้าที่พนักงานแนะนำ">
+<!-- ฟอนต์จาก Google Fonts — ระบบเดิมฝังฟอนต์ไว้ในเครื่อง (fonts.css 881KB) แต่หน้านี้อยู่บนอินเทอร์เน็ตแล้ว -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
+<script src="config.js"></script>
+
+<header>
+  <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+    <ellipse cx="24" cy="24" rx="22" ry="14" fill="none" stroke="#fff" stroke-width="3"/>
+    <ellipse cx="24" cy="18" rx="8" ry="12" fill="none" stroke="#fff" stroke-width="3"/>
+    <ellipse cx="24" cy="24" rx="13" ry="7" fill="none" stroke="#fff" stroke-width="3"/>
+  </svg>
+  <div class="brand">
+    <h1>ขอทำประกันภัยรถยนต์</h1>
+    <p>โตโยต้า กาญจนบุรี</p>
+  </div>
+  <span class="spacer"></span>
+  <a class="hbtn" href="staff.html">🔐 สำหรับเจ้าหน้าที่</a>
+</header>
+
+<main>
+  <!-- ============ ฟอร์ม (กรอกได้เลย ไม่ต้องเข้าสู่ระบบ) ============ -->
+  <div id="tabForm">
+    <section class="panel">
+      <h2>เลือกแบบคำขอ</h2>
+      <p class="sub">เลือกว่าใบนี้เป็นของใคร — ระบบจะปรับช่องกรอกให้ตรงกับแบบที่เลือก</p>
+      <div class="kinds">
+        <label class="kind">
+          <input type="radio" name="kind" value="self" checked>
+          <span class="ic">🚗</span>
+          <b>พนักงานทำประกันเอง</b>
+          <span>ผู้เอาประกันคือตัวพนักงาน หรือบุคคลในครอบครัว (บิดา มารดา สามี ภรรยา บุตร)</span>
+        </label>
+        <label class="kind">
+          <input type="radio" name="kind" value="refer">
+          <span class="ic">🤝</span>
+          <b>แนะนำลูกค้าทั่วไป</b>
+          <span>พนักงานเป็นผู้แนะนำ — ผู้เอาประกันเป็นลูกค้าภายนอก ไม่ใช่คนในครอบครัว</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 id="empHead">ส่วนของพนักงาน</h2>
+      <p class="sub" id="empSub">กรอกรหัสพนักงานแล้วระบบจะขึ้นชื่อให้ตรวจสอบ</p>
+      <div class="grid">
+        <label class="f c3">รหัสพนักงาน <span class="req">*</span>
+          <input id="fEmpId" inputmode="numeric" autocomplete="off" placeholder="เช่น 11001234"></label>
+        <label class="f c5">ชื่อ–นามสกุลพนักงาน <span class="req">*</span>
+          <input id="fEmpName" autocomplete="off" placeholder="พิมพ์ชื่อ หรือรอระบบเติมให้"></label>
+        <label class="f c4">สาขา
+          <select id="fBranch">
+            <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
+            <option value="ท่ามะกา">ท่ามะกา</option>
+            <option value="พนมทวน">พนมทวน</option>
+          </select>
+        </label>
+      </div>
+      <div class="empchk" id="empChk" hidden></div>
+    </section>
+
+    <section class="panel">
+      <h2 id="insHead">ผู้ทำประกันภัย</h2>
+      <p class="sub" id="insSub">ข้อมูลของผู้ที่จะเอาประกัน — ใช้ติดต่อกลับและออกกรมธรรม์</p>
+      <div class="grid">
+        <label class="f c6">ชื่อ–นามสกุล <span class="req">*</span><input id="fName" autocomplete="off"></label>
+        <label class="f c3">เบอร์มือถือ <span class="req">*</span><input id="fMobile" inputmode="tel" placeholder="08x-xxx-xxxx"></label>
+        <label class="f c3">เบอร์บ้าน<input id="fHome" inputmode="tel"></label>
+
+        <label class="f c3">บ้านเลขที่<input id="fAddr"></label>
+        <label class="f c2">หมู่<input id="fMoo"></label>
+        <label class="f c3">ถนน<input id="fRoad"></label>
+        <label class="f c4">ตำบล / แขวง<input id="fTambon"></label>
+
+        <label class="f c6">อำเภอ / เขต<input id="fAmphoe"></label>
+        <label class="f c6">จังหวัด<input id="fProvince" value="กาญจนบุรี"></label>
+      </div>
+
+      <div id="relBox" style="margin-top:16px">
+        <div class="sec" style="margin-top:0">ความสัมพันธ์กับพนักงาน</div>
+        <div class="opts" id="relOpts">
+          <label class="opt"><input type="radio" name="rel" value="self" checked>ตัวพนักงานเอง</label>
+          <label class="opt"><input type="radio" name="rel" value="father">บิดา</label>
+          <label class="opt"><input type="radio" name="rel" value="mother">มารดา</label>
+          <label class="opt"><input type="radio" name="rel" value="husband">สามี</label>
+          <label class="opt"><input type="radio" name="rel" value="wife">ภรรยา</label>
+          <label class="opt"><input type="radio" name="rel" value="child">บุตร</label>
+          <label class="opt"><input type="radio" name="rel" value="other">อื่น ๆ</label>
+        </div>
+        <label class="f" id="relNoteBox" hidden style="margin-top:11px;max-width:340px">
+          ระบุความสัมพันธ์<input id="fRelNote" placeholder="เช่น พี่ชาย, ลูกค้าเก่า"></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>รถที่ทำประกันภัย</h2>
+      <p class="sub">กรอกเท่าที่ทราบ — ถ้ายังไม่มีข้อมูลครบ เจ้าหน้าที่จะสอบถามเพิ่มตอนติดต่อกลับ</p>
+      <div class="grid">
+        <label class="f c4">ยี่ห้อ / บริษัท<input id="fBrand" placeholder="เช่น Toyota"></label>
+        <label class="f c4">รุ่น<input id="fModel" placeholder="เช่น Yaris Ativ"></label>
+        <label class="f c2">ปีรถ<input id="fYear" inputmode="numeric" maxlength="4" placeholder="2566"></label>
+        <label class="f c2">ทะเบียนรถ<input id="fPlate" placeholder="กข 1234"></label>
+      </div>
+
+      <div class="sec">ประเภทความคุ้มครองที่ต้องการ <span class="req" style="color:var(--accent-deep)">*</span></div>
+      <div class="opts" id="coverOpts">
+        <label class="opt"><input type="checkbox" value="type1">ประเภท 1</label>
+        <label class="opt"><input type="checkbox" value="type2plus">ประเภท 2 พลัส</label>
+        <label class="opt"><input type="checkbox" value="type3">ประเภท 3</label>
+        <label class="opt"><input type="checkbox" value="type3plus">ประเภท 3 พลัส</label>
+        <label class="opt"><input type="checkbox" value="act">พ.ร.บ.</label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>เอกสารแนบ</h2>
+      <p class="sub">ติ๊กว่ามีเอกสารอะไรบ้าง และแนบไฟล์ได้เลย (รูปถ่ายจากมือถือก็ได้ · PDF/JPG/PNG ไม่เกิน 10 MB ต่อไฟล์)</p>
+      <div id="docRows"></div>
+      <label class="f" style="margin-top:14px">หมายเหตุเพิ่มเติม
+        <textarea id="fNote" placeholder="เช่น ต้องการให้ติดต่อกลับช่วงเย็น / ต้องการเริ่มคุ้มครองวันที่…"></textarea></label>
+
+      <!-- กับดักบอท: คนมองไม่เห็นช่องนี้ ถ้ามีค่ามาแปลว่าไม่ใช่คนกรอก (เซิร์ฟเวอร์ปฏิเสธ)
+           ใช้ตำแหน่งนอกจอ ไม่ใช้ display:none เพราะบอทบางตัวข้ามช่องที่ซ่อนแบบนั้น -->
+      <div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">
+        <label>เว้นช่องนี้ไว้<input id="fHp" tabindex="-1" autocomplete="off"></label>
+      </div>
+
+      <div class="savebar">
+        <span class="note" id="saveNote">ตรวจข้อมูลให้ครบก่อนกดส่ง</span>
+        <span class="grow"></span>
+        <button class="btn" id="btnReset">เริ่มใหม่</button>
+        <button class="btn primary" id="btnSave">ส่งคำขอ</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ ยื่นสำเร็จ ============ -->
+  <div id="tabDone" hidden>
+    <section class="panel done">
+      <div class="done-ic">✅</div>
+      <h2>ส่งคำขอเรียบร้อยแล้ว</h2>
+      <p class="sub">เจ้าหน้าที่ประกันภัยจะติดต่อกลับตามเบอร์ที่ให้ไว้ · กรุณาจดเลขที่คำขอไว้อ้างอิง</p>
+      <div class="done-no" id="doneNo">—</div>
+      <dl class="dl" id="doneSum"></dl>
+      <div class="done-files">
+        <div class="sec">เอกสารแนบ</div>
+        <div class="flist" id="doneFiles"></div>
+        <label class="pick" style="margin-top:10px">📎 แนบเอกสารเพิ่ม
+          <input type="file" id="donePick" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple></label>
+        <p class="hint" style="margin:9px 0 0">แนบเพิ่มได้ภายใน 1 ชั่วโมงหลังส่ง · หลังจากนั้นติดต่อฝ่ายประกันภัย</p>
+      </div>
+      <div style="margin-top:20px;display:flex;gap:9px;flex-wrap:wrap;justify-content:center">
+        <button class="btn primary" id="btnNewOne">ส่งคำขอใบใหม่</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="cfgWarn" class="panel" hidden style="border-color:#f0cfcc;background:var(--bad-soft)">
+    <h2 style="color:var(--bad-ink)">ยังตั้งค่าเชื่อมฐานข้อมูลไม่เสร็จ</h2>
+    <p class="sub" style="color:var(--bad-ink)">แก้ไฟล์ <b>config.js</b> ให้ใส่ <b>Project URL</b> และ <b>anon key</b>
+      ของโปรเจกต์ Supabase ก่อน แล้วรีเฟรชหน้านี้ (ดูขั้นตอนใน README.md)</p>
+  </div>
+</main>
+
+<!-- ---------- กล่องยืนยัน ---------- -->
+<div class="ov" id="ovAsk">
+  <div class="card" style="max-width:430px">
+    <div class="hd"><h3 id="askTitle">ยืนยัน</h3></div>
+    <div class="bd"><p id="askMsg" style="font-size:13.5px;margin:0;line-height:1.65"></p></div>
+    <div class="ft"><button class="btn" id="askNo">ยกเลิก</button><button class="btn primary" id="askYes">ตกลง</button></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script type="module">
+/* ==========================================================================
+   ฟอร์มขอทำประกันภัยรถยนต์ — เวอร์ชันคลาวด์ (GitHub Pages + Supabase)
+   ต่างจากเวอร์ชันในออฟฟิศ: ไม่มี Express API แล้ว เรียก Supabase RPC ตรง
+
+   🔑 ทุกอย่างที่ฟอร์มนี้ทำได้ ถูกจำกัดไว้ที่ RPC 3 ตัวใน supabase/schema.sql
+      (ins_lookup_emp · ins_submit · ins_add_file) — anon key อ่าน/ลบตารางตรง ๆ ไม่ได้เลย
+   ========================================================================== */
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const $  = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const CFG = window.SUPA || {};
+const cfgReady = !!(CFG.url && CFG.anonKey
+  && !CFG.url.includes('YOUR-PROJECT-REF') && !CFG.anonKey.includes('YOUR-ANON-KEY'));
+const sb = cfgReady ? createClient(CFG.url, CFG.anonKey) : null;
+
+const COVERS = [
+  ['type1','ประเภท 1'], ['type2plus','ประเภท 2 พลัส'], ['type3','ประเภท 3'],
+  ['type3plus','ประเภท 3 พลัส'], ['act','พ.ร.บ.'],
+];
+const DOC_TYPES = [
+  ['carReg',    'สำเนาทะเบียนรถ'],
+  ['idCard',    'สำเนาบัตรประชาชนผู้ทำประกัน'],
+  ['oldPolicy', 'สำเนากรมธรรม์เดิม'],
+  ['relDoc',    'เอกสารแสดงความสัมพันธ์'],
+];
+const MAX_FILE = 10 * 1024 * 1024;
+const MAX_FILES = 8;
+
+let PENDING = [];                                   // ไฟล์ที่เลือกไว้ แต่ใบยังไม่ถูกสร้าง
+let LAST = { id:null, token:null, no:'', files:[] }; // ใบที่เพิ่งส่งในรอบนี้
+
+const fileSize = n => n >= 1048576 ? (n/1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n/1024)) + ' KB';
+
+/* ---------- กล่องยืนยันของเราเอง (ไม่ใช้ confirm() เนทีฟ) ---------- */
+let askResolve = null;
+function ask(o){
+  o = o || {};
+  $('askTitle').textContent = o.title || 'ยืนยัน';
+  $('askMsg').textContent   = o.msg || '';
+  $('askYes').textContent   = o.okText || 'ตกลง';
+  $('ovAsk').setAttribute('open','');
+  setTimeout(()=>$('askYes').focus(), 30);
+  return new Promise(res=>{ askResolve = res; });
+}
+function askDone(v){ const r = askResolve; askResolve = null; $('ovAsk').removeAttribute('open'); if(r) r(v); }
+$('askYes').onclick = ()=> askDone(true);
+$('askNo').onclick  = ()=> askDone(null);
+addEventListener('keydown', e=>{ if(e.key==='Escape' && askResolve) askDone(null); });
+
+function toast(msg, kind){
+  const d = document.createElement('div');
+  d.className = 'toast ' + (kind||'');
+  d.textContent = msg;
+  $('toasts').appendChild(d);
+  setTimeout(()=>d.remove(), 4600);
+}
+
+/* =======================================================================
+   ดรอปดาวน์ของเราเอง — <select> ตัวจริงยังอยู่ (ซ่อนไว้) และยังเป็นแหล่งความจริง
+   ======================================================================= */
+function csel(sel){
+  if(!sel) return;
+  let box = sel.closest('.csel');
+  if(!box){
+    box = document.createElement('span');
+    box.className = 'csel';
+    sel.parentNode.insertBefore(box, sel);
+    box.appendChild(sel);
+    sel.setAttribute('aria-hidden','true');
+    sel.tabIndex = -1;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'csel-btn';
+    btn.setAttribute('aria-haspopup','listbox');
+    btn.setAttribute('aria-expanded','false');
+    btn.innerHTML = '<span class="csel-lbl"></span><i class="csel-ar" aria-hidden="true"></i>';
+    box.appendChild(btn);
+    box.__btn = btn;
+    btn.addEventListener('click', ()=> box.__open ? cselClose(box) : cselOpen(box));
+    btn.addEventListener('keydown', e=>{
+      if(e.key==='ArrowDown' || e.key==='Enter' || e.key===' '){ e.preventDefault(); cselOpen(box); }
+    });
+    sel.addEventListener('change', ()=> cselLabel(box));
+  }
+  cselLabel(box);
+}
+function cselLabel(box){
+  const sel = box.querySelector('select');
+  const o = sel.options[sel.selectedIndex];
+  box.__btn.querySelector('.csel-lbl').textContent = o ? o.textContent : '';
+}
+function cselClose(box){
+  if(!box.__open) return;
+  box.__open = false;
+  box.__btn.setAttribute('aria-expanded','false');
+  if(box.__menu){ box.__menu.remove(); box.__menu = null; }
+}
+function cselCloseAll(){ document.querySelectorAll('.csel').forEach(cselClose); }
+function cselOpen(box){
+  cselCloseAll();
+  const sel = box.querySelector('select');
+  const menu = document.createElement('div');
+  menu.className = 'csel-menu';
+  menu.setAttribute('role','listbox');
+  menu.innerHTML = [...sel.options].map((o,i)=>
+    '<button type="button" role="option" class="csel-item' + (i===sel.selectedIndex ? ' sel' : '')
+    + '" data-i="' + i + '" aria-selected="' + (i===sel.selectedIndex) + '">'
+    + esc(o.textContent) + '</button>').join('');
+  document.body.appendChild(menu);
+  box.__menu = menu; box.__open = true;
+  box.__btn.setAttribute('aria-expanded','true');
+
+  const r = box.__btn.getBoundingClientRect();
+  menu.style.minWidth = r.width + 'px';
+  const h = menu.offsetHeight;
+  const down = innerHeight - r.bottom - 8;
+  menu.style.left = Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8)) + 'px';
+  menu.style.top  = (down >= h || down >= r.top ? r.bottom + 4 : Math.max(8, r.top - h - 4)) + 'px';
+
+  menu.querySelectorAll('.csel-item').forEach(it=>{
+    it.addEventListener('click', ()=>{
+      sel.selectedIndex = +it.dataset.i;
+      cselLabel(box); cselClose(box); box.__btn.focus();
+      sel.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+  });
+  const cur = menu.querySelector('.csel-item.sel') || menu.querySelector('.csel-item');
+  if(cur) cur.focus();
+  menu.addEventListener('keydown', e=>{
+    const items = [...menu.querySelectorAll('.csel-item')];
+    const i = items.indexOf(document.activeElement);
+    if(e.key==='ArrowDown'){ e.preventDefault(); (items[i+1]||items[0]).focus(); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); (items[i-1]||items[items.length-1]).focus(); }
+    else if(e.key==='Escape'){ e.preventDefault(); cselClose(box); box.__btn.focus(); }
+    else if(e.key==='Tab'){ cselClose(box); }
+  });
+}
+document.addEventListener('mousedown', e=>{
+  if(!e.target.closest('.csel') && !e.target.closest('.csel-menu')) cselCloseAll();
+});
+addEventListener('scroll', cselCloseAll, true);
+addEventListener('resize', cselCloseAll);
+
+/* =======================================================================
+   ยืนยันตัวพนักงานจากรหัส — เรียก RPC ins_lookup_emp
+   🔑 RPC คืนแค่ชื่อ+แผนก และรับทีละรหัส → ดึงรายชื่อทั้งองค์กรไปไม่ได้
+   ======================================================================= */
+let empTimer = null;
+function paintEmpChk(state, msg, sub){
+  const box = $('empChk');
+  if(!state){ box.hidden = true; return; }
+  box.hidden = false;
+  box.className = 'empchk ' + state;
+  box.innerHTML = '<span>' + (state==='ok' ? '✅' : '⚠️') + '</span><span>' + esc(msg)
+    + (sub ? ' <span class="sm">' + esc(sub) + '</span>' : '') + '</span>';
+}
+async function lookupEmp(){
+  const id = $('fEmpId').value.replace(/\D/g,'');
+  if(id.length < 4 || !sb){ paintEmpChk(null); return; }
+  try{
+    const { data, error } = await sb.rpc('ins_lookup_emp', { p_emp_id: id });
+    if(error) throw error;
+    if($('fEmpId').value.replace(/\D/g,'') !== id) return;      // พิมพ์ต่อไปแล้ว ทิ้งผลเก่า
+    const r = Array.isArray(data) ? data[0] : data;
+    if(r && r.found){
+      $('fEmpName').value = r.name;                             // เติมชื่อให้ แก้ทับได้
+      paintEmpChk('ok', r.name, r.dept ? '· ' + r.dept : '');
+    }else{
+      paintEmpChk('no', 'ไม่พบรหัสนี้ในระบบ', '— ส่งคำขอต่อได้ แต่กรุณาตรวจรหัสและกรอกชื่อให้ครบ');
+    }
+  }catch(e){ /* ค้นไม่ได้ไม่ควรขวางการกรอก */ }
+}
+$('fEmpId').addEventListener('input', ()=>{
+  $('fEmpId').value = $('fEmpId').value.replace(/\D/g,'').slice(0,12);
+  clearTimeout(empTimer);
+  empTimer = setTimeout(lookupEmp, 350);
+});
+
+/* ---------- สลับแบบคำขอ ---------- */
+const kindNow = () => (document.querySelector('input[name=kind]:checked') || {}).value || 'self';
+const relNow  = () => (document.querySelector('input[name=rel]:checked')  || {}).value || 'self';
+function syncKind(){
+  const refer = kindNow() === 'refer';
+  $('relBox').hidden = refer;
+  $('insHead').textContent = refer ? 'ข้อมูลลูกค้าที่แนะนำ' : 'ผู้ทำประกันภัย';
+  $('insSub').textContent  = refer
+    ? 'ข้อมูลของลูกค้าที่แนะนำเข้ามา — เจ้าหน้าที่จะใช้ติดต่อกลับ'
+    : 'ข้อมูลของผู้ที่จะเอาประกัน — ใช้ติดต่อกลับและออกกรมธรรม์';
+  $('empHead').textContent = refer ? 'พนักงานผู้แนะนำ' : 'ส่วนของพนักงาน';
+  $('empSub').textContent  = refer
+    ? 'พนักงานที่แนะนำลูกค้ารายนี้เข้ามา — กรอกรหัสแล้วระบบจะขึ้นชื่อให้ตรวจสอบ'
+    : 'กรอกรหัสพนักงานแล้วระบบจะขึ้นชื่อให้ตรวจสอบ · เลือกสาขาที่สังกัดให้ถูกต้อง';
+  syncRel();
+}
+function syncRel(){ $('relNoteBox').hidden = !(kindNow() !== 'refer' && relNow() === 'other'); }
+document.querySelectorAll('input[name=kind]').forEach(r=> r.addEventListener('change', syncKind));
+$('relOpts').addEventListener('change', syncRel);
+
+/* ---------- เอกสารแนบในฟอร์ม ---------- */
+function renderDocRows(){
+  $('docRows').innerHTML = DOC_TYPES.map(([tag,label])=>
+    '<div class="docrow" data-tag="' + tag + '">'
+    + '<label class="lb"><input type="checkbox" class="dck" data-tag="' + tag + '">' + esc(label) + '</label>'
+    + '<div class="side">'
+    + (tag==='relDoc' ? '<input class="note" id="fRelDocNote" placeholder="ระบุ เช่น สูติบัตร">' : '')
+    + '<label class="pick">📎 แนบไฟล์<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple data-tag="' + tag + '"></label>'
+    + '</div><div class="fchips" data-chips="' + tag + '"></div></div>').join('');
+
+  $('docRows').querySelectorAll('input[type=file]').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      const tag = inp.dataset.tag;
+      for(const f of inp.files){
+        if(f.size > MAX_FILE){ toast('ไฟล์ "' + f.name + '" ใหญ่เกิน 10 MB', 'no'); continue; }
+        if(PENDING.length >= MAX_FILES){ toast('แนบได้สูงสุด ' + MAX_FILES + ' ไฟล์ต่อใบ', 'no'); break; }
+        PENDING.push({file:f, tag});
+      }
+      inp.value = '';
+      const ck = $('docRows').querySelector('.dck[data-tag="' + tag + '"]');
+      if(ck && PENDING.some(p=>p.tag===tag)) ck.checked = true;   // แนบมาแล้ว = มีเอกสารนั้นแน่นอน
+      renderChips();
+    });
+  });
+}
+function renderChips(){
+  DOC_TYPES.forEach(([tag])=>{
+    const box = $('docRows').querySelector('[data-chips="' + tag + '"]');
+    if(!box) return;
+    box.innerHTML = PENDING.map((p,i)=> p.tag!==tag ? '' :
+      '<span class="fchip"><span class="nm" title="' + esc(p.file.name) + '">' + esc(p.file.name) + '</span>'
+      + '<span style="opacity:.8">' + fileSize(p.file.size) + '</span>'
+      + '<button type="button" data-i="' + i + '" aria-label="เอาไฟล์ออก">✕</button></span>').join('');
+    box.querySelectorAll('button').forEach(b=> b.onclick = ()=>{ PENDING.splice(+b.dataset.i,1); renderChips(); });
+  });
+  const n = PENDING.length;
+  $('saveNote').textContent = n ? ('เลือกไฟล์ไว้ ' + n + ' ไฟล์ — จะอัปโหลดหลังส่งคำขอ')
+                                : 'ตรวจข้อมูลให้ครบก่อนกดส่ง';
+}
+
+function collect(){
+  const relDocNote = $('fRelDocNote');
+  return {
+    kind: kindNow(),
+    empId: $('fEmpId').value, empName: $('fEmpName').value, empBranch: $('fBranch').value,
+    insuredName: $('fName').value, phoneMobile: $('fMobile').value, phoneHome: $('fHome').value,
+    addr: $('fAddr').value, moo: $('fMoo').value, road: $('fRoad').value,
+    tambon: $('fTambon').value, amphoe: $('fAmphoe').value, province: $('fProvince').value,
+    relation: kindNow()==='refer' ? 'other' : relNow(),
+    relationNote: kindNow()==='refer' ? '' : $('fRelNote').value,
+    carBrand: $('fBrand').value, carModel: $('fModel').value,
+    carPlate: $('fPlate').value, carYear: $('fYear').value,
+    covers: [...$('coverOpts').querySelectorAll('input:checked')].map(x=>x.value),
+    docCarReg:    $('docRows').querySelector('.dck[data-tag=carReg]').checked,
+    docIdCard:    $('docRows').querySelector('.dck[data-tag=idCard]').checked,
+    docOldPolicy: $('docRows').querySelector('.dck[data-tag=oldPolicy]').checked,
+    docRelDoc:    $('docRows').querySelector('.dck[data-tag=relDoc]').checked,
+    docRelDocNote: relDocNote ? relDocNote.value : '',
+    note: $('fNote').value,
+    hp: $('fHp').value,                              // กับดักบอท — คนกรอกจะว่างเสมอ
+  };
+}
+/* ตรวจฝั่งหน้าเว็บก่อนยิง เพื่อพาเคอร์เซอร์ไปที่ช่องที่ขาด
+   (ฝั่ง Supabase ตรวจซ้ำใน ins_submit เสมอ — ตรงนี้มีไว้ให้กรอกง่าย ไม่ใช่ด่านความปลอดภัย) */
+function validate(v){
+  if(!v.empId.trim()) return {msg:'กรุณากรอกรหัสพนักงาน', el:'fEmpId'};
+  if(!v.empName.trim()) return {msg:'กรุณากรอกชื่อ–นามสกุลพนักงาน', el:'fEmpName'};
+  if(!v.insuredName.trim()) return {msg:'กรุณากรอกชื่อผู้ทำประกันภัย', el:'fName'};
+  if(v.phoneMobile.replace(/\D/g,'').length < 9) return {msg:'กรุณากรอกเบอร์โทรศัพท์มือถือให้ครบ', el:'fMobile'};
+  if(!v.covers.length) return {msg:'กรุณาเลือกประเภทความคุ้มครองอย่างน้อย 1 อย่าง', el:null};
+  return null;
+}
+
+/* ---------- อัปโหลดไฟล์ ----------
+   2 ขั้น: ส่งไฟล์เข้า Storage → บันทึก metadata ผ่าน RPC (ซึ่งตรวจกุญแจของใบ)
+   🔑 พาธใช้ uuid ของใบเป็นโฟลเดอร์ · anon อัปโหลดได้แต่อ่านไม่ได้ (ตั้งใน schema.sql) */
+async function uploadFiles(items){
+  let done = 0, failed = [];
+  for(const p of items){
+    try{
+      const ext = (p.file.name.match(/\.[A-Za-z0-9]{1,5}$/) || [''])[0].toLowerCase() || '.bin';
+      const path = LAST.id + '/' + crypto.randomUUID() + ext;
+      const up = await sb.storage.from('ins-files').upload(path, p.file, {
+        contentType: p.file.type || 'application/octet-stream', upsert: false,
+      });
+      if(up.error) throw up.error;
+      const { data, error } = await sb.rpc('ins_add_file', {
+        p_req: LAST.id, p_token: LAST.token, p_name: p.file.name,
+        p_size: p.file.size, p_mime: p.file.type, p_tag: p.tag || '', p_path: path,
+      });
+      if(error) throw error;
+      LAST.files = (data && data.files) || LAST.files;
+      done++;
+    }catch(e){ failed.push(p.file.name + ' (' + (e.message || 'อัปโหลดไม่สำเร็จ') + ')'); }
+  }
+  return {done, failed};
+}
+
+$('btnSave').onclick = async ()=>{
+  if(!sb) return toast('ยังตั้งค่าเชื่อมฐานข้อมูลไม่เสร็จ (ดู config.js)', 'no');
+  const v = collect();
+  const bad = validate(v);
+  if(bad){ toast(bad.msg, 'no'); if(bad.el){ const el=$(bad.el); el.focus(); el.scrollIntoView({block:'center'}); } return; }
+
+  const btn = $('btnSave');
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = 'กำลังส่ง…';
+  try{
+    const { data, error } = await sb.rpc('ins_submit', { payload: v });
+    if(error) throw new Error(error.message || 'ส่งคำขอไม่สำเร็จ');
+    LAST = { id:data.id, token:data.uploadToken, no:data.no, files:[] };
+
+    if(PENDING.length){
+      btn.textContent = 'กำลังอัปโหลดไฟล์…';
+      const u = await uploadFiles(PENDING);
+      if(u.failed.length) toast('อัปโหลดไม่สำเร็จ ' + u.failed.length + ' ไฟล์: ' + u.failed[0], 'no');
+    }
+    showDone(data, v);
+    resetForm(true);                                  // คงช่องพนักงานไว้ เผื่อส่งใบถัดไป
+  }catch(e){ toast(e.message, 'no'); }
+  finally{ btn.disabled = false; btn.textContent = old; }
+};
+
+/* ---------- หน้า "ส่งสำเร็จ" ---------- */
+function showDone(d, v){
+  $('doneNo').textContent = d.no || '—';
+  const carTxt = [v.carBrand, v.carModel, v.carPlate].filter(Boolean).join(' ');
+  $('doneSum').innerHTML = [
+    ['แบบคำขอ', d.kind==='refer' ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง'],
+    ['ผู้ทำประกัน', d.insuredName],
+    ['เบอร์ติดต่อ', d.phoneMobile],
+    ['ความคุ้มครอง', (d.covers||[]).map(c=>(COVERS.find(x=>x[0]===c)||[,c])[1]).join(' · ')],
+    [d.kind==='refer' ? 'ผู้แนะนำ' : 'พนักงาน', d.empName + (d.empVerified ? '' : ' (ยังไม่ยืนยันรหัส)')],
+    carTxt ? ['รถ', carTxt] : null,
+  ].filter(Boolean).map(([k,val])=>'<dt>'+esc(k)+'</dt><dd>'+esc(val||'—')+'</dd>').join('');
+  renderDoneFiles();
+  $('tabForm').hidden = true; $('tabDone').hidden = false;
+  scrollTo({top:0, behavior:'smooth'});
+}
+function renderDoneFiles(){
+  const box = $('doneFiles');
+  const list = LAST.files || [];
+  if(!list.length){ box.innerHTML = '<p style="font-size:12.5px;color:var(--muted);margin:0">ยังไม่มีไฟล์แนบ</p>'; return; }
+  box.innerHTML = list.map(f=>{
+    const img = /^image\//.test(f.mime||'');
+    return '<div class="frow"><span class="ft2' + (img?' img':'') + '">' + (img?'IMG':'PDF') + '</span>'
+      + '<span class="nm" title="' + esc(f.name) + '">' + esc(f.name) + '</span>'
+      + '<span class="sz">' + fileSize(f.size||0) + '</span></div>';
+  }).join('');
+}
+$('donePick').onchange = async ()=>{
+  const files = [...$('donePick').files]; $('donePick').value = '';
+  const items = files.filter(f=>{
+    if(f.size > MAX_FILE){ toast('ไฟล์ "' + f.name + '" ใหญ่เกิน 10 MB', 'no'); return false; }
+    return true;
+  }).map(f=>({file:f, tag:''}));
+  if(!items.length) return;
+  const u = await uploadFiles(items);
+  renderDoneFiles();
+  if(u.done) toast('แนบไฟล์เพิ่ม ' + u.done + ' ไฟล์', 'ok');
+  if(u.failed.length) toast(u.failed[0], 'no');
+};
+$('btnNewOne').onclick = ()=>{
+  $('tabDone').hidden = true; $('tabForm').hidden = false;
+  scrollTo({top:0, behavior:'smooth'});
+};
+
+/* keepEmp = คงรหัส/ชื่อพนักงานไว้ — คนเดิมมักส่งหลายใบติดกัน ไม่ต้องพิมพ์ซ้ำ */
+function resetForm(keepEmp){
+  ['fName','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe',
+   'fBrand','fModel','fPlate','fYear','fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
+  $('fProvince').value = 'กาญจนบุรี';
+  if(!keepEmp){ $('fEmpId').value=''; $('fEmpName').value=''; paintEmpChk(null); }
+  document.querySelector('input[name=kind][value=self]').checked = true;
+  document.querySelector('input[name=rel][value=self]').checked = true;
+  $('coverOpts').querySelectorAll('input').forEach(x=> x.checked = false);
+  PENDING = [];
+  renderDocRows(); renderChips(); syncKind();
+}
+$('btnReset').onclick = async ()=>{
+  if(await ask({title:'เริ่มกรอกใหม่', msg:'ล้างข้อมูลที่กรอกไว้ทั้งหมดในฟอร์มนี้ (ใบที่ส่งไปแล้วไม่ถูกแตะ)', okText:'ล้างฟอร์ม'}))
+    { resetForm(); toast('ล้างฟอร์มแล้ว'); }
+};
+
+/* ---------- เริ่มทำงาน ---------- */
+renderDocRows(); renderChips(); syncKind();
+csel($('fBranch'));
+if(!cfgReady){
+  $('tabForm').hidden = true;
+  $('cfgWarn').hidden = false;
+}
+</script>
+</html>

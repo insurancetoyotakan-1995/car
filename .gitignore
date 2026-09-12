@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+
+# รายชื่อพนักงานที่ export มา — เป็นข้อมูลบุคคลขององค์กร ไม่ควรอยู่ใน repo สาธารณะ
+# เอาไปรันใน SQL Editor ของ Supabase โดยตรง (สร้างใหม่ได้เสมอด้วย scripts/export-employees.cjs)
+supabase/employees.sql
