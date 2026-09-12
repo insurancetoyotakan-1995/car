@@ -63,7 +63,9 @@ create table if not exists public.ins_requests (
   car_model       text not null default '',
   car_plate       text not null default '',
   car_year        text not null default '',
-  covers          text[] not null check (array_length(covers, 1) >= 1),
+  -- ไม่บังคับแล้ว (ผู้ใช้ถอดแผง "รถที่ทำประกันภัย" ออกจากฟอร์ม 2026-09-12)
+  -- เจ้าหน้าที่สอบถามประเภทความคุ้มครองตอนโทรกลับแทน
+  covers          text[] not null default '{}',
 
   -- เอกสารที่แจ้งว่ามี (ติ๊กในฟอร์ม — คนละเรื่องกับไฟล์ที่อัปโหลดจริง)
   doc_car_reg     boolean not null default false,
@@ -293,9 +295,8 @@ begin
   select array_agg(distinct c) into v_covers
     from jsonb_array_elements_text(coalesce(payload->'covers', '[]'::jsonb)) c
    where c in ('type1','type2plus','type3','type3plus','act');
-  if v_covers is null or array_length(v_covers, 1) < 1 then
-    raise exception 'กรุณาเลือกประเภทความคุ้มครองอย่างน้อย 1 อย่าง' using errcode = 'P0001';
-  end if;
+  -- ไม่บังคับแล้ว — ฟอร์มไม่มีช่องนี้ (เจ้าหน้าที่สอบถามตอนโทรกลับ)
+  if v_covers is null then v_covers := '{}'; end if;
 
   v_relation := coalesce(payload->>'relation', 'self');
   if v_relation not in ('self','father','mother','husband','wife','child','other') then

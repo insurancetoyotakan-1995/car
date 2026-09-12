@@ -101,26 +101,6 @@
     </section>
 
     <section class="panel">
-      <h2>รถที่ทำประกันภัย</h2>
-      <p class="sub">กรอกเท่าที่ทราบ — ถ้ายังไม่มีข้อมูลครบ เจ้าหน้าที่จะสอบถามเพิ่มตอนติดต่อกลับ</p>
-      <div class="grid">
-        <label class="f c4">ยี่ห้อ / บริษัท<input id="fBrand" placeholder="เช่น Toyota"></label>
-        <label class="f c4">รุ่น<input id="fModel" placeholder="เช่น Yaris Ativ"></label>
-        <label class="f c2">ปีรถ<input id="fYear" inputmode="numeric" maxlength="4" placeholder="2566"></label>
-        <label class="f c2">ทะเบียนรถ<input id="fPlate" placeholder="กข 1234"></label>
-      </div>
-
-      <div class="sec">ประเภทความคุ้มครองที่ต้องการ</div>
-      <div class="opts" id="coverOpts">
-        <label class="opt"><input type="checkbox" value="type1">ประเภท 1</label>
-        <label class="opt"><input type="checkbox" value="type2plus">ประเภท 2 พลัส</label>
-        <label class="opt"><input type="checkbox" value="type3">ประเภท 3</label>
-        <label class="opt"><input type="checkbox" value="type3plus">ประเภท 3 พลัส</label>
-        <label class="opt"><input type="checkbox" value="act">พ.ร.บ.</label>
-      </div>
-    </section>
-
-    <section class="panel">
       <h2>เอกสารแนบ</h2>
       <p class="sub">ติ๊กว่ามีเอกสารอะไรบ้าง และแนบไฟล์ได้เลย (รูปถ่ายจากมือถือก็ได้ · PDF/JPG/PNG ไม่เกิน 10 MB ต่อไฟล์)</p>
       <div id="docRows"></div>
@@ -432,9 +412,11 @@ function collect(){
     tambon: $('fTambon').value, amphoe: $('fAmphoe').value, province: $('fProvince').value,
     relation: kindNow()==='refer' ? 'other' : relNow(),
     relationNote: kindNow()==='refer' ? '' : $('fRelNote').value,
-    carBrand: $('fBrand').value, carModel: $('fModel').value,
-    carPlate: $('fPlate').value, carYear: $('fYear').value,
-    covers: [...$('coverOpts').querySelectorAll('input:checked')].map(x=>x.value),
+    /* ผู้ใช้สั่งถอดแผง "รถที่ทำประกันภัย" ออกจากฟอร์ม (2026-09-12)
+       → ข้อมูลรถและประเภทความคุ้มครองให้เจ้าหน้าที่สอบถามตอนโทรกลับแทน
+       ส่งค่าว่างไปให้เข้ารูปเดิม ฐานข้อมูลยังมีคอลัมน์พวกนี้อยู่ (เผื่อเอาช่องกลับมาภายหลัง) */
+    carBrand: '', carModel: '', carPlate: '', carYear: '',
+    covers: [],
     docCarReg:    $('docRows').querySelector('.dck[data-tag=carReg]').checked,
     docIdCard:    $('docRows').querySelector('.dck[data-tag=idCard]').checked,
     docOldPolicy: $('docRows').querySelector('.dck[data-tag=oldPolicy]').checked,
@@ -451,7 +433,6 @@ function validate(v){
   if(!v.empName.trim()) return {msg:'กรุณากรอกชื่อ–นามสกุลพนักงาน', el:'fEmpName'};
   if(!v.insuredName.trim()) return {msg:'กรุณากรอกชื่อผู้ทำประกันภัย', el:'fName'};
   if(v.phoneMobile.replace(/\D/g,'').length < 9) return {msg:'กรุณากรอกเบอร์โทรศัพท์มือถือให้ครบ', el:'fMobile'};
-  if(!v.covers.length) return {msg:'กรุณาเลือกประเภทความคุ้มครองอย่างน้อย 1 อย่าง', el:null};
   return null;
 }
 
@@ -509,14 +490,11 @@ $('btnSave').onclick = async ()=>{
 /* ---------- หน้า "ส่งสำเร็จ" ---------- */
 function showDone(d, v){
   $('doneNo').textContent = d.no || '—';
-  const carTxt = [v.carBrand, v.carModel, v.carPlate].filter(Boolean).join(' ');
   $('doneSum').innerHTML = [
     ['แบบคำขอ', d.kind==='refer' ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง'],
     ['ผู้ทำประกัน', d.insuredName],
     ['เบอร์ติดต่อ', d.phoneMobile],
-    ['ความคุ้มครอง', (d.covers||[]).map(c=>(COVERS.find(x=>x[0]===c)||[,c])[1]).join(' · ')],
     [d.kind==='refer' ? 'ผู้แนะนำ' : 'พนักงาน', d.empName + (d.empVerified ? '' : ' (ยังไม่ยืนยันรหัส)')],
-    carTxt ? ['รถ', carTxt] : null,
   ].filter(Boolean).map(([k,val])=>'<dt>'+esc(k)+'</dt><dd>'+esc(val||'—')+'</dd>').join('');
   renderDoneFiles();
   $('tabForm').hidden = true; $('tabDone').hidden = false;
@@ -553,12 +531,11 @@ $('btnNewOne').onclick = ()=>{
 /* keepEmp = คงรหัส/ชื่อพนักงานไว้ — คนเดิมมักส่งหลายใบติดกัน ไม่ต้องพิมพ์ซ้ำ */
 function resetForm(keepEmp){
   ['fName','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe',
-   'fBrand','fModel','fPlate','fYear','fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
+   'fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
   $('fProvince').value = 'กาญจนบุรี';
   if(!keepEmp){ $('fEmpId').value=''; $('fEmpName').value=''; paintEmpChk(null); }
   document.querySelector('input[name=kind][value=self]').checked = true;
   document.querySelector('input[name=rel][value=self]').checked = true;
-  $('coverOpts').querySelectorAll('input').forEach(x=> x.checked = false);
   PENDING = [];
   renderDocRows(); renderChips(); syncKind();
 }
