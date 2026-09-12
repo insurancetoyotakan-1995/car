@@ -13,11 +13,6 @@
 <script src="config.js"></script>
 
 <header>
-  <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
-    <ellipse cx="24" cy="24" rx="22" ry="14" fill="none" stroke="#fff" stroke-width="3"/>
-    <ellipse cx="24" cy="18" rx="8" ry="12" fill="none" stroke="#fff" stroke-width="3"/>
-    <ellipse cx="24" cy="24" rx="13" ry="7" fill="none" stroke="#fff" stroke-width="3"/>
-  </svg>
   <div class="brand">
     <h1>ขอทำประกันภัยรถยนต์</h1>
     <p>โตโยต้า กาญจนบุรี</p>
@@ -27,36 +22,45 @@
 </header>
 
 <main>
-  <!-- ============ ฟอร์ม (กรอกได้เลย ไม่ต้องเข้าสู่ระบบ) ============ -->
+  <!-- ============ ฟอร์ม 3 ขั้น (กรอกได้เลย ไม่ต้องเข้าสู่ระบบ) ============ -->
   <div id="tabForm">
-    <section class="panel">
-      <h2>เลือกแบบคำขอ</h2>
-      <p class="sub">เลือกว่าใบนี้เป็นของใคร — ระบบจะปรับช่องกรอกให้ตรงกับแบบที่เลือก</p>
+
+    <!-- แถบความคืบหน้า — กดย้อนกลับไปขั้นที่ผ่านแล้วได้ ขั้นที่ยังไม่ถึงกดไม่ได้ -->
+    <nav class="steps" id="steps" aria-label="ขั้นตอนการกรอก">
+      <button type="button" class="step" data-s="1" aria-current="step">
+        <span class="n" aria-hidden="true">1</span><span class="t">ผู้ยื่นคำขอ</span></button>
+      <button type="button" class="step" data-s="2" disabled>
+        <span class="n" aria-hidden="true">2</span><span class="t">ผู้เอาประกัน</span></button>
+      <button type="button" class="step" data-s="3" disabled>
+        <span class="n" aria-hidden="true">3</span><span class="t">เอกสาร · ส่ง</span></button>
+    </nav>
+
+    <!-- ---------- ขั้นที่ 1 ---------- -->
+    <section class="panel" id="pane1">
+      <h2>ใบนี้เป็นของใคร</h2>
+      <p class="sub">เลือกแบบคำขอ แล้วกรอกรหัสพนักงาน — ระบบจะขึ้นชื่อให้ตรวจสอบเอง</p>
       <div class="kinds">
         <label class="kind">
           <input type="radio" name="kind" value="self" checked>
-          <span class="ic">🚗</span>
+          <span class="ic" aria-hidden="true">🚗</span>
           <b>พนักงานทำประกันเอง</b>
           <span>ผู้เอาประกันคือตัวพนักงาน หรือบุคคลในครอบครัว (บิดา มารดา สามี ภรรยา บุตร)</span>
         </label>
         <label class="kind">
           <input type="radio" name="kind" value="refer">
-          <span class="ic">🤝</span>
+          <span class="ic" aria-hidden="true">🤝</span>
           <b>แนะนำลูกค้าทั่วไป</b>
           <span>พนักงานเป็นผู้แนะนำ — ผู้เอาประกันเป็นลูกค้าภายนอก ไม่ใช่คนในครอบครัว</span>
         </label>
       </div>
-    </section>
 
-    <section class="panel">
-      <h2 id="empHead">ส่วนของพนักงาน</h2>
-      <p class="sub" id="empSub">กรอกรหัสพนักงานแล้วระบบจะขึ้นชื่อให้ตรวจสอบ</p>
+      <div class="sec" id="empHead">ส่วนของพนักงาน</div>
       <div class="grid">
-        <label class="f c3">รหัสพนักงาน <span class="req">*</span>
+        <label class="f c4">รหัสพนักงาน <span class="req">*</span>
           <input id="fEmpId" inputmode="numeric" autocomplete="off" placeholder="เช่น 11001234"></label>
-        <label class="f c5">ชื่อ–นามสกุลพนักงาน <span class="req">*</span>
+        <label class="f c8">ชื่อ–นามสกุลพนักงาน <span class="req">*</span>
           <input id="fEmpName" autocomplete="off" placeholder="พิมพ์ชื่อ หรือรอระบบเติมให้"></label>
-        <label class="f c4">สาขา
+        <label class="f c6">สาขา
           <select id="fBranch">
             <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
             <option value="ท่ามะกา">ท่ามะกา</option>
@@ -67,25 +71,29 @@
       <div class="empchk" id="empChk" hidden></div>
     </section>
 
-    <section class="panel">
+    <!-- ---------- ขั้นที่ 2 ---------- -->
+    <section class="panel" id="pane2" hidden>
       <h2 id="insHead">ผู้ทำประกันภัย</h2>
       <p class="sub" id="insSub">ข้อมูลของผู้ที่จะเอาประกัน — ใช้ติดต่อกลับและออกกรมธรรม์</p>
       <div class="grid">
         <label class="f c6">ชื่อ–นามสกุล <span class="req">*</span><input id="fName" autocomplete="off"></label>
-        <label class="f c3">เบอร์มือถือ <span class="req">*</span><input id="fMobile" inputmode="tel" placeholder="08x-xxx-xxxx"></label>
+        <label class="f c3">เบอร์มือถือ <span class="req">*</span>
+          <input id="fMobile" inputmode="tel" autocomplete="tel" placeholder="08x-xxx-xxxx"></label>
         <label class="f c3">เบอร์บ้าน<input id="fHome" inputmode="tel"></label>
+      </div>
 
+      <div class="sec">ที่อยู่ที่ติดต่อได้</div>
+      <div class="grid">
         <label class="f c3">บ้านเลขที่<input id="fAddr"></label>
         <label class="f c2">หมู่<input id="fMoo"></label>
         <label class="f c3">ถนน<input id="fRoad"></label>
         <label class="f c4">ตำบล / แขวง<input id="fTambon"></label>
-
         <label class="f c6">อำเภอ / เขต<input id="fAmphoe"></label>
         <label class="f c6">จังหวัด<input id="fProvince" value="กาญจนบุรี"></label>
       </div>
 
-      <div id="relBox" style="margin-top:16px">
-        <div class="sec" style="margin-top:0">ความสัมพันธ์กับพนักงาน</div>
+      <div id="relBox">
+        <div class="sec">ความสัมพันธ์กับพนักงาน</div>
         <div class="opts" id="relOpts">
           <label class="opt"><input type="radio" name="rel" value="self" checked>ตัวพนักงานเอง</label>
           <label class="opt"><input type="radio" name="rel" value="father">บิดา</label>
@@ -95,37 +103,45 @@
           <label class="opt"><input type="radio" name="rel" value="child">บุตร</label>
           <label class="opt"><input type="radio" name="rel" value="other">อื่น ๆ</label>
         </div>
-        <label class="f" id="relNoteBox" hidden style="margin-top:11px;max-width:340px">
+        <label class="f" id="relNoteBox" hidden style="margin-top:12px;max-width:340px">
           ระบุความสัมพันธ์<input id="fRelNote" placeholder="เช่น พี่ชาย, ลูกค้าเก่า"></label>
       </div>
     </section>
 
-    <section class="panel">
+    <!-- ---------- ขั้นที่ 3 ---------- -->
+    <section class="panel" id="pane3" hidden>
       <h2>เอกสารแนบ</h2>
-      <p class="sub">ติ๊กว่ามีเอกสารอะไรบ้าง และแนบไฟล์ได้เลย (รูปถ่ายจากมือถือก็ได้ · PDF/JPG/PNG ไม่เกิน 10 MB ต่อไฟล์)</p>
+      <p class="sub">ติ๊กว่ามีเอกสารอะไรบ้าง และแนบไฟล์ได้เลย — ถ่ายจากมือถือก็ได้
+        (PDF / JPG / PNG ไม่เกิน 10 MB ต่อไฟล์) · ยังไม่มีเอกสารตอนนี้ก็ส่งคำขอได้ แนบเพิ่มทีหลังได้</p>
       <div id="docRows"></div>
-      <label class="f" style="margin-top:14px">หมายเหตุเพิ่มเติม
+      <label class="f" style="margin-top:16px">หมายเหตุเพิ่มเติม
         <textarea id="fNote" placeholder="เช่น ต้องการให้ติดต่อกลับช่วงเย็น / ต้องการเริ่มคุ้มครองวันที่…"></textarea></label>
+
+      <div class="sec">ตรวจก่อนส่ง</div>
+      <dl class="dl" id="review"></dl>
 
       <!-- กับดักบอท: คนมองไม่เห็นช่องนี้ ถ้ามีค่ามาแปลว่าไม่ใช่คนกรอก (เซิร์ฟเวอร์ปฏิเสธ)
            ใช้ตำแหน่งนอกจอ ไม่ใช้ display:none เพราะบอทบางตัวข้ามช่องที่ซ่อนแบบนั้น -->
       <div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">
         <label>เว้นช่องนี้ไว้<input id="fHp" tabindex="-1" autocomplete="off"></label>
       </div>
-
-      <div class="savebar">
-        <span class="note" id="saveNote">ตรวจข้อมูลให้ครบก่อนกดส่ง</span>
-        <span class="grow"></span>
-        <button class="btn" id="btnReset">เริ่มใหม่</button>
-        <button class="btn primary" id="btnSave">ส่งคำขอ</button>
-      </div>
     </section>
+
+    <!-- ---------- แถบปุ่ม (ติดล่างจอตลอด) ---------- -->
+    <div class="savebar">
+      <button class="btn" id="btnPrev" hidden>← ย้อนกลับ</button>
+      <button class="btn ghost" id="btnReset">เริ่มใหม่</button>
+      <span class="grow"></span>
+      <span class="note" id="saveNote"></span>
+      <button class="btn primary" id="btnNext">ถัดไป →</button>
+      <button class="btn primary" id="btnSave" hidden>ส่งคำขอ</button>
+    </div>
   </div>
 
   <!-- ============ ยื่นสำเร็จ ============ -->
   <div id="tabDone" hidden>
     <section class="panel done">
-      <div class="done-ic">✅</div>
+      <div class="done-ic" aria-hidden="true">✓</div>
       <h2>ส่งคำขอเรียบร้อยแล้ว</h2>
       <p class="sub">เจ้าหน้าที่ประกันภัยจะติดต่อกลับตามเบอร์ที่ให้ไว้ · กรุณาจดเลขที่คำขอไว้อ้างอิง</p>
       <div class="done-no" id="doneNo">—</div>
@@ -143,7 +159,7 @@
     </section>
   </div>
 
-  <div id="cfgWarn" class="panel" hidden style="border-color:#f0cfcc;background:var(--bad-soft)">
+  <div id="cfgWarn" class="panel" hidden style="border-color:#eccfc6;background:var(--bad-soft)">
     <h2 style="color:var(--bad-ink)">ยังตั้งค่าเชื่อมฐานข้อมูลไม่เสร็จ</h2>
     <p class="sub" style="color:var(--bad-ink)">แก้ไฟล์ <b>config.js</b> ให้ใส่ <b>Project URL</b> และ <b>anon key</b>
       ของโปรเจกต์ Supabase ก่อน แล้วรีเฟรชหน้านี้ (ดูขั้นตอนใน README.md)</p>
@@ -168,6 +184,9 @@
 
    🔑 ทุกอย่างที่ฟอร์มนี้ทำได้ ถูกจำกัดไว้ที่ RPC 3 ตัวใน supabase/schema.sql
       (ins_lookup_emp · ins_submit · ins_add_file) — anon key อ่าน/ลบตารางตรง ๆ ไม่ได้เลย
+
+   🔑 ฟอร์มแบ่งเป็น 3 ขั้น (ผู้ใช้เลือก 2026-09-12) — ของเดิมเป็นหน้ายาวแผงเดียว
+      คนกรอกบนมือถือต้องเลื่อนผ่าน 30+ ช่องก่อนถึงปุ่มส่ง
    ========================================================================== */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
@@ -179,10 +198,6 @@ const cfgReady = !!(CFG.url && CFG.anonKey
   && !CFG.url.includes('YOUR-PROJECT-REF') && !CFG.anonKey.includes('YOUR-ANON-KEY'));
 const sb = cfgReady ? createClient(CFG.url, CFG.anonKey) : null;
 
-const COVERS = [
-  ['type1','ประเภท 1'], ['type2plus','ประเภท 2 พลัส'], ['type3','ประเภท 3'],
-  ['type3plus','ประเภท 3 พลัส'], ['act','พ.ร.บ.'],
-];
 const DOC_TYPES = [
   ['carReg',    'สำเนาทะเบียนรถ'],
   ['idCard',    'สำเนาบัตรประชาชนผู้ทำประกัน'],
@@ -191,9 +206,14 @@ const DOC_TYPES = [
 ];
 const MAX_FILE = 10 * 1024 * 1024;
 const MAX_FILES = 8;
+const DRAFT_KEY = 'ins_form_draft_v1';
+/* ช่องข้อความทั้งหมดที่บันทึกร่างไว้ในเครื่อง — ใช้ทั้งตอนเก็บ กู้คืน และล้าง */
+const TEXT_FIELDS = ['fEmpId','fEmpName','fName','fMobile','fHome','fAddr','fMoo','fRoad',
+  'fTambon','fAmphoe','fProvince','fRelNote','fNote'];
 
 let PENDING = [];                                   // ไฟล์ที่เลือกไว้ แต่ใบยังไม่ถูกสร้าง
 let LAST = { id:null, token:null, no:'', files:[] }; // ใบที่เพิ่งส่งในรอบนี้
+let STEP = 1;
 
 const fileSize = n => n >= 1048576 ? (n/1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n/1024)) + ' KB';
 
@@ -251,6 +271,7 @@ function csel(sel){
   cselLabel(box);
 }
 function cselLabel(box){
+  if(!box) return;
   const sel = box.querySelector('select');
   const o = sel.options[sel.selectedIndex];
   box.__btn.querySelector('.csel-lbl').textContent = o ? o.textContent : '';
@@ -317,7 +338,7 @@ function paintEmpChk(state, msg, sub){
   if(!state){ box.hidden = true; return; }
   box.hidden = false;
   box.className = 'empchk ' + state;
-  box.innerHTML = '<span>' + (state==='ok' ? '✅' : '⚠️') + '</span><span>' + esc(msg)
+  box.innerHTML = '<span aria-hidden="true">' + (state==='ok' ? '✓' : '⚠') + '</span><span>' + esc(msg)
     + (sub ? ' <span class="sm">' + esc(sub) + '</span>' : '') + '</span>';
 }
 async function lookupEmp(){
@@ -330,7 +351,9 @@ async function lookupEmp(){
     const r = Array.isArray(data) ? data[0] : data;
     if(r && r.found){
       $('fEmpName').value = r.name;                             // เติมชื่อให้ แก้ทับได้
+      $('fEmpName').removeAttribute('aria-invalid');
       paintEmpChk('ok', r.name, r.dept ? '· ' + r.dept : '');
+      saveDraft();
     }else{
       paintEmpChk('no', 'ไม่พบรหัสนี้ในระบบ', '— ส่งคำขอต่อได้ แต่กรุณาตรวจรหัสและกรอกชื่อให้ครบ');
     }
@@ -341,6 +364,30 @@ $('fEmpId').addEventListener('input', ()=>{
   clearTimeout(empTimer);
   empTimer = setTimeout(lookupEmp, 350);
 });
+
+/* ---------- เบอร์โทร: ใส่ขีดให้เองขณะพิมพ์ ----------
+   🔑 คงตำแหน่งเคอร์เซอร์โดยนับ "จำนวนตัวเลขก่อนเคอร์เซอร์" ไม่ใช่ตำแหน่งตัวอักษร
+      ไม่งั้นแก้กลางเบอร์แล้วเคอร์เซอร์กระโดดไปท้ายช่อง (บทเรียนเดิมของฟอร์มใบสำคัญจ่าย) */
+function fmtPhone(d){
+  if(d.length <= 3) return d;
+  if(d.length <= 6) return d.slice(0,3) + '-' + d.slice(3);
+  return d.slice(0,3) + '-' + d.slice(3,6) + '-' + d.slice(6);
+}
+function bindPhone(id){
+  const el = $(id);
+  el.addEventListener('input', ()=>{
+    const before = el.value.slice(0, el.selectionStart || 0).replace(/\D/g,'').length;
+    el.value = fmtPhone(el.value.replace(/\D/g,'').slice(0,10));
+    let seen = 0, pos = el.value.length;
+    for(let i=0;i<el.value.length;i++){
+      if(/\d/.test(el.value[i])) seen++;
+      if(seen >= before){ pos = i + 1; break; }
+    }
+    if(before === 0) pos = 0;
+    try{ el.setSelectionRange(pos, pos); }catch(e){}
+  });
+}
+bindPhone('fMobile'); bindPhone('fHome');
 
 /* ---------- สลับแบบคำขอ ---------- */
 const kindNow = () => (document.querySelector('input[name=kind]:checked') || {}).value || 'self';
@@ -353,14 +400,125 @@ function syncKind(){
     ? 'ข้อมูลของลูกค้าที่แนะนำเข้ามา — เจ้าหน้าที่จะใช้ติดต่อกลับ'
     : 'ข้อมูลของผู้ที่จะเอาประกัน — ใช้ติดต่อกลับและออกกรมธรรม์';
   $('empHead').textContent = refer ? 'พนักงานผู้แนะนำ' : 'ส่วนของพนักงาน';
-  $('empSub').textContent  = refer
-    ? 'พนักงานที่แนะนำลูกค้ารายนี้เข้ามา — กรอกรหัสแล้วระบบจะขึ้นชื่อให้ตรวจสอบ'
-    : 'กรอกรหัสพนักงานแล้วระบบจะขึ้นชื่อให้ตรวจสอบ · เลือกสาขาที่สังกัดให้ถูกต้อง';
+  document.querySelector('.step[data-s="2"] .t').textContent = refer ? 'ลูกค้า' : 'ผู้เอาประกัน';
   syncRel();
 }
 function syncRel(){ $('relNoteBox').hidden = !(kindNow() !== 'refer' && relNow() === 'other'); }
-document.querySelectorAll('input[name=kind]').forEach(r=> r.addEventListener('change', syncKind));
-$('relOpts').addEventListener('change', syncRel);
+document.querySelectorAll('input[name=kind]').forEach(r=> r.addEventListener('change', ()=>{ syncKind(); saveDraft(); }));
+$('relOpts').addEventListener('change', ()=>{ syncRel(); saveDraft(); });
+
+/* =======================================================================
+   ขั้นตอน — ตรวจทีละขั้น แล้วพาเคอร์เซอร์ไปที่ช่องที่ขาด
+   🔑 ด่านจริงยังเป็น ins_submit ฝั่ง Supabase เสมอ ตรงนี้มีไว้ให้กรอกง่าย
+   ======================================================================= */
+const STEP_NOTE = {
+  1: 'บันทึกร่างในเครื่องให้อัตโนมัติ',
+  2: 'ที่อยู่ไม่ครบก็ส่งได้ เจ้าหน้าที่จะถามตอนโทรกลับ',
+  3: 'ตรวจข้อมูลด้านบนอีกครั้งก่อนกดส่ง',
+};
+function stepFail(n){
+  if(n === 1){
+    if(!$('fEmpId').value.trim())   return {msg:'กรุณากรอกรหัสพนักงาน', el:'fEmpId'};
+    if(!$('fEmpName').value.trim()) return {msg:'กรุณากรอกชื่อ–นามสกุลพนักงาน', el:'fEmpName'};
+  }
+  if(n === 2){
+    if(!$('fName').value.trim()) return {msg:'กรุณากรอกชื่อผู้ทำประกันภัย', el:'fName'};
+    if($('fMobile').value.replace(/\D/g,'').length < 9)
+      return {msg:'กรุณากรอกเบอร์โทรศัพท์มือถือให้ครบ', el:'fMobile'};
+  }
+  return null;
+}
+function showFail(bad, atStep){
+  STEP = atStep; paintSteps();
+  toast(bad.msg, 'no');
+  const el = $(bad.el);
+  el.setAttribute('aria-invalid','true');
+  el.focus();
+  el.scrollIntoView({block:'center'});
+}
+function paintSteps(){
+  document.querySelectorAll('.step').forEach(b=>{
+    const n = +b.dataset.s;
+    b.classList.toggle('done', n < STEP);
+    b.disabled = n > STEP;
+    if(n === STEP) b.setAttribute('aria-current','step');
+    else b.removeAttribute('aria-current');
+  });
+  for(let i=1;i<=3;i++) $('pane'+i).hidden = (i !== STEP);
+  $('btnPrev').hidden = STEP === 1;
+  $('btnNext').hidden = STEP === 3;
+  $('btnSave').hidden = STEP !== 3;
+  $('saveNote').textContent = (STEP === 3 && PENDING.length)
+    ? 'แนบไฟล์ไว้ ' + PENDING.length + ' ไฟล์ — จะอัปโหลดหลังส่งคำขอ'
+    : STEP_NOTE[STEP];
+  if(STEP === 3) renderReview();
+}
+function goStep(n, quiet){
+  if(n > STEP){                                     // เดินหน้า = ต้องผ่านด่านของขั้นที่ผ่านมาก่อน
+    for(let i = STEP; i < n; i++){
+      const bad = stepFail(i);
+      if(bad){ showFail(bad, i); return false; }
+    }
+  }
+  STEP = Math.min(3, Math.max(1, n));
+  paintSteps();
+  if(!quiet) scrollTo({top:0, behavior:'smooth'});
+  return true;
+}
+$('steps').addEventListener('click', e=>{
+  const b = e.target.closest('.step');
+  if(b && !b.disabled) goStep(+b.dataset.s);
+});
+$('btnNext').onclick = ()=> goStep(STEP + 1);
+$('btnPrev').onclick = ()=> goStep(STEP - 1);
+/* ช่องที่เคยเตือนไว้ ลบกรอบแดงทันทีที่เริ่มแก้ */
+$('tabForm').addEventListener('input', e=>{
+  if(e.target.hasAttribute && e.target.hasAttribute('aria-invalid')) e.target.removeAttribute('aria-invalid');
+});
+
+/* Enter = ไปช่องถัดไป · ช่องสุดท้ายของขั้น = ไปขั้นถัดไป (คีย์รวดเดียวไม่ต้องจับเมาส์) */
+$('tabForm').addEventListener('keydown', e=>{
+  if(e.key !== 'Enter' || e.target.tagName !== 'INPUT' || e.target.type === 'file') return;
+  e.preventDefault();
+  const pane = $('pane'+STEP);
+  const list = [...pane.querySelectorAll('input:not([type=file]):not([type=radio]):not([type=checkbox]),textarea')]
+    .filter(el=> !el.disabled && el.offsetParent !== null);
+  const i = list.indexOf(e.target);
+  if(i > -1 && i < list.length - 1) list[i+1].focus();
+  else if(STEP < 3) goStep(STEP + 1);
+  else $('btnSave').click();
+});
+
+/* ---------- บันทึกร่างในเครื่อง ----------
+   🔑 อยู่ใน localStorage ของเครื่องผู้กรอกเท่านั้น ไม่ได้ส่งขึ้นเซิร์ฟเวอร์
+      (ไฟล์แนบเก็บไม่ได้ — File object แปลงเป็น JSON ไม่ได้) */
+let draftTimer = null;
+function saveDraft(){
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(()=>{
+    try{
+      const d = { kind: kindNow(), rel: relNow(), branch: $('fBranch').value, at: Date.now() };
+      TEXT_FIELDS.forEach(id=>{ const e = $(id); if(e && e.value) d[id] = e.value; });
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    }catch(e){ /* โหมดส่วนตัว/พื้นที่เต็ม → ข้ามไป ฟอร์มยังใช้ได้ */ }
+  }, 400);
+}
+function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
+function restoreDraft(){
+  let d = null;
+  try{ d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); }catch(e){}
+  if(!d) return false;
+  /* ร่างเก่ากว่า 7 วันถือว่าไม่เกี่ยวกับงานตอนนี้แล้ว */
+  if(d.at && Date.now() - d.at > 7*24*3600*1000){ clearDraft(); return false; }
+  TEXT_FIELDS.forEach(id=>{ const e = $(id); if(e && d[id] != null) e.value = d[id]; });
+  const k = document.querySelector('input[name=kind][value="' + (d.kind||'self') + '"]');
+  if(k) k.checked = true;
+  const r = document.querySelector('input[name=rel][value="' + (d.rel||'self') + '"]');
+  if(r) r.checked = true;
+  if(d.branch) $('fBranch').value = d.branch;
+  return TEXT_FIELDS.some(id=> d[id]);
+}
+$('tabForm').addEventListener('input', saveDraft);
 
 /* ---------- เอกสารแนบในฟอร์ม ---------- */
 function renderDocRows(){
@@ -397,9 +555,36 @@ function renderChips(){
       + '<button type="button" data-i="' + i + '" aria-label="เอาไฟล์ออก">✕</button></span>').join('');
     box.querySelectorAll('button').forEach(b=> b.onclick = ()=>{ PENDING.splice(+b.dataset.i,1); renderChips(); });
   });
-  const n = PENDING.length;
-  $('saveNote').textContent = n ? ('เลือกไฟล์ไว้ ' + n + ' ไฟล์ — จะอัปโหลดหลังส่งคำขอ')
-                                : 'ตรวจข้อมูลให้ครบก่อนกดส่ง';
+  if(STEP === 3) paintSteps();
+}
+
+/* ---------- แผงตรวจก่อนส่ง (ขั้นที่ 3) ----------
+   สรุปสิ่งที่กรอกไว้ พร้อมปุ่ม "แก้" กระโดดกลับไปขั้นนั้น — ไม่ต้องเลื่อนหาเอง */
+const REL_LABEL = { self:'ตัวพนักงานเอง', father:'บิดา', mother:'มารดา',
+  husband:'สามี', wife:'ภรรยา', child:'บุตร', other:'อื่น ๆ' };
+function renderReview(){
+  const refer = kindNow() === 'refer';
+  const addr = [
+    $('fAddr').value && ('บ้านเลขที่ ' + $('fAddr').value),
+    $('fMoo').value  && ('หมู่ ' + $('fMoo').value),
+    $('fRoad').value, $('fTambon').value, $('fAmphoe').value, $('fProvince').value,
+  ].filter(Boolean).join(' ');
+  const rows = [
+    ['แบบคำขอ', refer ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง', 1],
+    [refer ? 'พนักงานผู้แนะนำ' : 'พนักงาน',
+      ($('fEmpName').value || '—') + ' · ' + ($('fEmpId').value || '—') + ' · ' + $('fBranch').value, 1],
+    [refer ? 'ลูกค้า' : 'ผู้ทำประกัน', $('fName').value || '—', 2],
+    ['เบอร์ติดต่อ', [$('fMobile').value, $('fHome').value].filter(Boolean).join(' · ') || '—', 2],
+  ];
+  if(!refer) rows.push(['ความสัมพันธ์',
+    REL_LABEL[relNow()] + (relNow()==='other' && $('fRelNote').value ? ' (' + $('fRelNote').value + ')' : ''), 2]);
+  rows.push(['ที่อยู่', addr || 'ยังไม่ได้กรอก', 2]);
+  rows.push(['ไฟล์แนบ', PENDING.length ? PENDING.length + ' ไฟล์' : 'ยังไม่ได้แนบ', 0]);
+  $('review').innerHTML = rows.map(([k,v,s])=>
+    '<dt>' + esc(k) + '</dt><dd>' + esc(v)
+    + (s ? ' <button type="button" class="btn sm ghost fixbtn" data-go="' + s + '">แก้</button>' : '')
+    + '</dd>').join('');
+  $('review').querySelectorAll('[data-go]').forEach(b=> b.onclick = ()=> goStep(+b.dataset.go));
 }
 
 function collect(){
@@ -425,15 +610,6 @@ function collect(){
     note: $('fNote').value,
     hp: $('fHp').value,                              // กับดักบอท — คนกรอกจะว่างเสมอ
   };
-}
-/* ตรวจฝั่งหน้าเว็บก่อนยิง เพื่อพาเคอร์เซอร์ไปที่ช่องที่ขาด
-   (ฝั่ง Supabase ตรวจซ้ำใน ins_submit เสมอ — ตรงนี้มีไว้ให้กรอกง่าย ไม่ใช่ด่านความปลอดภัย) */
-function validate(v){
-  if(!v.empId.trim()) return {msg:'กรุณากรอกรหัสพนักงาน', el:'fEmpId'};
-  if(!v.empName.trim()) return {msg:'กรุณากรอกชื่อ–นามสกุลพนักงาน', el:'fEmpName'};
-  if(!v.insuredName.trim()) return {msg:'กรุณากรอกชื่อผู้ทำประกันภัย', el:'fName'};
-  if(v.phoneMobile.replace(/\D/g,'').length < 9) return {msg:'กรุณากรอกเบอร์โทรศัพท์มือถือให้ครบ', el:'fMobile'};
-  return null;
 }
 
 /* ---------- อัปโหลดไฟล์ ----------
@@ -463,9 +639,12 @@ async function uploadFiles(items){
 
 $('btnSave').onclick = async ()=>{
   if(!sb) return toast('ยังตั้งค่าเชื่อมฐานข้อมูลไม่เสร็จ (ดู config.js)', 'no');
+  /* ตรวจย้อนทุกขั้นอีกครั้ง — เผื่อผู้ใช้กดกลับไปลบค่าทิ้งหลังผ่านขั้นนั้นไปแล้ว */
+  for(let i=1;i<=2;i++){
+    const bad = stepFail(i);
+    if(bad){ showFail(bad, i); return; }
+  }
   const v = collect();
-  const bad = validate(v);
-  if(bad){ toast(bad.msg, 'no'); if(bad.el){ const el=$(bad.el); el.focus(); el.scrollIntoView({block:'center'}); } return; }
 
   const btn = $('btnSave');
   btn.disabled = true;
@@ -482,6 +661,7 @@ $('btnSave').onclick = async ()=>{
       if(u.failed.length) toast('อัปโหลดไม่สำเร็จ ' + u.failed.length + ' ไฟล์: ' + u.failed[0], 'no');
     }
     showDone(data, v);
+    clearDraft();
     resetForm(true);                                  // คงช่องพนักงานไว้ เผื่อส่งใบถัดไป
   }catch(e){ toast(e.message, 'no'); }
   finally{ btn.disabled = false; btn.textContent = old; }
@@ -525,6 +705,7 @@ $('donePick').onchange = async ()=>{
 };
 $('btnNewOne').onclick = ()=>{
   $('tabDone').hidden = true; $('tabForm').hidden = false;
+  goStep(1, true);
   scrollTo({top:0, behavior:'smooth'});
 };
 
@@ -536,17 +717,29 @@ function resetForm(keepEmp){
   if(!keepEmp){ $('fEmpId').value=''; $('fEmpName').value=''; paintEmpChk(null); }
   document.querySelector('input[name=kind][value=self]').checked = true;
   document.querySelector('input[name=rel][value=self]').checked = true;
+  document.querySelectorAll('[aria-invalid]').forEach(e=> e.removeAttribute('aria-invalid'));
   PENDING = [];
   renderDocRows(); renderChips(); syncKind();
+  STEP = 1; paintSteps();
 }
 $('btnReset').onclick = async ()=>{
-  if(await ask({title:'เริ่มกรอกใหม่', msg:'ล้างข้อมูลที่กรอกไว้ทั้งหมดในฟอร์มนี้ (ใบที่ส่งไปแล้วไม่ถูกแตะ)', okText:'ล้างฟอร์ม'}))
-    { resetForm(); toast('ล้างฟอร์มแล้ว'); }
+  if(await ask({title:'เริ่มกรอกใหม่',
+      msg:'ล้างข้อมูลที่กรอกไว้ทั้งหมดในฟอร์มนี้ รวมร่างที่บันทึกไว้ในเครื่อง (ใบที่ส่งไปแล้วไม่ถูกแตะ)',
+      okText:'ล้างฟอร์ม'}))
+    { clearDraft(); resetForm(); toast('ล้างฟอร์มแล้ว'); }
 };
 
 /* ---------- เริ่มทำงาน ---------- */
-renderDocRows(); renderChips(); syncKind();
+renderDocRows(); renderChips();
 csel($('fBranch'));
+const hadDraft = restoreDraft();
+cselLabel($('fBranch').closest('.csel'));            // ร่างอาจเปลี่ยนสาขา — ป้ายบนปุ่มต้องตามด้วย
+syncKind();
+paintSteps();
+if(hadDraft){
+  toast('กู้ข้อมูลที่กรอกค้างไว้ให้แล้ว — กด "เริ่มใหม่" ถ้าจะเริ่มจากฟอร์มว่าง');
+  lookupEmp();                                       // ยืนยันชื่อพนักงานให้ด้วย ไม่ต้องให้พิมพ์ซ้ำ
+}
 if(!cfgReady){
   $('tabForm').hidden = true;
   $('cfgWarn').hidden = false;

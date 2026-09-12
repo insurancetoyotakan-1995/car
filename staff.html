@@ -10,12 +10,7 @@
 <link rel="stylesheet" href="style.css">
 <script src="config.js"></script>
 
-<header>
-  <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
-    <ellipse cx="24" cy="24" rx="22" ry="14" fill="none" stroke="#fff" stroke-width="3"/>
-    <ellipse cx="24" cy="18" rx="8" ry="12" fill="none" stroke="#fff" stroke-width="3"/>
-    <ellipse cx="24" cy="24" rx="13" ry="7" fill="none" stroke="#fff" stroke-width="3"/>
-  </svg>
+<header class="staffbar">
   <div class="brand">
     <h1>รายการคำขอประกันภัย</h1>
     <p>สำหรับเจ้าหน้าที่ · โตโยต้า กาญจนบุรี</p>
@@ -60,7 +55,7 @@
     <div id="listBody"></div>
   </section>
 
-  <div id="cfgWarn" class="panel" hidden style="border-color:#f0cfcc;background:var(--bad-soft)">
+  <div id="cfgWarn" class="panel" hidden style="border-color:#eccfc6;background:var(--bad-soft)">
     <h2 style="color:var(--bad-ink)">ยังตั้งค่าเชื่อมฐานข้อมูลไม่เสร็จ</h2>
     <p class="sub" style="color:var(--bad-ink)">แก้ไฟล์ <b>config.js</b> ให้ใส่ Project URL และ anon key ก่อน (ดู README.md)</p>
   </div>
@@ -273,7 +268,7 @@ function renderList(){
       +   (r.emp_verified ? '' : '<span class="pill quoted">⚠️ รหัสพนักงานยังไม่ยืนยัน</span>')
       + '</div>'
       + '<div class="nm">' + esc(r.insured_name)
-      +   ' <span style="font-weight:400;color:var(--muted-on-bg)">· ' + esc(r.phone_mobile) + '</span></div>'
+      +   ' <span style="font-weight:400;color:var(--muted)">· ' + esc(r.phone_mobile) + '</span></div>'
       + '<div class="meta">'
       +   '<span>' + esc((r.covers||[]).map(c=>COVERS[c]||c).join(' · ') || '—') + '</span>'
       +   (r.car_brand||r.car_plate ? '<span>🚗 ' + esc([r.car_brand, r.car_model, r.car_plate].filter(Boolean).join(' ')) + '</span>' : '')
@@ -333,7 +328,7 @@ function openView(id){
       ])
     + (r.note ? '<div class="sec">หมายเหตุจากผู้ยื่น</div><p style="font-size:13.5px;margin:0;white-space:pre-line">' + esc(r.note) + '</p>' : '')
     + '<div class="sec">เอกสารแนบ</div>'
-    + (docs.length ? '<p style="font-size:12.5px;color:var(--muted-on-bg);margin:0 0 10px">แจ้งว่ามี: ' + esc(docs.join(' · '))
+    + (docs.length ? '<p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">แจ้งว่ามี: ' + esc(docs.join(' · '))
         + (r.doc_rel_note ? ' (' + esc(r.doc_rel_note) + ')' : '') + '</p>' : '')
     + '<div class="flist" id="vFiles"></div>'
     + '<div class="sec">สถานะการติดตาม</div>'
@@ -376,7 +371,7 @@ function renderFiles(r){
     return '<div class="frow">'
       + '<span class="ft2' + (img?' img':'') + '">' + (img?'IMG':'PDF') + '</span>'
       + '<span class="nm" title="' + esc(f.name) + '">' + esc(f.name)
-      +   (f.tag && DOC_LABEL[f.tag] ? ' <span style="font-weight:400;color:var(--muted-on-bg)">· ' + esc(DOC_LABEL[f.tag]) + '</span>' : '') + '</span>'
+      +   (f.tag && DOC_LABEL[f.tag] ? ' <span style="font-weight:400;color:var(--muted)">· ' + esc(DOC_LABEL[f.tag]) + '</span>' : '') + '</span>'
       + '<span class="sz">' + fileSize(f.size||0) + '</span>'
       + '<button class="btn sm" data-path="' + esc(f.path) + '">เปิดดู</button>'
       + '</div>';
@@ -400,6 +395,7 @@ async function start(){
   $('loginBox').hidden = true; $('listPanel').hidden = false;
   $('whoChip').hidden = false; $('btnOut').hidden = false;
   $('whoChip').textContent = u.email || '';
+  $('whoChip').title = u.email || '';   // จอแคบตัดด้วย ellipsis — ต้องมี title ให้อ่านเต็ม
   csel($('fltStatus'));
   await loadList();
 }
