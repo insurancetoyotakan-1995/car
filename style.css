@@ -743,3 +743,93 @@ label.f .csel{width:100%}
   .cust .kind .ic{width:36px;height:36px;margin-bottom:8px}
   .cust .done-no{font-size:24px;padding:9px 18px}
 }
+
+/* =====================================================================
+   ชั้นขัดผิวหน้าเจ้าหน้าที่ (staff.html · body.ops) — 2026-09-14
+   หน้าทำงานทุกวัน → ลูกเล่นต้อง "ช่วยงาน" ไม่ใช่ประดับ: เร็ว (≤300ms) · ไม่วนซ้ำ · ไม่ขวางการกวาดตา
+   ⚠️ ทุกกฎขึ้นต้น .ops — index.html (body.cust) ไม่โดน
+   ===================================================================== */
+.ops{background:radial-gradient(1000px 300px at 50% -140px, rgba(229,28,35,.09), transparent 70%), var(--bg)}
+
+/* ---------- แถบหัว ---------- */
+.ops header.staffbar{position:relative;overflow:hidden;border:0;padding:14px 24px;
+  background:linear-gradient(120deg,var(--red-800),var(--red-600) 70%,var(--red-700));
+  box-shadow:0 6px 20px -12px rgba(176,18,10,.7)}
+.ops header.staffbar::after{content:"";position:absolute;right:-60px;top:-80px;width:240px;height:240px;border-radius:50%;
+  background:rgba(255,255,255,.07);pointer-events:none}
+.ops header.staffbar > *{position:relative;z-index:1}
+.ops .ops-logo{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;flex:0 0 auto;
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.28)}
+.ops .ops-logo svg{width:21px;height:21px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ops .brand p{color:#fff}
+.ops .hbtn{background:rgba(0,0,0,.14);border-color:rgba(255,255,255,.26);transition:background .15s var(--ease),transform .15s var(--ease)}
+.ops .hbtn:hover{background:rgba(0,0,0,.24)}
+.ops .hbtn:active{transform:scale(.97)}
+.ops .who-chip{background:rgba(0,0,0,.16)}
+/* ยังไม่ผูก LINE → จุดเหลืองมุมปุ่ม เด้งเตือน 3 ครั้งแล้วหยุด */
+.ops .hbtn.need{position:relative}
+.ops .hbtn.need::after{content:"";position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;
+  background:#ffc857;box-shadow:0 0 0 2px var(--red-700);animation:ping 1.2s var(--ease) 3}
+@keyframes ping{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
+
+/* ---------- เข้าสู่ระบบ ---------- */
+.ops .login{position:relative;text-align:left;padding:30px 28px 26px;border:0;box-shadow:var(--sh-lg);
+  overflow:hidden;animation:rise .4s var(--ease) both}
+.ops .login::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:linear-gradient(90deg,var(--red-400),var(--red-700))}
+.ops .login-ic{display:grid;place-items:center;width:54px;height:54px;border-radius:16px;margin-bottom:14px;
+  background:linear-gradient(135deg,var(--red-500),var(--red-800));box-shadow:0 10px 22px -12px rgba(196,20,17,.8)}
+.ops .login-ic svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ops .login h2{font-size:21px}
+.ops .login .btn.primary{width:100%}
+
+/* ---------- แผงรายการ ---------- */
+.ops .panel{box-shadow:var(--sh-lg);border-color:rgba(230,223,223,.8)}
+.ops .qtitle h2{font-size:20px}
+.ops .stab{transition:color .15s var(--ease),border-color .2s var(--ease)}
+.ops .stab b{transition:background .2s var(--ease),color .2s var(--ease),transform .2s var(--ease)}
+.ops .stab[aria-selected="true"] b{transform:scale(1.06)}
+.ops input:not([type=checkbox]):not([type=radio]),.ops textarea,.ops .csel-btn{border-radius:12px}
+.ops input:focus,.ops textarea:focus{box-shadow:0 0 0 4px rgba(229,28,35,.14)}
+
+/* แถวคำขอ: ชี้แล้วมีแถบแดงซ้าย (บอกว่ากดได้ ไม่ขยับเลย์เอาต์) · โหลดใหม่ทยอยโผล่ */
+.ops .rq{transition:background .14s var(--ease),box-shadow .14s var(--ease)}
+.ops .rq:not(.rq-sk):hover{box-shadow:inset 3px 0 0 var(--accent)}
+.ops .rq.s-new .rq-st i{animation:ping 1.2s var(--ease) 2}
+.ops #listBody.anim .rq{animation:rowIn .32s var(--ease) both}
+.ops #listBody.anim .qgroup:nth-child(1) .rq:nth-child(2){animation-delay:.02s}
+.ops #listBody.anim .qgroup:nth-child(1) .rq:nth-child(3){animation-delay:.05s}
+.ops #listBody.anim .qgroup:nth-child(1) .rq:nth-child(4){animation-delay:.08s}
+.ops #listBody.anim .qgroup:nth-child(1) .rq:nth-child(5){animation-delay:.11s}
+.ops #listBody.anim .qgroup:nth-child(1) .rq:nth-child(6){animation-delay:.14s}
+.ops #listBody.anim .qgroup:nth-child(n+2) .rq{animation-delay:.18s}
+@keyframes rowIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ops .empty{animation:rise .3s var(--ease)}
+
+/* ---------- ภาระงาน ---------- */
+.ops .qload{background:#fff}
+.ops .ld-bar i{background:linear-gradient(90deg,var(--red-300),var(--red-500))}
+
+/* ---------- กล่องรายละเอียด / ยืนยัน / LINE ---------- */
+.ops .ov[open]{animation:ovIn .18s ease-out both;backdrop-filter:blur(3px)}
+.ops .ov[open] .card{animation:cardIn .26s var(--ease) both}
+@keyframes ovIn{from{opacity:0}to{opacity:1}}
+@keyframes cardIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+.ops .card{border-radius:18px}
+.ops .card .hd{border-bottom:1px solid var(--line-soft);padding-bottom:14px}
+.ops .ln-code{animation:pop .35s var(--ease)}
+.ops .ln-ok{animation:rise .3s var(--ease)}
+
+/* ---------- ปุ่ม ---------- */
+.ops .btn.primary{background:linear-gradient(180deg,var(--red-500),var(--red-700));border-color:var(--red-700);
+  box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 8px 18px -10px rgba(196,20,17,.75)}
+.ops .btn.primary:hover:not(:disabled){background:linear-gradient(180deg,var(--red-600),var(--red-800));border-color:var(--red-800);transform:translateY(-1px)}
+.ops .btn:active:not(:disabled){transform:scale(.98)}
+.ops .btn.is-loading{opacity:1;cursor:progress}
+.ops .btn.is-loading::before{content:"";width:15px;height:15px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.45);border-top-color:#fff;animation:qspin .7s linear infinite}
+
+@media (max-width:640px){
+  .ops header.staffbar{padding:12px 16px}
+  .ops .ops-logo{display:none}              /* แถบหัวมือถือจัดไว้แน่นแล้ว (122px) ไม่เพิ่มแถว */
+  .ops .login{margin:24px auto;padding:26px 20px 22px}
+}
