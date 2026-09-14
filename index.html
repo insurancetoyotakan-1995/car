@@ -113,15 +113,25 @@
 
     <!-- ---------- ขั้นที่ 3 ---------- -->
     <section class="panel" id="pane3" hidden>
-      <h2>เอกสารแนบ</h2>
-      <p class="sub">ติ๊กว่ามีเอกสารอะไรบ้าง และแนบไฟล์ได้เลย — ถ่ายจากมือถือก็ได้
-        (PDF / JPG / PNG ไม่เกิน 10 MB ต่อไฟล์) · ยังไม่มีเอกสารตอนนี้ก็ส่งคำขอได้ แนบเพิ่มทีหลังได้</p>
-      <div id="docRows"></div>
-      <label class="f" style="margin-top:16px">หมายเหตุเพิ่มเติม
-        <textarea id="fNote" placeholder="เช่น ต้องการให้ติดต่อกลับช่วงเย็น / ต้องการเริ่มคุ้มครองวันที่…"></textarea></label>
+      <div class="p3-head">
+        <h2>เอกสารแนบ</h2>
+        <span class="p3-count" id="docCount"></span>
+      </div>
+      <p class="sub">ถ่ายรูปจากมือถือหรือเลือกไฟล์ก็ได้ (PDF / JPG / PNG ไม่เกิน 10 MB ต่อไฟล์)
+        · ยังไม่มีเอกสารตอนนี้ก็ส่งได้ แนบเพิ่มทีหลังได้</p>
+      <div class="docs" id="docRows"></div>
 
-      <div class="sec">ตรวจก่อนส่ง</div>
-      <dl class="dl" id="review"></dl>
+      <label class="f note-f">หมายเหตุเพิ่มเติม <span class="optl">(ไม่บังคับ)</span>
+        <textarea id="fNote" rows="3" placeholder="เช่น ต้องการให้ติดต่อกลับช่วงเย็น / ต้องการเริ่มคุ้มครองวันที่…"></textarea></label>
+
+      <!-- สรุปก่อนส่ง: 3 กล่องตรงกับ 3 ขั้นตอน · แก้ไขได้ทีละกล่อง -->
+      <div class="rv" aria-labelledby="rvTitle">
+        <div class="rv-top">
+          <h3 id="rvTitle">ตรวจข้อมูลก่อนส่ง</h3>
+          <span>ถ้าถูกต้องแล้ว กด "ส่งคำขอ" ด้านล่าง</span>
+        </div>
+        <div id="review"></div>
+      </div>
 
       <!-- กับดักบอท: คนมองไม่เห็นช่องนี้ ถ้ามีค่ามาแปลว่าไม่ใช่คนกรอก (เซิร์ฟเวอร์ปฏิเสธ)
            ใช้ตำแหน่งนอกจอ ไม่ใช้ display:none เพราะบอทบางตัวข้ามช่องที่ซ่อนแบบนั้น -->
@@ -574,42 +584,94 @@ function restoreDraft(){
   return TEXT_FIELDS.some(id=> d[id]);
 }
 $('tabForm').addEventListener('input', saveDraft);
+$('fNote').addEventListener('input', ()=>{ if(STEP === 3) renderReview(); });
 
-/* ---------- เอกสารแนบในฟอร์ม ---------- */
+/* ---------- เอกสารแนบในฟอร์ม ----------
+   1 แถว = เอกสาร 1 ชนิด: ติ๊กว่ามี · ปุ่มแนบ · รายการไฟล์เต็มความกว้างใต้แถว (ชื่อไฟล์ไม่ถูกบีบ)
+   🔑 ติ๊กโดยไม่แนบ = "มีเอกสาร จะส่งทีหลัง" · แนบแล้วติ๊กให้อัตโนมัติ · ลากไฟล์มาวางที่แถวได้ */
+const ICO_UP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>';
+const ICO_X  = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+const ACCEPT = /^(application\/pdf|image\/jpeg|image\/png)$/;
+
+function addFiles(tag, list){
+  let added = 0;
+  for(const f of list){
+    if(!ACCEPT.test(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name)){ toast('ไฟล์ "' + f.name + '" ไม่ใช่ PDF / JPG / PNG', 'no'); continue; }
+    if(f.size > MAX_FILE){ toast('ไฟล์ "' + f.name + '" ใหญ่เกิน 10 MB', 'no'); continue; }
+    if(PENDING.length >= MAX_FILES){ toast('แนบได้สูงสุด ' + MAX_FILES + ' ไฟล์ต่อใบ', 'no'); break; }
+    PENDING.push({ file: f, tag, url: /^image\//.test(f.type) ? URL.createObjectURL(f) : '' });
+    added++;
+  }
+  const ck = $('docRows').querySelector('.dck[data-tag="' + tag + '"]');
+  if(ck && added) ck.checked = true;             // แนบมาแล้ว = มีเอกสารนั้นแน่นอน
+  renderChips();
+}
+
 function renderDocRows(){
   $('docRows').innerHTML = DOC_TYPES.map(([tag,label])=>
     '<div class="docrow" data-tag="' + tag + '">'
-    + '<label class="lb"><input type="checkbox" class="dck" data-tag="' + tag + '">' + esc(label) + '</label>'
-    + '<div class="side">'
-    + (tag==='relDoc' ? '<input class="note" id="fRelDocNote" placeholder="ระบุ เช่น สูติบัตร">' : '')
-    + '<label class="pick">📎 แนบไฟล์<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple data-tag="' + tag + '"></label>'
-    + '</div><div class="fchips" data-chips="' + tag + '"></div></div>').join('');
+    + '<label class="doc-main"><input type="checkbox" class="dck" data-tag="' + tag + '">'
+    +   '<span class="doc-txt"><span class="doc-t">' + esc(label) + '</span>'
+    +   '<span class="doc-st" data-st="' + tag + '"></span></span></label>'
+    + '<label class="pick">' + ICO_UP + '<span>แนบไฟล์</span>'
+    +   '<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple data-tag="' + tag + '"></label>'
+    + (tag==='relDoc' ? '<input class="note" id="fRelDocNote" placeholder="ระบุชนิดเอกสาร เช่น สูติบัตร ทะเบียนสมรส">' : '')
+    + '<ul class="dfiles" data-chips="' + tag + '"></ul>'
+    + '</div>').join('');
 
   $('docRows').querySelectorAll('input[type=file]').forEach(inp=>{
-    inp.addEventListener('change', ()=>{
-      const tag = inp.dataset.tag;
-      for(const f of inp.files){
-        if(f.size > MAX_FILE){ toast('ไฟล์ "' + f.name + '" ใหญ่เกิน 10 MB', 'no'); continue; }
-        if(PENDING.length >= MAX_FILES){ toast('แนบได้สูงสุด ' + MAX_FILES + ' ไฟล์ต่อใบ', 'no'); break; }
-        PENDING.push({file:f, tag});
-      }
-      inp.value = '';
-      const ck = $('docRows').querySelector('.dck[data-tag="' + tag + '"]');
-      if(ck && PENDING.some(p=>p.tag===tag)) ck.checked = true;   // แนบมาแล้ว = มีเอกสารนั้นแน่นอน
-      renderChips();
+    inp.addEventListener('change', ()=>{ addFiles(inp.dataset.tag, [...inp.files]); inp.value = ''; });
+  });
+  $('docRows').querySelectorAll('.dck').forEach(ck=> ck.addEventListener('change', renderChips));
+  /* ลากไฟล์มาวางที่แถว */
+  $('docRows').querySelectorAll('.docrow').forEach(row=>{
+    let depth = 0;
+    row.addEventListener('dragenter', e=>{ if(!e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return; e.preventDefault(); depth++; row.classList.add('drag'); });
+    row.addEventListener('dragover',  e=>{ if(row.classList.contains('drag')) e.preventDefault(); });
+    row.addEventListener('dragleave', ()=>{ if(--depth <= 0){ depth = 0; row.classList.remove('drag'); } });
+    row.addEventListener('drop', e=>{
+      e.preventDefault(); depth = 0; row.classList.remove('drag');
+      if(e.dataTransfer && e.dataTransfer.files.length) addFiles(row.dataset.tag, [...e.dataTransfer.files]);
     });
   });
 }
+/* ลากพลาดเป้า (นอกแถว) → กันเบราว์เซอร์เปิดไฟล์ทับหน้า ข้อมูลที่กรอกหาย */
+addEventListener('dragover', e=>{ if(!e.target.closest || !e.target.closest('.docrow')) e.preventDefault(); });
+addEventListener('drop',     e=>{ if(!e.target.closest || !e.target.closest('.docrow')) e.preventDefault(); });
+
 function renderChips(){
   DOC_TYPES.forEach(([tag])=>{
-    const box = $('docRows').querySelector('[data-chips="' + tag + '"]');
-    if(!box) return;
-    box.innerHTML = PENDING.map((p,i)=> p.tag!==tag ? '' :
-      '<span class="fchip"><span class="nm" title="' + esc(p.file.name) + '">' + esc(p.file.name) + '</span>'
-      + '<span style="opacity:.8">' + fileSize(p.file.size) + '</span>'
-      + '<button type="button" data-i="' + i + '" aria-label="เอาไฟล์ออก">✕</button></span>').join('');
-    box.querySelectorAll('button').forEach(b=> b.onclick = ()=>{ PENDING.splice(+b.dataset.i,1); renderChips(); });
+    const row = $('docRows').querySelector('.docrow[data-tag="' + tag + '"]');
+    if(!row) return;
+    const box = row.querySelector('[data-chips]');
+    const mine = PENDING.map((p,i)=>[p,i]).filter(([p])=> p.tag === tag);
+    const ck = row.querySelector('.dck');
+    box.innerHTML = mine.map(([p,i])=>{
+      const img = !!p.url;
+      return '<li class="dfile">'
+        + (img ? '<img class="dthumb" src="' + p.url + '" alt="">'
+               : '<span class="dthumb pdf" aria-hidden="true">PDF</span>')
+        + '<span class="dname" title="' + esc(p.file.name) + '">' + esc(p.file.name) + '</span>'
+        + '<span class="dsize">' + fileSize(p.file.size) + '</span>'
+        + '<button type="button" class="drm" data-i="' + i + '" aria-label="เอาไฟล์ ' + esc(p.file.name) + ' ออก">' + ICO_X + '</button>'
+        + '</li>';
+    }).join('');
+    box.hidden = !mine.length;
+    box.querySelectorAll('.drm').forEach(b=> b.onclick = ()=>{
+      const p = PENDING[+b.dataset.i];
+      if(p && p.url) URL.revokeObjectURL(p.url);
+      PENDING.splice(+b.dataset.i, 1);
+      renderChips();
+    });
+    const st = row.querySelector('.doc-st');
+    row.classList.toggle('has-files', mine.length > 0);
+    st.textContent = mine.length ? '✓ แนบแล้ว ' + mine.length + ' ไฟล์'
+                   : ck.checked ? 'มีเอกสาร · ยังไม่ได้แนบ ส่งให้ทีหลังได้'
+                   : 'ยังไม่ได้แนบ';
   });
+  const n = activeFiles().length;
+  $('docCount').textContent = n ? 'แนบแล้ว ' + n + ' / ' + MAX_FILES + ' ไฟล์' : '';
+  $('docCount').hidden = !n;
   if(STEP === 3) paintSteps();
 }
 
@@ -619,27 +681,40 @@ const REL_LABEL = { self:'ตัวพนักงานเอง', father:'บ�
   husband:'สามี', wife:'ภรรยา', child:'บุตร', other:'อื่น ๆ' };
 function renderReview(){
   const refer = kindNow() === 'refer';
+  const val = id => ($(id).value || '').trim();
   const addr = [
-    $('fAddr').value && ('บ้านเลขที่ ' + $('fAddr').value),
-    $('fMoo').value  && ('หมู่ ' + $('fMoo').value),
-    $('fRoad').value, $('fTambon').value, $('fAmphoe').value, $('fProvince').value,
+    val('fAddr') && ('บ้านเลขที่ ' + val('fAddr')),
+    val('fMoo')  && ('หมู่ ' + val('fMoo')),
+    val('fRoad') && ('ถ.' + val('fRoad')),
+    val('fTambon') && ('ต.' + val('fTambon')),
+    val('fAmphoe') && ('อ.' + val('fAmphoe')),
+    val('fProvince') && ('จ.' + val('fProvince')),
   ].filter(Boolean).join(' ');
-  const rows = [
-    ['แบบคำขอ', refer ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง', 1],
-    [refer ? 'พนักงานผู้แนะนำ' : 'พนักงาน',
-      [($('fEmpName').value || '—'), ($('fEmpId').value || '—'), $('fDept').value, $('fBranch').value]
-        .filter(Boolean).join(' · '), 1],
-    [refer ? 'ลูกค้า' : 'ผู้ทำประกัน', $('fName').value || '—', 2],
-    ['เบอร์ติดต่อ', [$('fMobile').value, $('fHome').value].filter(Boolean).join(' · ') || '—', 2],
-  ];
-  if(!refer) rows.push(['ความสัมพันธ์',
-    REL_LABEL[relNow()] + (relNow()==='other' && $('fRelNote').value ? ' (' + $('fRelNote').value + ')' : ''), 2]);
-  rows.push(['ที่อยู่', addr || 'ยังไม่ได้กรอก', 2]);
-  rows.push(['ไฟล์แนบ', activeFiles().length ? activeFiles().length + ' ไฟล์' : 'ยังไม่ได้แนบ', 0]);
-  $('review').innerHTML = rows.map(([k,v,s])=>
-    '<dt>' + esc(k) + '</dt><dd>' + esc(v)
-    + (s ? ' <button type="button" class="btn sm ghost fixbtn" data-go="' + s + '">แก้</button>' : '')
-    + '</dd>').join('');
+  const row = (k, v, empty) => '<dt>' + esc(k) + '</dt><dd' + (v ? '' : ' class="empty"') + '>' + esc(v || empty || '—') + '</dd>';
+  const block = (n, title, go, body) =>
+    '<section class="rv-blk"><div class="rv-hd"><span class="rv-n">' + n + '</span><h4>' + esc(title) + '</h4>'
+    + (go ? '<button type="button" class="rv-edit" data-go="' + go + '">แก้ไข</button>' : '')
+    + '</div><dl class="rv-dl">' + body + '</dl></section>';   // ⚠️ ห้ามใช้ <header> — กฎ header ของแถบหัวหน้าเว็บจะทับเป็นพื้นเข้ม
+
+  const docs = DOC_TYPES.filter(([tag])=> !(refer && tag === 'relDoc')).map(([tag, label])=>{
+    const nf = activeFiles().filter(p=> p.tag === tag).length;
+    const ck = $('docRows').querySelector('.dck[data-tag="' + tag + '"]');
+    return [label, nf ? 'แนบ ' + nf + ' ไฟล์' : (ck && ck.checked ? 'ส่งให้ทีหลัง' : '')];
+  }).filter(([,v])=> v);
+
+  $('review').innerHTML =
+      block(1, refer ? 'พนักงานผู้แนะนำ' : 'ผู้ยื่นคำขอ', 1,
+          row('แบบคำขอ', refer ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง')
+        + row('ชื่อ', [val('fEmpName'), val('fEmpId') && ('รหัส ' + val('fEmpId'))].filter(Boolean).join(' · '))
+        + row('แผนก / สาขา', [val('fDept'), $('fBranch').value].filter(Boolean).join(' · ')))
+    + block(2, refer ? 'ลูกค้าที่แนะนำ' : 'ผู้ทำประกัน', 2,
+          row('ชื่อ', val('fName'))
+        + row('เบอร์ติดต่อ', [val('fMobile'), val('fHome')].filter(Boolean).join(' · '))
+        + (refer ? '' : row('ความสัมพันธ์', REL_LABEL[relNow()] + (relNow()==='other' && val('fRelNote') ? ' (' + val('fRelNote') + ')' : '')))
+        + row('ที่อยู่', addr, 'ยังไม่ได้กรอก'))
+    + block(3, 'เอกสาร', 0,
+          (docs.length ? docs.map(([k,v])=> row(k, v)).join('') : row('เอกสาร', '', 'ยังไม่มี — ส่งคำขอได้ แนบเพิ่มทีหลังได้'))
+        + (val('fNote') ? row('หมายเหตุ', val('fNote')) : ''));
   $('review').querySelectorAll('[data-go]').forEach(b=> b.onclick = ()=> goStep(+b.dataset.go));
 }
 
@@ -799,6 +874,7 @@ function resetForm(keepEmp){
   document.querySelector('input[name=kind][value=self]').checked = true;
   document.querySelector('input[name=rel][value=self]').checked = true;
   document.querySelectorAll('[aria-invalid]').forEach(e=> e.removeAttribute('aria-invalid'));
+  PENDING.forEach(p=>{ if(p.url) URL.revokeObjectURL(p.url); });   // คืนหน่วยความจำรูปตัวอย่าง
   PENDING = [];
   renderDocRows(); renderChips(); syncKind();
   STEP = 1; paintSteps();

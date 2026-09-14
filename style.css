@@ -176,36 +176,77 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .empchk.no{background:var(--warn-soft);color:var(--warn-ink);border-color:#efdfc0}
 .empchk .sm{font-weight:400;font-size:12.5px}
 
-/* ---------- เอกสารแนบ ---------- */
-.docrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-  border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 14px;
-  margin-bottom:9px;background:var(--panel-2);
-  transition:border-color .15s var(--ease),background .15s var(--ease)}
-.docrow:has(input.dck:checked){background:var(--panel);border-color:#d5c6ae}
-.docrow .lb{display:inline-flex;align-items:center;gap:10px;font-size:13.5px;
-  font-weight:600;cursor:pointer;min-height:44px;flex:1;min-width:170px;color:var(--ink-soft)}
-.docrow:has(input.dck:checked) .lb{color:var(--ink)}
-.docrow .side{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.docrow .note{width:165px;font-size:13.5px;padding:8px 10px}
+/* ---------- เอกสารแนบ (ขั้นที่ 3) ---------- */
+.p3-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.p3-head h2{font-family:var(--font-head);font-size:17px;margin:0 0 4px;font-weight:600;letter-spacing:-.005em}
+.p3-count{font-size:12.5px;font-weight:700;color:var(--good-ink);background:var(--good-soft);
+  border-radius:999px;padding:3px 11px}
 
-.pick{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
-  border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 13px;cursor:pointer;
-  background:var(--panel);color:var(--ink-soft);min-height:40px;position:relative;
-  transition:border-color .15s var(--ease),color .15s var(--ease)}
-.pick:hover{border-color:var(--accent);color:var(--accent-ink)}
+.docs{display:flex;flex-direction:column;gap:10px}
+.docrow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 12px;
+  border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;background:var(--panel-2);
+  transition:border-color .15s var(--ease),background .15s var(--ease),box-shadow .15s var(--ease)}
+.docrow:has(input.dck:checked){background:var(--panel);border-color:#d5c6ae}
+.docrow.has-files{border-color:#c9d6bf}
+.docrow.drag{border-color:var(--accent);border-style:dashed;background:var(--accent-soft);box-shadow:var(--ring)}
+
+.doc-main{display:flex;align-items:center;gap:12px;cursor:pointer;min-height:44px;min-width:0}
+.doc-txt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.doc-t{font-size:14px;font-weight:700;color:var(--ink-soft)}
+.docrow:has(input.dck:checked) .doc-t{color:var(--ink)}
+.doc-st{font-size:12.5px;color:var(--muted)}
+.docrow.has-files .doc-st{color:var(--good-ink);font-weight:600}
+
+.docrow .note{grid-column:1 / -1;font-size:13.5px;padding:9px 11px}
+.docrow:not(:has(input.dck:checked)) .note{display:none}
+
+.pick{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;
+  border:1px solid #d9cdb9;border-radius:var(--r-sm);padding:9px 14px;cursor:pointer;
+  background:var(--panel);color:var(--ink-soft);min-height:42px;position:relative;white-space:nowrap;
+  transition:border-color .15s var(--ease),color .15s var(--ease),background .15s var(--ease)}
+.pick svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pick:hover{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
 /* ซ่อนช่องไฟล์แบบ "ยังโฟกัสด้วยคีย์บอร์ดได้" แล้วยกวงโฟกัสมาไว้ที่ป้าย */
 .pick input{position:absolute;width:1px;height:1px;opacity:0;margin:0;padding:0;border:0}
 .pick:focus-within{border-color:var(--accent);box-shadow:var(--ring)}
 
-.fchips{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
-.fchip{display:inline-flex;align-items:center;gap:8px;background:var(--panel);
-  color:var(--ink-soft);border:1px solid var(--line);border-radius:999px;
-  padding:5px 6px 5px 12px;font-size:12px;font-weight:600;max-width:100%}
-.fchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px}
-.fchip button{border:0;background:var(--bg-2);color:var(--ink-soft);width:24px;height:24px;
-  border-radius:50%;cursor:pointer;font-size:13px;line-height:1;flex:0 0 auto;
-  font-family:inherit;transition:background .14s var(--ease)}
-.fchip button:hover{background:#e0d3bd;color:var(--bad-ink)}
+.dfiles{grid-column:1 / -1;list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.dfile{display:grid;grid-template-columns:40px minmax(0,1fr) auto 36px;align-items:center;gap:10px;
+  background:var(--panel-2);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:6px 6px 6px 7px}
+.dthumb{width:40px;height:40px;border-radius:7px;object-fit:cover;display:block;background:var(--bg-2)}
+.dthumb.pdf{display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.04em;
+  color:#fff;background:var(--accent)}
+.dname{font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsize{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.drm{width:36px;height:36px;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer;
+  display:grid;place-items:center;transition:background .14s var(--ease),color .14s var(--ease)}
+.drm svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.drm:hover{background:var(--bad-soft);color:var(--bad-ink)}
+.drm:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+.note-f{margin-top:18px}
+.note-f .optl{font-weight:400;color:var(--muted);font-size:12px;margin-left:4px}
+
+/* ---------- ตรวจก่อนส่ง ---------- */
+.rv{margin-top:22px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel-2);overflow:hidden}
+.rv-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:14px 16px 12px;border-bottom:1px solid var(--line)}
+.rv-top h3{font-family:var(--font-head);font-size:15.5px;font-weight:600;margin:0;color:var(--ink)}
+.rv-top span{font-size:12.5px;color:var(--muted)}
+.rv-blk{padding:12px 16px 14px;background:var(--panel)}
+.rv-blk + .rv-blk{border-top:1px solid var(--line-soft)}
+.rv-hd{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.rv-n{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;
+  font-size:12px;font-weight:700;background:var(--good-soft);color:var(--good-ink)}
+.rv-blk h4{flex:1;margin:0;font-size:13.5px;font-weight:700;color:var(--ink-soft)}
+.rv-edit{font-family:inherit;font-size:12.5px;font-weight:700;color:var(--accent-ink);background:none;
+  border:1px solid transparent;border-radius:8px;padding:5px 10px;cursor:pointer;min-height:32px}
+.rv-edit:hover{background:var(--accent-soft);border-color:#efcfc2}
+.rv-edit:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.rv-dl{display:grid;grid-template-columns:120px minmax(0,1fr);gap:6px 14px;margin:0 0 0 31px;font-size:13.5px}
+.rv-dl dt{color:var(--muted);font-weight:600}
+.rv-dl dd{margin:0;color:var(--ink);font-weight:600;overflow-wrap:anywhere}
+.rv-dl dd.empty{color:var(--muted);font-weight:400}
 
 /* ---------- ปุ่ม ---------- */
 .btn{font-family:inherit;font-size:14px;font-weight:700;border-radius:var(--r-sm);
@@ -467,6 +508,15 @@ label.f .csel{width:100%}
   .c2{grid-column:span 4}
 }
 @media (max-width:640px){
+  /* ขั้นที่ 3 บนมือถือ: ปุ่มแนบเต็มความกว้างใต้ชื่อเอกสาร · สรุปเป็นคอลัมน์เดียว */
+  .docrow{grid-template-columns:1fr}
+  .pick{justify-content:center;width:100%;min-height:44px}
+  .dfile{grid-template-columns:40px minmax(0,1fr) 44px}
+  .dsize{display:none}
+  .drm{width:44px;height:44px}
+  .rv-dl{grid-template-columns:1fr;gap:0;margin-left:0}
+  .rv-dl dd{margin-bottom:8px}
+  .rv-edit{min-height:44px;padding:0 14px}
   /* รายการคำขอบนมือถือ: แถวเรียงเป็น 2 บรรทัด — สถานะ+เวลา / ชื่อ / รายละเอียด / เบอร์+ผู้ดูแล */
   .qpanel{padding:16px 16px 8px}
   .stabs-wrap{margin:0 -16px 12px;padding:0 16px}
@@ -526,6 +576,5 @@ label.f .csel{width:100%}
   .fixbtn{min-height:44px;padding:0 14px;margin:6px 0 2px}
   input[type=checkbox],input[type=radio]{width:22px;height:22px}
   input[type=checkbox]:checked::after{left:6px;top:2.5px}
-  .docrow .note{width:100%}
   .done-no{font-size:22px;padding:11px 20px}
 }
