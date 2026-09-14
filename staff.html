@@ -186,6 +186,17 @@ function cselClose(box){
   if(box.__menu){ box.__menu.remove(); box.__menu=null; }
 }
 function cselCloseAll(){ document.querySelectorAll('.csel').forEach(cselClose); }
+/* วางเมนูตามตำแหน่งปุ่มจริง — เรียกตอนเปิด และทุกครั้งที่หน้า/กล่องรอบ ๆ เลื่อน */
+function cselPlace(box){
+  const menu = box.__menu;
+  if(!menu) return;
+  const r = box.__btn.getBoundingClientRect();
+  if(r.bottom < 0 || r.top > innerHeight){ cselClose(box); return; }   // ปุ่มหลุดจอไปแล้ว ค่อยปิด
+  menu.style.minWidth = r.width + 'px';
+  const h = menu.offsetHeight, down = innerHeight - r.bottom - 8;
+  menu.style.left = Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8)) + 'px';
+  menu.style.top  = (down >= h || down >= r.top ? r.bottom + 4 : Math.max(8, r.top - h - 4)) + 'px';
+}
 function cselOpen(box){
   cselCloseAll();
   const sel = box.querySelector('select');
@@ -196,11 +207,7 @@ function cselOpen(box){
     +'" data-i="'+i+'" aria-selected="'+(i===sel.selectedIndex)+'">'+esc(o.textContent)+'</button>').join('');
   document.body.appendChild(menu);
   box.__menu=menu; box.__open=true; box.__btn.setAttribute('aria-expanded','true');
-  const r = box.__btn.getBoundingClientRect();
-  menu.style.minWidth = r.width+'px';
-  const h = menu.offsetHeight, down = innerHeight - r.bottom - 8;
-  menu.style.left = Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8))+'px';
-  menu.style.top  = (down>=h||down>=r.top ? r.bottom+4 : Math.max(8, r.top-h-4))+'px';
+  cselPlace(box);
   menu.querySelectorAll('.csel-item').forEach(it=> it.addEventListener('click', ()=>{
     sel.selectedIndex = +it.dataset.i;
     cselLabel(box); cselClose(box); box.__btn.focus();
@@ -219,7 +226,13 @@ function cselOpen(box){
 document.addEventListener('mousedown', e=>{
   if(!e.target.closest('.csel') && !e.target.closest('.csel-menu')) cselCloseAll();
 });
-addEventListener('scroll', cselCloseAll, true);
+/* 🔑 เลื่อนรายการ "ในเมนูเอง" ต้องไม่ปิดเมนู — เดิมปิดทุก scroll ทำให้เลื่อนหาตัวเลือกไม่ได้
+      (เมนูมี overflow:auto ของตัวเอง) · เลื่อนหน้า/กล่องอื่น → ให้เมนูตามปุ่มไป */
+addEventListener('scroll', e=>{
+  const t = e.target;
+  if(t && t.nodeType === 1 && t.closest('.csel-menu')) return;
+  document.querySelectorAll('.csel').forEach(box=>{ if(box.__open) cselPlace(box); });
+}, true);
 addEventListener('resize', cselCloseAll);
 
 /* ---------- เข้าสู่ระบบ ----------

@@ -377,7 +377,8 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .csel-btn[aria-expanded="true"] .csel-ar{transform:rotate(-135deg) translate(-3px,-3px)}
 .csel-menu{position:fixed;z-index:120;background:var(--panel);border:1px solid var(--line);
   border-radius:var(--r-sm);box-shadow:var(--sh-lg);padding:5px;
-  max-height:min(320px,58vh);overflow:auto}
+  max-height:min(320px,58vh);overflow:auto;
+  overscroll-behavior:contain}   /* เลื่อนสุดรายการแล้วไม่ลากหน้า/กล่องข้างหลังให้เลื่อนตาม */
 .csel-item{display:block;width:100%;text-align:left;font-family:inherit;font-size:14.5px;
   color:var(--ink);background:transparent;border:0;border-radius:7px;padding:10px 12px;
   cursor:pointer;white-space:nowrap}
