@@ -398,8 +398,20 @@ async function lookupEmp(){
     }
   }catch(e){ /* ค้นไม่ได้ไม่ควรขวางการกรอก */ }
 }
+/* สาขาตามหลักแรกของรหัสพนักงาน: 1 สำนักงานใหญ่ · 2 ท่ามะกา · 3 พนมทวน
+   (กติกาเดียวกับเลขเอกสาร/ที่อยู่สาขาของระบบใบสำคัญจ่าย) · หลักอื่น = ไม่แตะ เลือกเองได้ */
+const BRANCH_BY_DIGIT = { '1':'สำนักงานใหญ่', '2':'ท่ามะกา', '3':'พนมทวน' };
+function setBranchByEmp(){
+  const b = BRANCH_BY_DIGIT[$('fEmpId').value.charAt(0)];
+  const sel = $('fBranch');
+  if(!b || sel.value === b) return;
+  sel.value = b;
+  const box = sel.closest('.csel');
+  if(box) cselLabel(box);
+}
 $('fEmpId').addEventListener('input', ()=>{
   $('fEmpId').value = $('fEmpId').value.replace(/\D/g,'').slice(0,12);
+  setBranchByEmp();
   clearTimeout(empTimer);
   empTimer = setTimeout(lookupEmp, 350);
 });
@@ -925,6 +937,7 @@ csel($('fDept'));
 setDept('');
 const hadDraft = restoreDraft();
 cselLabel($('fBranch').closest('.csel'));            // ร่างอาจเปลี่ยนสาขา — ป้ายบนปุ่มต้องตามด้วย
+setBranchByEmp();                                    // ร่างเก่าที่สาขาไม่ตรงกับรหัส → แก้ให้ตรง
 syncKind();
 paintSteps();
 if(hadDraft){
