@@ -720,7 +720,7 @@ label.f .csel{width:100%}
 .cust .done-no{margin:0;background:#fff;border:2px dashed var(--red-200);color:var(--accent-ink);font-size:28px;padding:10px 26px}
 .cust .copy-no{display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:13px;font-weight:700;
   color:var(--accent-ink);background:var(--accent-soft);border:1px solid var(--red-100);border-radius:999px;
-  padding:0 14px;min-height:40px;cursor:pointer;transition:background .15s var(--ease),transform .15s var(--ease)}
+  padding:0 16px;min-height:44px;cursor:pointer;transition:background .15s var(--ease),transform .15s var(--ease)}
 .cust .copy-no svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .cust .copy-no:hover{background:#fff}
 .cust .copy-no:active{transform:scale(.96)}
@@ -832,4 +832,41 @@ label.f .csel{width:100%}
   .ops header.staffbar{padding:12px 16px}
   .ops .ops-logo{display:none}              /* แถบหัวมือถือจัดไว้แน่นแล้ว (122px) ไม่เพิ่มแถว */
   .ops .login{margin:24px auto;padding:26px 20px 22px}
+}
+
+/* =====================================================================
+   แท็บเล็ต + มือถือแนวนอน + อุปกรณ์จอสัมผัสทุกขนาด — 2026-09-14
+   เดิมกฎ "เป้ากด 44px" และ "ตัวอักษรช่องกรอก 16px" อยู่แค่ใน max-width:640px
+   → iPad (768/1024) และ iPhone แนวนอน (740) ได้ช่องกรอก 15px = Safari ซูมจอเองทุกครั้งที่แตะช่อง
+     และปุ่มหัว/แท็บสถานะสูง 34–40px กดพลาดง่าย (วัดจริงด้วยสคริปต์ตรวจ ไม่ได้เดา)
+   pointer:coarse = จอสัมผัสจอใหญ่ (เช่น iPad Pro 1366px) ก็ได้กฎนี้ด้วย
+   ===================================================================== */
+@media (max-width:1024px), (pointer:coarse){
+  input:not([type=checkbox]):not([type=radio]),select,textarea,.csel-btn,.csel-item{font-size:16px}
+  input:not([type=checkbox]):not([type=radio]):not([type=file]),.csel-btn{min-height:44px}
+  .btn,.btn.sm,.hbtn,.pick,.stab,.rv-edit,.copy-no,.ld,.opt{min-height:44px}
+  #btnReload{min-width:44px}
+  .drm{width:44px;height:44px}
+  /* เบอร์โทรในรายละเอียด = ปุ่มโทรจริงบนมือถือ ต้องกดง่าย */
+  .tel{display:inline-flex;align-items:center;min-height:44px;padding:0 2px}
+  /* checkbox/radio ขยายนิดหน่อยให้แตะโดนง่ายขึ้น (ตัว label ที่ห่ออยู่เป็นเป้ากดหลัก) */
+  input[type=checkbox],input[type=radio]{width:20px;height:20px}
+  input[type=checkbox]:checked::after{left:5.5px;top:2px}
+}
+/* แท็บเล็ตแนวตั้ง (641–1024): การ์ดแบบคำขอยังวาง 2 ใบคู่กัน แต่เว้นช่องกว้างขึ้น · หน้าสำเร็จไม่กว้างเกิน */
+@media (min-width:641px) and (max-width:1024px){
+  main{padding-left:24px;padding-right:24px}
+  .dfile{grid-template-columns:40px minmax(0,1fr) auto 44px}   /* จอ ≤640 ซ่อนขนาดไฟล์ ใช้ 3 คอลัมน์ของเดิม */
+  .cust .kinds{gap:14px}
+  .panel.done .dl,.done-files,.done-contact{max-width:520px}
+}
+/* มือถือแนวนอน (จอเตี้ย): hero ไม่กินครึ่งจอ · แถบปุ่มล่างไม่บังช่องกรอก */
+@media (max-height:500px) and (orientation:landscape){
+  .cust header.hero{padding:16px 20px 58px}
+  .cust .hero h1{font-size:22px;margin:6px 0 2px}
+  .cust .hero-lead{display:none}
+  .cust .hero-chips{margin-top:8px}
+  .cust .hero-shield{display:none}
+  .savebar{position:static;margin-top:12px}
+  .ops header.staffbar{padding-top:8px;padding-bottom:8px}
 }
