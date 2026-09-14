@@ -212,6 +212,10 @@ const TEXT_FIELDS = ['fEmpId','fEmpName','fName','fMobile','fHome','fAddr','fMoo
   'fTambon','fAmphoe','fProvince','fRelNote','fNote'];
 
 let PENDING = [];                                   // ไฟล์ที่เลือกไว้ แต่ใบยังไม่ถูกสร้าง
+/* แบบ "แนะนำลูกค้าทั่วไป" ไม่มีเอกสารแสดงความสัมพันธ์ (ลูกค้าไม่ใช่ครอบครัวพนักงาน)
+   🔑 ไม่ลบไฟล์ออกจาก PENDING — สลับกลับเป็น "พนักงานทำเอง" แล้วไฟล์ต้องยังอยู่
+      แค่ไม่นับ/ไม่อัปโหลดตอนเป็นแบบแนะนำลูกค้า */
+const activeFiles = () => kindNow() === 'refer' ? PENDING.filter(p => p.tag !== 'relDoc') : PENDING;
 let LAST = { id:null, token:null, no:'', files:[] }; // ใบที่เพิ่งส่งในรอบนี้
 let STEP = 1;
 
@@ -395,6 +399,8 @@ const relNow  = () => (document.querySelector('input[name=rel]:checked')  || {})
 function syncKind(){
   const refer = kindNow() === 'refer';
   $('relBox').hidden = refer;
+  const relDocRow = $('docRows').querySelector('.docrow[data-tag=relDoc]');
+  if(relDocRow) relDocRow.hidden = refer;
   $('insHead').textContent = refer ? 'ข้อมูลลูกค้าที่แนะนำ' : 'ผู้ทำประกันภัย';
   $('insSub').textContent  = refer
     ? 'ข้อมูลของลูกค้าที่แนะนำเข้ามา — เจ้าหน้าที่จะใช้ติดต่อกลับ'
@@ -448,8 +454,8 @@ function paintSteps(){
   $('btnPrev').hidden = STEP === 1;
   $('btnNext').hidden = STEP === 3;
   $('btnSave').hidden = STEP !== 3;
-  $('saveNote').textContent = (STEP === 3 && PENDING.length)
-    ? 'แนบไฟล์ไว้ ' + PENDING.length + ' ไฟล์ — จะอัปโหลดหลังส่งคำขอ'
+  $('saveNote').textContent = (STEP === 3 && activeFiles().length)
+    ? 'แนบไฟล์ไว้ ' + activeFiles().length + ' ไฟล์ — จะอัปโหลดหลังส่งคำขอ'
     : STEP_NOTE[STEP];
   if(STEP === 3) renderReview();
 }
@@ -579,7 +585,7 @@ function renderReview(){
   if(!refer) rows.push(['ความสัมพันธ์',
     REL_LABEL[relNow()] + (relNow()==='other' && $('fRelNote').value ? ' (' + $('fRelNote').value + ')' : ''), 2]);
   rows.push(['ที่อยู่', addr || 'ยังไม่ได้กรอก', 2]);
-  rows.push(['ไฟล์แนบ', PENDING.length ? PENDING.length + ' ไฟล์' : 'ยังไม่ได้แนบ', 0]);
+  rows.push(['ไฟล์แนบ', activeFiles().length ? activeFiles().length + ' ไฟล์' : 'ยังไม่ได้แนบ', 0]);
   $('review').innerHTML = rows.map(([k,v,s])=>
     '<dt>' + esc(k) + '</dt><dd>' + esc(v)
     + (s ? ' <button type="button" class="btn sm ghost fixbtn" data-go="' + s + '">แก้</button>' : '')
@@ -605,8 +611,8 @@ function collect(){
     docCarReg:    $('docRows').querySelector('.dck[data-tag=carReg]').checked,
     docIdCard:    $('docRows').querySelector('.dck[data-tag=idCard]').checked,
     docOldPolicy: $('docRows').querySelector('.dck[data-tag=oldPolicy]').checked,
-    docRelDoc:    $('docRows').querySelector('.dck[data-tag=relDoc]').checked,
-    docRelDocNote: relDocNote ? relDocNote.value : '',
+    docRelDoc:    kindNow()!=='refer' && $('docRows').querySelector('.dck[data-tag=relDoc]').checked,
+    docRelDocNote: kindNow()!=='refer' && relDocNote ? relDocNote.value : '',
     note: $('fNote').value,
     hp: $('fHp').value,                              // กับดักบอท — คนกรอกจะว่างเสมอ
   };
@@ -655,9 +661,10 @@ $('btnSave').onclick = async ()=>{
     if(error) throw new Error(error.message || 'ส่งคำขอไม่สำเร็จ');
     LAST = { id:data.id, token:data.uploadToken, no:data.no, files:[] };
 
-    if(PENDING.length){
+    const files = activeFiles();
+    if(files.length){
       btn.textContent = 'กำลังอัปโหลดไฟล์…';
-      const u = await uploadFiles(PENDING);
+      const u = await uploadFiles(files);
       if(u.failed.length) toast('อัปโหลดไม่สำเร็จ ' + u.failed.length + ' ไฟล์: ' + u.failed[0], 'no');
     }
     showDone(data, v);
