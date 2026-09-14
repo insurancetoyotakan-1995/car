@@ -444,6 +444,10 @@ label.f .csel{width:100%}
 /* ---------- กล่องซ้อน ---------- */
 .ov{position:fixed;inset:0;background:rgba(34,28,29,.45);display:none;
   align-items:center;justify-content:center;padding:18px;z-index:100}
+/* 🔑 กล่องยืนยันต้องอยู่บนสุดเสมอ — มันถูกเปิด 'ซ้อน' กล่องอื่น (เช่น ยกเลิกการผูก LINE จากในกล่อง LINE)
+   ทุก .ov z-index เท่ากัน → ตัวที่อยู่ท้าย DOM ทับตัวก่อนหน้า กล่องยืนยันเลยโดนบังมองไม่เห็น
+   (ต่ำกว่า toast 200 · สูงกว่าเมนูดรอปดาวน์ 120) */
+#ovAsk{z-index:150}
 .ov[open]{display:flex}
 .card{background:var(--panel);border-radius:var(--r);box-shadow:0 24px 60px rgba(34,28,29,.3);
   width:100%;max-width:640px;max-height:92vh;overflow:auto;display:flex;flex-direction:column}
