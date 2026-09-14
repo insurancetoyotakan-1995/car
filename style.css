@@ -46,6 +46,12 @@
    ถ้าไม่มีบรรทัดนี้ ใส่ hidden แล้วของยังโผล่อยู่ — บทเรียนเดิมของทั้งระบบ */
 [hidden]{display:none!important}
 
+/* 🔑 ข้อความบรรทัดเดียวที่ตัดด้วย … (overflow:hidden) — เผื่อที่ให้สระ/วรรณยุกต์ไทยบน-ล่าง
+   กล่องสูงแค่ line-height ถ้าไม่เผื่อ วรรณยุกต์ซ้อน (ยื่น) กับสระล่าง (ผู้) ถูกตัดหาย 1-2px
+   padding + margin ติดลบเท่ากัน = ขนาดเลย์เอาต์ไม่เปลี่ยน แค่ขยายเขตที่วาดหมึกได้
+   เพิ่มกล่อง … ใหม่เมื่อไร ใส่ selector ไว้ที่นี่ด้วย */
+.step .t,.dname,.ld-nm,.rq-nm,.rq-sub,.rq-ag,.csel-lbl,.frow .nm{padding-block:4px;margin-block:-4px}
+
 body{margin:0;min-height:100vh;color:var(--ink);font-family:var(--font);
   font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;background:var(--bg)}
 
