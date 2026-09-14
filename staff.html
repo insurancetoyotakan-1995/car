@@ -34,29 +34,37 @@
     <div style="margin-top:14px"><button class="btn primary" id="btnIn">เข้าสู่ระบบ</button></div>
   </section>
 
-  <section class="panel" id="listPanel" hidden>
-    <h2 id="listHead">รายการคำขอทั้งหมด</h2>
-    <p class="sub">กดที่ใบเพื่อดูรายละเอียด อัปเดตสถานะ และเปิดเอกสารแนบ</p>
-    <div class="bar">
-      <input id="find" placeholder="ค้นหา เลขที่ / ชื่อผู้ทำประกัน / เบอร์โทร / ทะเบียน / ผู้แนะนำ" style="max-width:360px">
-      <label class="f" style="font-size:0">
-        <select id="fltStatus">
-          <option value="">ทุกสถานะ</option>
-          <option value="new">รอตรวจสอบ</option>
-          <option value="contacted">ติดต่อแล้ว</option>
-          <option value="quoted">เสนอราคาแล้ว</option>
-          <option value="done">ปิดการขาย</option>
-          <option value="cancelled">ยกเลิก</option>
-        </select>
-      </label>
-      <label class="f" style="font-size:0" id="agentFilterBox" hidden>
-        <select id="fltAgent"><option value="">ผู้ดูแลทุกคน</option></select>
-      </label>
-      <span class="grow"></span>
-      <button class="btn sm" id="btnReload">🔄 โหลดใหม่</button>
+  <section class="panel qpanel" id="listPanel" hidden>
+    <div class="qhead">
+      <div class="qtitle">
+        <h2 id="listHead">รายการคำขอทั้งหมด</h2>
+        <p class="sub" id="listSub">กดที่รายการเพื่อดูรายละเอียด อัปเดตสถานะ และเปิดเอกสารแนบ</p>
+      </div>
+      <button class="btn sm" id="btnReload" type="button" aria-label="โหลดรายการใหม่">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+        <span>โหลดใหม่</span></button>
     </div>
-    <div class="agstrip" id="agentStrip" hidden></div>
-    <div id="listBody"></div>
+
+    <!-- สถานะ = แท็บพร้อมตัวเลข · เห็นทันทีว่ามีงานรอกี่ใบ ไม่ต้องเปิดดรอปดาวน์ -->
+    <div class="stabs-wrap"><div class="stabs" id="stTabs" role="tablist" aria-label="กรองตามสถานะ"></div></div>
+
+    <div class="qbar">
+      <label class="qsearch">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="find" type="search" placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขที่" autocomplete="off" aria-label="ค้นหา">
+      </label>
+      <label class="f qagent" id="agentFilterBox" hidden>
+        <select id="fltAgent" aria-label="กรองตามผู้ดูแล"><option value="">ผู้ดูแลทุกคน</option></select>
+      </label>
+    </div>
+
+    <!-- ภาระงานต่อคน (บัญชีกลาง) — พับได้ จำสถานะไว้ในเครื่อง -->
+    <details class="qload" id="agentStrip" hidden>
+      <summary><span class="lb">ภาระงานเจ้าหน้าที่</span><span class="qload-sum" id="loadSum"></span></summary>
+      <div class="qload-grid" id="loadGrid"></div>
+    </details>
+
+    <div id="listBody" aria-live="polite"></div>
   </section>
 
   <div id="cfgWarn" class="panel" hidden style="border-color:#eccfc6;background:var(--bad-soft)">
@@ -109,7 +117,7 @@ const DOC_LABEL = { carReg:'สำเนาทะเบียนรถ', idCard:
 let LIST = [], FILES = {};
 /* ME = บัญชีที่ล็อกอิน {empId, role:'agent'|'admin', name}
    agent เห็นเฉพาะใบของตัวเอง (บังคับที่ RLS) · admin (บัญชีกลาง) เห็นทุกใบ + เปลี่ยนผู้ดูแลได้ */
-let ME = null, AGENTS = [];
+let ME = null, AGENTS = [], ST = '';
 const isAdmin = () => !!ME && ME.role === 'admin';
 const agentName = id => {
   if(!id) return '';
@@ -240,17 +248,22 @@ $('lgEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') $('lgPw').focu
 $('btnOut').onclick = async ()=>{
   await sb.auth.signOut();
   LIST = []; FILES = {}; ME = null; AGENTS = [];
-  $('agentFilterBox').hidden = true; $('agentStrip').hidden = true;
+  $('agentFilterBox').hidden = true; $('agentStrip').hidden = true; ST = '';
   $('listPanel').hidden = true; $('loginBox').hidden = false;
   $('whoChip').hidden = true; $('btnOut').hidden = true;
   toast('ออกจากระบบแล้ว');
 };
 
 /* ---------- รายการ ---------- */
+const ICON = {
+  clip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg>',
+  user: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18h.01"/></svg>',
+};
 async function loadList(){
-  $('listBody').innerHTML = Array.from({length:3},()=>
-    '<div class="reqcard"><span class="sk" style="width:120px;margin-bottom:8px"></span>'
-    + '<span class="sk" style="width:60%"></span></div>').join('');
+  $('listBody').innerHTML = '<div class="qgroup">' + Array.from({length:4},()=>
+    '<div class="rq rq-sk"><span class="sk" style="width:84px"></span>'
+    + '<span class="rq-main"><span class="sk" style="width:46%"></span><span class="sk" style="width:70%;margin-top:7px"></span></span></div>').join('') + '</div>';
   try{
     const { data, error } = await sb.from('ins_requests_view').select('*').order('created_at', {ascending:false});
     if(error) throw error;
@@ -261,9 +274,12 @@ async function loadList(){
     for(const x of (f.data || [])) (FILES[x.req_id] = FILES[x.req_id] || []).push(x);
     renderList();
   }catch(e){
-    $('listBody').innerHTML = '<div class="empty"><b>โหลดรายการไม่สำเร็จ</b>' + esc(e.message||'') + '</div>';
+    $('listBody').innerHTML = '<div class="empty"><b>โหลดรายการไม่สำเร็จ</b>' + esc(e.message||'')
+      + '<div style="margin-top:12px"><button class="btn sm" type="button" id="btnRetry">ลองอีกครั้ง</button></div></div>';
+    $('btnRetry').onclick = loadList;
   }
 }
+
 /* ---------- ผู้ดูแล (เฉพาะบัญชีกลาง) ---------- */
 async function loadAgents(){
   if(!isAdmin()) return;
@@ -276,65 +292,137 @@ async function loadAgents(){
   sel.value = [...sel.options].some(o=>o.value===cur) ? cur : '';
   csel(sel);
   $('agentFilterBox').hidden = false;
-  /* แถบยอดสะสมของแต่ละคน (ไม่นับใบที่ยกเลิก) — ให้เห็นว่าแจกเท่ากันจริง */
-  const strip = $('agentStrip');
-  strip.hidden = !AGENTS.length;
-  strip.innerHTML = '<span class="lb">ยอดสะสมต่อคน</span>'
-    + AGENTS.map(a=>'<button type="button" class="ag" data-emp="' + esc(a.emp_id) + '">'
-      + esc(a.name.split(' ')[0]) + ' <b>' + a.active_count + '</b></button>').join('');
-  strip.querySelectorAll('.ag').forEach(b=> b.onclick = ()=>{
+  renderLoad();
+}
+/* ภาระงาน: แท่งยาวตามยอดสะสม (ไม่นับใบยกเลิก) เทียบกับคนที่มากสุด — เห็นทันทีว่าแจกเท่ากันไหม */
+function renderLoad(){
+  const box = $('agentStrip');
+  box.hidden = !AGENTS.length;
+  if(!AGENTS.length) return;
+  /* คืนสถานะพับ/กางครั้งเดียวตอนแสดงครั้งแรก — ถ้าตั้งทุกครั้งที่วาดใหม่ แผงจะพับเองระหว่างใช้งาน */
+  if(!box.dataset.init){
+    box.dataset.init = '1';
+    try{ box.open = localStorage.getItem('staff_load_open') === '1'; }catch(e){}
+  }
+  const n = AGENTS.map(a=> +a.active_count || 0);
+  const max = Math.max(1, ...n), min = Math.min(...n), sum = n.reduce((x,y)=>x+y, 0);
+  $('loadSum').textContent = AGENTS.length + ' คน · รวม ' + sum + ' ใบ · ' + (max - min <= 1 ? 'แจกเท่ากันแล้ว' : 'ห่างกันสูงสุด ' + (max - min) + ' ใบ');
+  const ag = $('fltAgent').value;
+  $('loadGrid').innerHTML = AGENTS.map(a=>{
+    const c = +a.active_count || 0;
+    return '<button type="button" class="ld' + (ag === a.emp_id ? ' on' : '') + '" data-emp="' + esc(a.emp_id) + '" aria-pressed="' + (ag === a.emp_id) + '">'
+      + '<span class="ld-nm">' + esc(a.name) + '</span>'
+      + '<span class="ld-bar"><i style="transform:scaleX(' + (c / max).toFixed(3) + ')"></i></span>'
+      + '<span class="ld-n">' + c + '</span></button>';
+  }).join('');
+  $('loadGrid').querySelectorAll('.ld').forEach(b=> b.onclick = ()=>{
+    const sel = $('fltAgent');
     sel.value = sel.value === b.dataset.emp ? '' : b.dataset.emp;
     sel.dispatchEvent(new Event('change'));
   });
 }
+$('agentStrip').addEventListener('toggle', ()=>{
+  try{ localStorage.setItem('staff_load_open', $('agentStrip').open ? '1' : '0'); }catch(e){}
+});
 
 const norm = s => String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+const pad2 = n => String(n).padStart(2,'0');
+const dayKey = d => d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());   // ห้าม toISOString (UTC+7)
+function dayLabel(d){
+  const t = new Date(), y = new Date(); y.setDate(t.getDate() - 1);
+  if(dayKey(d) === dayKey(t)) return 'วันนี้';
+  if(dayKey(d) === dayKey(y)) return 'เมื่อวาน';
+  return d.getDate() + ' ' + TH_MON[d.getMonth()] + ' ' + (d.getFullYear()+543);
+}
+/* ใบที่ยังรอตรวจสอบนานเกิน 1 วัน = ต้องรีบโทร */
+function waitText(r){
+  if(r.status !== 'new') return '';
+  const h = (Date.now() - new Date(r.created_at).getTime()) / 36e5;
+  if(h < 24) return '';
+  return 'รอ ' + Math.floor(h / 24) + ' วัน';
+}
+const STATUS_ORDER = ['new','contacted','quoted','done','cancelled'];
+
 function renderList(){
-  const q = norm($('find').value), st = $('fltStatus').value, ag = isAdmin() ? $('fltAgent').value : '';
-  $('agentStrip').querySelectorAll('.ag').forEach(b=> b.classList.toggle('on', b.dataset.emp === ag));
-  const rows = LIST.filter(r=>{
-    if(st && r.status !== st) return false;
+  const q = norm($('find').value), ag = isAdmin() ? $('fltAgent').value : '';
+  // ใบที่ผ่านตัวกรองอื่นทั้งหมด ยกเว้นสถานะ → ใช้นับตัวเลขบนแท็บ
+  const base = LIST.filter(r=>{
     if(ag === '__none' && r.assigned_to) return false;
     if(ag && ag !== '__none' && r.assigned_to !== ag) return false;
     if(!q) return true;
-    return norm([r.no, r.insured_name, r.phone_mobile, r.car_plate, r.emp_name, agentName(r.assigned_to)].join(' ')).includes(q);
+    return norm([r.no, r.insured_name, r.phone_mobile, r.phone_mobile && r.phone_mobile.replace(/\D/g,''),
+                 r.car_plate, r.emp_name, agentName(r.assigned_to)].join(' ')).includes(q);
   });
+  const cnt = { '': base.length };
+  STATUS_ORDER.forEach(k=> cnt[k] = base.filter(r=>r.status===k).length);
+  $('stTabs').innerHTML = [['', 'ทั้งหมด'], ...STATUS_ORDER.map(k=>[k, STATUS[k]])].map(([k, lb])=>
+    '<button type="button" role="tab" class="stab st-' + (k||'all') + '" data-st="' + k + '" aria-selected="' + (ST === k) + '">'
+    + '<span>' + esc(lb) + '</span><b>' + cnt[k] + '</b></button>').join('');
+  $('stTabs').querySelectorAll('.stab').forEach(b=> b.onclick = ()=>{ ST = b.dataset.st; renderList(); });
+  if(isAdmin()) renderLoad();
+
+  const rows = base.filter(r=> !ST || r.status === ST);
   if(!rows.length){
-    $('listBody').innerHTML = '<div class="empty"><b>' + (LIST.length ? 'ไม่พบคำขอที่ตรงกับที่ค้นหา' : 'ยังไม่มีคำขอ')
-      + '</b>' + (LIST.length ? 'ลองเปลี่ยนคำค้นหรือตัวกรอง'
-         : (isAdmin() ? 'คำขอที่ส่งเข้ามาจะแสดงที่นี่' : 'ลูกค้าที่ระบบแจกให้คุณดูแลจะแสดงที่นี่')) + '</div>';
+    const filtered = LIST.length && (q || ag || ST);
+    $('listBody').innerHTML = '<div class="empty"><b>' + (filtered ? 'ไม่พบคำขอที่ตรงกับตัวกรอง' : 'ยังไม่มีคำขอ') + '</b>'
+      + (filtered ? 'ลองล้างคำค้นหรือเลือกแท็บ "ทั้งหมด"'
+         : (isAdmin() ? 'คำขอที่ลูกค้าส่งเข้ามาจะแสดงที่นี่' : 'ลูกค้าที่ระบบแจกให้คุณดูแลจะแสดงที่นี่'))
+      + (filtered ? '<div style="margin-top:12px"><button class="btn sm" type="button" id="btnClearF">ล้างตัวกรอง</button></div>' : '')
+      + '</div>';
+    if(filtered) $('btnClearF').onclick = ()=>{
+      $('find').value = ''; ST = '';
+      if(isAdmin()){ $('fltAgent').value = ''; $('fltAgent').dispatchEvent(new Event('change')); }
+      renderList();
+    };
     return;
   }
-  $('listBody').innerHTML = rows.map(r=>{
-    const nf = (FILES[r.id] || []).length;
-    return '<div class="reqcard s-' + esc(r.status) + '" data-id="' + esc(r.id) + '" tabindex="0" role="button">'
-      + '<div class="top">'
-      +   '<span class="no">' + esc(r.no) + '</span>'
-      +   '<span class="pill kind">' + (r.kind==='refer' ? '🤝 แนะนำลูกค้า' : '🚗 พนักงานทำเอง') + '</span>'
-      +   '<span class="pill ' + esc(r.status) + '">' + esc(STATUS[r.status] || r.status) + '</span>'
-      +   (nf ? '<span class="pill clip">📎 ' + nf + '</span>' : '')
-      +   (r.emp_verified ? '' : '<span class="pill quoted">⚠️ รหัสพนักงานยังไม่ยืนยัน</span>')
-      + '</div>'
-      + '<div class="nm">' + esc(r.insured_name)
-      +   ' <span style="font-weight:400;color:var(--muted)">· ' + esc(r.phone_mobile) + '</span></div>'
-      + '<div class="meta">'
-      +   '<span>' + esc((r.covers||[]).map(c=>COVERS[c]||c).join(' · ') || '—') + '</span>'
-      +   (r.car_brand||r.car_plate ? '<span>🚗 ' + esc([r.car_brand, r.car_model, r.car_plate].filter(Boolean).join(' ')) + '</span>' : '')
-      +   '<span>👤 ' + esc(r.emp_name) + '</span>'
-      +   (isAdmin() ? '<span class="' + (r.assigned_to ? '' : 'noag') + '">🧑‍💼 '
-            + esc(r.assigned_to ? agentName(r.assigned_to) : 'ยังไม่มีผู้ดูแล') + '</span>' : '')
-      +   '<span>🕒 ' + esc(thDate(r.created_at)) + '</span>'
-      + '</div></div>';
-  }).join('');
-  $('listBody').querySelectorAll('.reqcard').forEach(c=>{
-    c.onclick = ()=> openView(c.dataset.id);
-    c.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openView(c.dataset.id); } };
+
+  // จัดกลุ่มตามวันที่ส่ง
+  const groups = [];
+  rows.forEach(r=>{
+    const d = new Date(r.created_at), k = dayKey(d);
+    let g = groups[groups.length-1];
+    if(!g || g.k !== k){ g = { k, label: dayLabel(d), items: [] }; groups.push(g); }
+    g.items.push(r);
   });
+
+  $('listBody').innerHTML = groups.map(g=>
+    '<div class="qgroup"><div class="qday"><span>' + esc(g.label) + '</span><span class="qday-n">' + g.items.length + ' ใบ</span></div>'
+    + g.items.map(r=>{
+        const d = new Date(r.created_at), nf = (FILES[r.id] || []).length, wait = waitText(r);
+        const tags = [
+          esc(r.no),
+          r.kind === 'refer' ? 'แนะนำลูกค้า' : 'พนักงานทำเอง',
+          esc('โดย ' + r.emp_name),
+        ].join(' · ');
+        return '<button type="button" class="rq s-' + esc(r.status) + '" data-id="' + esc(r.id) + '">'
+          + '<span class="rq-st"><i></i>' + esc(STATUS[r.status] || r.status) + '</span>'
+          + '<span class="rq-main">'
+          +   '<span class="rq-line"><span class="rq-nm">' + esc(r.insured_name) + '</span>'
+          +     (nf ? '<span class="rq-tag" title="ไฟล์แนบ ' + nf + ' ไฟล์">' + ICON.clip + nf + '</span>' : '')
+          +     (r.emp_verified ? '' : '<span class="rq-tag warn" title="รหัสพนักงานผู้แนะนำไม่ตรงทำเนียบ">' + ICON.warn + 'รหัสยังไม่ยืนยัน</span>')
+          +   '</span>'
+          +   '<span class="rq-sub">' + tags + '</span>'
+          + '</span>'
+          + '<span class="rq-ph">' + esc(r.phone_mobile) + '</span>'
+          + (isAdmin() ? '<span class="rq-ag' + (r.assigned_to || r.status === 'done' || r.status === 'cancelled' ? '' : ' none') + '">' + ICON.user
+                + esc(r.assigned_to ? agentName(r.assigned_to) : 'ยังไม่มีผู้ดูแล') + '</span>' : '')
+          + '<span class="rq-time">' + (wait ? '<span class="rq-wait">' + esc(wait) + '</span>' : '')
+          +   pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ' น.</span>'
+          + '</button>';
+      }).join('')
+    + '</div>').join('');
+  $('listBody').classList.toggle('is-admin', isAdmin());
+  $('listBody').querySelectorAll('.rq').forEach(c=> c.onclick = ()=> openView(c.dataset.id));
 }
-$('find').addEventListener('input', renderList);
-$('fltStatus').addEventListener('change', renderList);
+let findTimer = null;
+$('find').addEventListener('input', ()=>{ clearTimeout(findTimer); findTimer = setTimeout(renderList, 120); });
 $('fltAgent').addEventListener('change', renderList);
-$('btnReload').onclick = async ()=>{ await loadAgents(); await loadList(); };
+$('btnReload').onclick = async ()=>{
+  const b = $('btnReload'); b.disabled = true; b.classList.add('spin');
+  try{ await loadAgents(); await loadList(); }
+  finally{ b.disabled = false; b.classList.remove('spin'); }
+};
 
 /* ---------- รายละเอียด ---------- */
 function openView(id){
@@ -348,8 +436,11 @@ function openView(id){
     r.addr && ('เลขที่ ' + r.addr), r.moo && ('หมู่ ' + r.moo), r.road && ('ถ.' + r.road),
     r.tambon && ('ต.' + r.tambon), r.amphoe && ('อ.' + r.amphoe), r.province && ('จ.' + r.province),
   ].filter(Boolean).join(' ') || '—';
+  /* ค่าที่เป็น {html} = ประกอบ HTML เองแล้ว (escape แล้วทุกส่วน) */
   const dl = rows => '<dl class="dl">' + rows.filter(Boolean).map(([k,v])=>
-    '<dt>' + esc(k) + '</dt><dd>' + esc(v || '—') + '</dd>').join('') + '</dl>';
+    '<dt>' + esc(k) + '</dt><dd>' + (v && v.html ? v.html : esc(v || '—')) + '</dd>').join('') + '</dl>';
+  const tel = n => n ? { html: '<a class="tel" href="tel:' + esc(String(n).replace(/[^0-9+]/g,'')) + '">' + esc(n) + '</a>' } : '';
+  const hasCar = r.car_brand || r.car_model || r.car_plate || r.car_year || (r.covers||[]).length;
   const docs = Object.entries(DOC_LABEL)
     .filter(([k])=> r['doc_' + k.replace(/[A-Z]/g, m=>'_'+m.toLowerCase())])
     .map(([,v])=>v);
@@ -358,17 +449,17 @@ function openView(id){
       '<div class="sec">ผู้ทำประกันภัย</div>'
     + dl([
         ['ชื่อ–นามสกุล', r.insured_name],
-        ['เบอร์มือถือ', r.phone_mobile],
-        ['เบอร์บ้าน', r.phone_home],
+        ['เบอร์มือถือ', tel(r.phone_mobile)],
+        ['เบอร์บ้าน', tel(r.phone_home)],
         ['ที่อยู่', addr],
         r.kind !== 'refer' ? ['ความสัมพันธ์', (RELS[r.relation]||r.relation) + (r.relation_note ? ' (' + r.relation_note + ')' : '')] : null,
       ])
-    + '<div class="sec">รถและความคุ้มครอง</div>'
+    + (!hasCar ? '' : '<div class="sec">รถและความคุ้มครอง</div>'
     + dl([
         ['รถ', [r.car_brand, r.car_model, r.car_year && ('ปี ' + r.car_year)].filter(Boolean).join(' ')],
         ['ทะเบียน', r.car_plate],
         ['ความคุ้มครอง', (r.covers||[]).map(c=>COVERS[c]||c).join(' · ')],
-      ])
+      ]))
     + '<div class="sec">' + (r.kind==='refer' ? 'ผู้แนะนำ' : 'พนักงานผู้ยื่น') + '</div>'
     + dl([
         ['ชื่อพนักงาน', r.emp_name + (r.emp_verified ? '' : '  ⚠️ รหัสไม่ตรงทำเนียบ')],
@@ -491,7 +582,9 @@ async function start(){
   $('whoChip').textContent = ME.name + (isAdmin() ? ' · ผู้ดูแล' : '');
   $('whoChip').title = u.email || '';   // จอแคบตัดด้วย ellipsis — ต้องมี title ให้อ่านเต็ม
   $('listHead').textContent = isAdmin() ? 'รายการคำขอทั้งหมด' : 'ลูกค้าที่คุณดูแล';
-  csel($('fltStatus'));
+  $('listSub').textContent = isAdmin()
+    ? 'ใบใหม่ถูกแจกให้เจ้าหน้าที่อัตโนมัติ · กดที่รายการเพื่อดูรายละเอียดหรือเปลี่ยนผู้ดูแล'
+    : 'กดที่รายการเพื่อดูรายละเอียด โทรหาลูกค้า และอัปเดตสถานะ';
   await loadAgents();
   await loadList();
 }
