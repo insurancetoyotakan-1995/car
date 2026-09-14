@@ -46,13 +46,17 @@ async function reply(replyToken: string | undefined, text: string) {
 
 async function bind(code: string, lineUserId: string): Promise<{ ok: boolean; name?: string; reason?: string }> {
   const url = env('SUPABASE_URL').replace(/\/+$/, '') + '/rest/v1/rpc/ins_line_bind_srv';
-  const key = env('SUPABASE_SERVICE_ROLE_KEY');
+  // โปรเจกต์รุ่นใหม่มีกุญแจ 2 แบบ: JWT แบบเก่า (eyJ…) หรือ secret key แบบใหม่ (sb_secret_…)
+  // 🔑 แบบใหม่ต้องส่งทาง apikey อย่างเดียว — ใส่ใน Authorization: Bearer แล้ว gateway ตีกลับว่า JWT ไม่ถูกต้อง
+  const key = env('SUPABASE_SERVICE_ROLE_KEY') || env('SUPABASE_SECRET_KEY');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', apikey: key };
+  if (key.startsWith('eyJ')) headers.Authorization = 'Bearer ' + key;
   const r = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: key, Authorization: 'Bearer ' + key },
+    headers,
     body: JSON.stringify({ p_code: code, p_line_user_id: lineUserId }),
   });
-  if (!r.ok) throw new Error('rpc ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  if (!r.ok) throw new Error('rpc ' + r.status + ' ' + (await r.text()).slice(0, 300) + ' · keyType=' + (key ? key.slice(0, 3) : 'none'));
   return await r.json();
 }
 
