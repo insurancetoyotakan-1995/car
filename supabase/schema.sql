@@ -293,6 +293,20 @@ begin
     raise exception 'กรุณากรอกเบอร์โทรศัพท์มือถือให้ครบ' using errcode = 'P0001';
   end if;
 
+  -- ที่อยู่: บังคับ บ้านเลขที่ / ตำบล / อำเภอ / จังหวัด (หมู่ / ถนน เว้นว่างได้)
+  if btrim(coalesce(payload->>'addr', '')) = '' then
+    raise exception 'กรุณากรอกบ้านเลขที่' using errcode = 'P0001';
+  end if;
+  if btrim(coalesce(payload->>'tambon', '')) = '' then
+    raise exception 'กรุณากรอกตำบล / แขวง' using errcode = 'P0001';
+  end if;
+  if btrim(coalesce(payload->>'amphoe', '')) = '' then
+    raise exception 'กรุณากรอกอำเภอ / เขต' using errcode = 'P0001';
+  end if;
+  if btrim(coalesce(payload->>'province', '')) = '' then
+    raise exception 'กรุณากรอกจังหวัด' using errcode = 'P0001';
+  end if;
+
   -- ความคุ้มครอง: เก็บเฉพาะค่าที่รู้จัก (ค่าแปลกปลอมถูกทิ้งเงียบ ไม่ถือเป็น error)
   select array_agg(distinct c) into v_covers
     from jsonb_array_elements_text(coalesce(payload->'covers', '[]'::jsonb)) c

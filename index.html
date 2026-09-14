@@ -87,12 +87,12 @@
 
       <div class="sec">ที่อยู่ที่ติดต่อได้</div>
       <div class="grid">
-        <label class="f c3">บ้านเลขที่<input id="fAddr"></label>
+        <label class="f c3">บ้านเลขที่ <span class="req">*</span><input id="fAddr"></label>
         <label class="f c2">หมู่<input id="fMoo"></label>
         <label class="f c3">ถนน<input id="fRoad"></label>
-        <label class="f c4">ตำบล / แขวง<input id="fTambon"></label>
-        <label class="f c6">อำเภอ / เขต<input id="fAmphoe"></label>
-        <label class="f c6">จังหวัด<input id="fProvince" value="กาญจนบุรี"></label>
+        <label class="f c4">ตำบล / แขวง <span class="req">*</span><input id="fTambon"></label>
+        <label class="f c6">อำเภอ / เขต <span class="req">*</span><input id="fAmphoe"></label>
+        <label class="f c6">จังหวัด <span class="req">*</span><input id="fProvince" value="กาญจนบุรี"></label>
       </div>
 
       <div id="relBox">
@@ -442,7 +442,7 @@ $('relOpts').addEventListener('change', ()=>{ syncRel(); saveDraft(); });
    ======================================================================= */
 const STEP_NOTE = {
   1: 'บันทึกร่างในเครื่องให้อัตโนมัติ',
-  2: 'ที่อยู่ไม่ครบก็ส่งได้ เจ้าหน้าที่จะถามตอนโทรกลับ',
+  2: 'ช่องที่มี * ต้องกรอก · หมู่ / ถนน เว้นว่างได้',
   3: 'ตรวจข้อมูลด้านบนอีกครั้งก่อนกดส่ง',
 };
 function stepFail(n){
@@ -455,6 +455,10 @@ function stepFail(n){
     if(!$('fName').value.trim()) return {msg:'กรุณากรอกชื่อผู้ทำประกันภัย', el:'fName'};
     if($('fMobile').value.replace(/\D/g,'').length < 9)
       return {msg:'กรุณากรอกเบอร์โทรศัพท์มือถือให้ครบ', el:'fMobile'};
+    if(!$('fAddr').value.trim())     return {msg:'กรุณากรอกบ้านเลขที่', el:'fAddr'};
+    if(!$('fTambon').value.trim())   return {msg:'กรุณากรอกตำบล / แขวง', el:'fTambon'};
+    if(!$('fAmphoe').value.trim())   return {msg:'กรุณากรอกอำเภอ / เขต', el:'fAmphoe'};
+    if(!$('fProvince').value.trim()) return {msg:'กรุณากรอกจังหวัด', el:'fProvince'};
   }
   return null;
 }

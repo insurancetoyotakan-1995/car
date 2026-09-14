@@ -3,6 +3,9 @@
 --  ฟอร์มขั้นที่ 1 เพิ่มดรอปดาวน์แผนก (ส่งมาเป็น payload.empDept)
 --  - รหัสเจอในทำเนียบ -> ใช้แผนกจากทำเนียบ (ถ้าทำเนียบว่าง ค่อยใช้ที่เลือก)
 --  - ไม่เจอในทำเนียบ -> ใช้แผนกที่เลือกในฟอร์ม (เดิมเก็บเป็นค่าว่าง)
+--  + บังคับที่อยู่: บ้านเลขที่ / ตำบล / อำเภอ / จังหวัด
+--  ⚠️ push หน้าเว็บขึ้น GitHub Pages ก่อน แล้วค่อยรันไฟล์นี้
+--     (ไม่งั้นหน้าเว็บรุ่นเก่าที่ไม่บังคับที่อยู่ จะส่งแล้วโดนตีกลับ)
 --  วิธีใช้: Supabase Dashboard -> SQL Editor -> วางทั้งไฟล์ -> Run (รันซ้ำได้)
 -- =====================================================================
 
@@ -84,6 +87,20 @@ begin
   v_mobile := regexp_replace(coalesce(payload->>'phoneMobile', ''), '[^0-9+ -]', '', 'g');
   if length(regexp_replace(v_mobile, '[^0-9]', '', 'g')) < 9 then
     raise exception 'กรุณากรอกเบอร์โทรศัพท์มือถือให้ครบ' using errcode = 'P0001';
+  end if;
+
+  -- ที่อยู่: บังคับ บ้านเลขที่ / ตำบล / อำเภอ / จังหวัด (หมู่ / ถนน เว้นว่างได้)
+  if btrim(coalesce(payload->>'addr', '')) = '' then
+    raise exception 'กรุณากรอกบ้านเลขที่' using errcode = 'P0001';
+  end if;
+  if btrim(coalesce(payload->>'tambon', '')) = '' then
+    raise exception 'กรุณากรอกตำบล / แขวง' using errcode = 'P0001';
+  end if;
+  if btrim(coalesce(payload->>'amphoe', '')) = '' then
+    raise exception 'กรุณากรอกอำเภอ / เขต' using errcode = 'P0001';
+  end if;
+  if btrim(coalesce(payload->>'province', '')) = '' then
+    raise exception 'กรุณากรอกจังหวัด' using errcode = 'P0001';
   end if;
 
   -- ความคุ้มครอง: เก็บเฉพาะค่าที่รู้จัก (ค่าแปลกปลอมถูกทิ้งเงียบ ไม่ถือเป็น error)
