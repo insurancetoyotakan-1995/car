@@ -125,6 +125,38 @@ create table if not exists public.ins_submit_log (
 );
 create index if not exists ins_submit_log_idx on public.ins_submit_log (ip, created_at desc);
 
+-- ---------------------------------------------------------------------
+-- 6) เจ้าหน้าที่ประกันที่เข้าหลังบ้านได้ (staff.html)
+--    🔑 เข้าได้เฉพาะแผนกประกัน: ต้อง "มีบัญชี Auth" + "รหัสอยู่ในตารางนี้" ทั้งคู่
+--    บัญชี Auth ตั้งอีเมลเป็น <รหัสพนักงาน>@staff.toyotakan (หน้าเว็บให้พิมพ์แค่รหัส)
+--    เพิ่มคน:   insert into public.ins_staff (emp_id, note) values ('11001246', 'ชื่อ');
+--    ปิดสิทธิ์: update public.ins_staff set active = false where emp_id = '...';
+-- ---------------------------------------------------------------------
+create table if not exists public.ins_staff (
+  emp_id      text primary key,
+  note        text not null default '',
+  active      boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+
+-- ผู้ใช้ที่ล็อกอินอยู่ = เจ้าหน้าที่ประกันหรือไม่
+-- security definer → อ่าน ins_staff ได้ ทั้งที่ตารางไม่มี policy ให้ใครเลย
+create or replace function public.is_ins_staff()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.ins_staff s
+     where s.active
+       and lower(coalesce(auth.jwt()->>'email', '')) = lower(s.emp_id) || '@staff.toyotakan'
+  );
+$$;
+revoke all on function public.is_ins_staff() from public;
+grant execute on function public.is_ins_staff() to authenticated;
+
 -- =====================================================================
 --  RLS — เปิดทุกตาราง
 --  🔒 anon ไม่ได้ policy อะไรเลย = แตะตารางตรง ๆ ไม่ได้ (ทางเข้าคือ RPC เท่านั้น)
@@ -134,32 +166,33 @@ alter table public.ins_requests   enable row level security;
 alter table public.ins_files      enable row level security;
 alter table public.ins_seq        enable row level security;
 alter table public.ins_submit_log enable row level security;
+alter table public.ins_staff      enable row level security;   -- ไม่มี policy = อ่านตรงไม่ได้เลย
 
--- เจ้าหน้าที่ = ผู้ใช้ที่ถูกเพิ่มใน Supabase Auth ด้วยมือ (Authentication → Users → Add user)
--- จึงถือว่าเชื่อถือได้ทุกคน: อ่านใบได้ทั้งหมด + อัปเดตสถานะได้
+-- เจ้าหน้าที่ = ผู้ใช้ Auth ที่รหัสอยู่ใน ins_staff (แผนกประกันเท่านั้น)
+-- 🔑 บัญชี Auth ของคนอื่น (หรือบัญชีที่หลุดสมัครเข้ามา) จะไม่เห็นอะไรเลย
 drop policy if exists staff_read_requests on public.ins_requests;
 create policy staff_read_requests on public.ins_requests
-  for select to authenticated using (true);
+  for select to authenticated using (public.is_ins_staff());
 
 drop policy if exists staff_update_requests on public.ins_requests;
 create policy staff_update_requests on public.ins_requests
-  for update to authenticated using (true) with check (true);
+  for update to authenticated using (public.is_ins_staff()) with check (public.is_ins_staff());
 
 drop policy if exists staff_delete_requests on public.ins_requests;
 create policy staff_delete_requests on public.ins_requests
-  for delete to authenticated using (true);
+  for delete to authenticated using (public.is_ins_staff());
 
 drop policy if exists staff_read_files on public.ins_files;
 create policy staff_read_files on public.ins_files
-  for select to authenticated using (true);
+  for select to authenticated using (public.is_ins_staff());
 
 drop policy if exists staff_delete_files on public.ins_files;
 create policy staff_delete_files on public.ins_files
-  for delete to authenticated using (true);
+  for delete to authenticated using (public.is_ins_staff());
 
 drop policy if exists staff_read_employees on public.employees;
 create policy staff_read_employees on public.employees
-  for select to authenticated using (true);
+  for select to authenticated using (public.is_ins_staff());
 
 -- ⚠️ upload_token ต้องไม่หลุดไปกับ select ของเจ้าหน้าที่ด้วย
 --    Postgres ไม่มี column-level RLS → ใช้ view ที่ไม่มีคอลัมน์นั้นให้หน้าเว็บเรียกแทน
@@ -438,8 +471,8 @@ security definer
 set search_path = public
 as $$
 begin
-  if auth.uid() is null then
-    raise exception 'ต้องเข้าสู่ระบบก่อน' using errcode = 'P0001';
+  if not public.is_ins_staff() then
+    raise exception 'บัญชีนี้ไม่มีสิทธิ์ (เฉพาะเจ้าหน้าที่ประกัน)' using errcode = 'P0001';
   end if;
   if p_status not in ('new','contacted','quoted','done','cancelled') then
     raise exception 'สถานะไม่ถูกต้อง' using errcode = 'P0001';
@@ -488,8 +521,8 @@ create policy ins_files_anon_insert on storage.objects
 
 drop policy if exists ins_files_staff_read on storage.objects;
 create policy ins_files_staff_read on storage.objects
-  for select to authenticated using (bucket_id = 'ins-files');
+  for select to authenticated using (bucket_id = 'ins-files' and public.is_ins_staff());
 
 drop policy if exists ins_files_staff_delete on storage.objects;
 create policy ins_files_staff_delete on storage.objects
-  for delete to authenticated using (bucket_id = 'ins-files');
+  for delete to authenticated using (bucket_id = 'ins-files' and public.is_ins_staff());

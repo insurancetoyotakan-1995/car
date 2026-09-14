@@ -24,11 +24,11 @@
 <main>
   <section class="card login panel" id="loginBox" hidden>
     <h2>เข้าสู่ระบบ</h2>
-    <p class="sub">ใบคำขอมีที่อยู่และเบอร์โทรของลูกค้า จึงเปิดดูได้เฉพาะเจ้าหน้าที่ที่ได้รับสิทธิ์
-      (บัญชีถูกสร้างไว้ให้โดยผู้ดูแลระบบ)</p>
+    <p class="sub">สำหรับเจ้าหน้าที่ประกันเท่านั้น — ใบคำขอมีที่อยู่และเบอร์โทรของลูกค้า
+      (ลืมรหัสผ่าน ติดต่อผู้ดูแลระบบให้ตั้งใหม่)</p>
     <div class="err" id="loginErr"></div>
     <div class="grid">
-      <label class="f c12">อีเมล<input id="lgEmail" type="email" autocomplete="username"></label>
+      <label class="f c12">รหัสพนักงาน<input id="lgEmail" inputmode="numeric" autocomplete="username" placeholder="เช่น 11001234"></label>
       <label class="f c12">รหัสผ่าน<input id="lgPw" type="password" autocomplete="current-password"></label>
     </div>
     <div style="margin-top:14px"><button class="btn primary" id="btnIn">เข้าสู่ระบบ</button></div>
@@ -200,16 +200,21 @@ document.addEventListener('mousedown', e=>{
 addEventListener('scroll', cselCloseAll, true);
 addEventListener('resize', cselCloseAll);
 
-/* ---------- เข้าสู่ระบบ ---------- */
+/* ---------- เข้าสู่ระบบ ----------
+   🔑 พิมพ์แค่รหัสพนักงาน → ระบบต่อท้ายเป็นอีเมลของบัญชี Auth ให้เอง
+      (บัญชีสร้างใน Supabase ด้วยอีเมล <รหัส>@staff.toyotakan — ต้องตรงกับ is_ins_staff() ใน schema.sql)
+      พิมพ์อีเมลเต็มมา (มี @) → ใช้ตามที่พิมพ์ */
+const STAFF_DOMAIN = 'staff.toyotakan';
+const toLoginEmail = v => v.includes('@') ? v : v.replace(/\s+/g,'') + '@' + STAFF_DOMAIN;
 async function signIn(){
   showErr('');
-  const email = $('lgEmail').value.trim(), password = $('lgPw').value;
-  if(!email || !password) return showErr('กรอกอีเมลและรหัสผ่าน');
+  const id = $('lgEmail').value.trim(), password = $('lgPw').value;
+  if(!id || !password) return showErr('กรอกรหัสพนักงานและรหัสผ่าน');
   $('btnIn').disabled = true;
   try{
-    const { error } = await sb.auth.signInWithPassword({ email, password });
+    const { error } = await sb.auth.signInWithPassword({ email: toLoginEmail(id), password });
     if(error) throw new Error(error.message === 'Invalid login credentials'
-      ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : error.message);
+      ? 'รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง' : error.message);
     $('lgPw').value = '';
     await start();
   }catch(e){ showErr(e.message); }
@@ -392,9 +397,19 @@ async function start(){
   const { data } = await sb.auth.getUser();
   const u = data && data.user;
   if(!u){ $('loginBox').hidden = false; $('listPanel').hidden = true; return; }
+  /* ด่านจริงคือ RLS ฝั่ง Supabase (ไม่มีสิทธิ์ = อ่านได้ 0 แถว) — ตรงนี้แค่บอกให้รู้ตัว ไม่ใช่ขึ้นรายการว่างเงียบ ๆ */
+  const chk = await sb.rpc('is_ins_staff');
+  if(chk.error || chk.data !== true){
+    await sb.auth.signOut();
+    $('loginBox').hidden = false; $('listPanel').hidden = true;
+    $('whoChip').hidden = true; $('btnOut').hidden = true;
+    showErr(chk.error ? 'ตรวจสิทธิ์ไม่สำเร็จ: ' + (chk.error.message || '') : 'บัญชีนี้ไม่มีสิทธิ์เข้าหลังบ้าน (เฉพาะเจ้าหน้าที่ประกัน)');
+    return;
+  }
   $('loginBox').hidden = true; $('listPanel').hidden = false;
   $('whoChip').hidden = false; $('btnOut').hidden = false;
-  $('whoChip').textContent = u.email || '';
+  const who = String(u.email || '').replace('@' + STAFF_DOMAIN, '');   // บัญชีรหัสพนักงาน → โชว์แค่รหัส
+  $('whoChip').textContent = who;
   $('whoChip').title = u.email || '';   // จอแคบตัดด้วย ellipsis — ต้องมี title ให้อ่านเต็ม
   csel($('fltStatus'));
   await loadList();

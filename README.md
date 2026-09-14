@@ -59,12 +59,23 @@ Repo → **Settings → Pages** → Source: **Deploy from a branch** → Branch:
 ## สร้างบัญชีให้เจ้าหน้าที่
 
 `staff.html` ใช้ Supabase Auth และ **ไม่มีปุ่มสมัครสมาชิก** โดยตั้งใจ — ผู้ดูแลสร้างบัญชีให้เท่านั้น
+เจ้าหน้าที่ **เข้าด้วยรหัสพนักงาน + รหัสผ่าน** และเข้าได้ **เฉพาะเจ้าหน้าที่ประกัน**
 
-Dashboard → **Authentication → Users → Add user**
-- ใส่อีเมล + รหัสผ่าน
-- ติ๊ก **Auto Confirm User** (ไม่ต้องยืนยันอีเมล)
+ต้องมีครบ 2 อย่างถึงจะเห็นข้อมูล:
 
-ทุกคนที่มีบัญชีจะเห็นคำขอทั้งหมดและอัปเดตสถานะได้ → **สร้างเฉพาะเจ้าหน้าที่ประกันภัยและผู้ดูแล**
+1. **รหัสอยู่ในตาราง `ins_staff`** — สร้างรายชื่อจากทำเนียบในออฟฟิศ (ตำแหน่ง/แผนกมีคำว่า "ประกัน")
+   ```
+   node scripts/export-ins-staff.cjs      → supabase/ins-staff.sql (ไม่อยู่ใน repo) → วางใน SQL Editor → Run
+   ```
+2. **บัญชี Auth** — Dashboard → **Authentication → Users → Add user**
+   - Email: `<รหัสพนักงาน>@staff.toyotakan` เช่น `11001246@staff.toyotakan` (ไม่ต้องมีอีเมลนี้จริง)
+   - ตั้งรหัสผ่าน · ติ๊ก **Auto Confirm User**
+
+มีบัญชี Auth แต่รหัสไม่อยู่ใน `ins_staff` → ล็อกอินแล้วขึ้น "บัญชีนี้ไม่มีสิทธิ์" และ RLS ไม่ให้เห็นแม้แต่แถวเดียว
+ปิดสิทธิ์คนที่ย้ายแผนก: `update public.ins_staff set active = false where emp_id = '...';`
+ลืมรหัสผ่าน: ตั้งใหม่ในหน้า Users (ส่งอีเมลรีเซ็ตไม่ได้ เพราะไม่ใช่อีเมลจริง)
+
+> แนะนำปิด **Authentication → Sign In / Providers → Allow new users to sign up** ด้วย
 
 ---
 
