@@ -390,6 +390,7 @@ async function lookupEmp(){
       $('fEmpName').removeAttribute('aria-invalid');
       if(r.dept) setDept(r.dept);                               // เติมแผนกจากทำเนียบให้ด้วย แก้ทับได้
       paintEmpChk('ok', r.name, r.dept ? '· ' + r.dept : '');
+      syncSelfName();                                           // ตัวพนักงานเอง → ชื่อผู้ทำประกันตามชื่อจากทำเนียบ
       saveDraft();
     }else{
       paintEmpChk('no', 'ไม่พบรหัสนี้ในระบบ', '— ส่งคำขอต่อได้ แต่กรุณาตรวจรหัสและกรอกชื่อให้ครบ');
@@ -461,7 +462,25 @@ function syncKind(){
   document.querySelector('.step[data-s="2"] .t').textContent = refer ? 'ลูกค้า' : 'ผู้เอาประกัน';
   syncRel();
 }
-function syncRel(){ $('relNoteBox').hidden = !(kindNow() !== 'refer' && relNow() === 'other'); }
+function syncRel(){
+  $('relNoteBox').hidden = !(kindNow() !== 'refer' && relNow() === 'other');
+  syncSelfName();
+}
+/* ความสัมพันธ์ "ตัวพนักงานเอง" → ชื่อผู้ทำประกัน = ชื่อพนักงาน (ขั้นที่ 1) ให้เอง
+   🔑 dataset.auto จำค่าที่ระบบเติมไว้ — เขียนทับ/ล้างได้เฉพาะตอนช่องยังเป็นค่าที่เราเติม
+      คนพิมพ์แก้เองแล้วห้ามแตะ · เปลี่ยนเป็นบิดา/มารดา… แล้วช่องยังเป็นชื่อพนักงาน = ล้างให้กรอกใหม่ */
+function syncSelfName(){
+  const el = $('fName'), emp = $('fEmpName').value.trim(), cur = el.value.trim();
+  if(!el.dataset.auto && cur && cur === emp) el.dataset.auto = cur;   // กู้จากร่าง
+  const untouched = !cur || cur === el.dataset.auto;
+  if(kindNow() !== 'refer' && relNow() === 'self'){
+    if(emp && untouched && cur !== emp){ el.value = emp; el.removeAttribute('aria-invalid'); }
+    if(emp && untouched) el.dataset.auto = emp;
+  }else if(cur && cur === el.dataset.auto){
+    el.value = ''; delete el.dataset.auto;
+  }
+}
+$('fEmpName').addEventListener('input', syncSelfName);
 document.querySelectorAll('input[name=kind]').forEach(r=> r.addEventListener('change', ()=>{ syncKind(); saveDraft(); }));
 $('relOpts').addEventListener('change', ()=>{ syncRel(); saveDraft(); });
 
