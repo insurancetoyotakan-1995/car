@@ -133,7 +133,7 @@ main{max-width:840px;margin:0 auto;padding:22px 20px 40px}
 label.f{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
 label.f > input,label.f > textarea,label.f > .csel{margin-top:6px}
 .bar label.f > .csel{margin-top:0}
-label.f .req{color:var(--accent-ink);font-weight:700}
+label.f .req,.doc-t .req,.panel > .sub .req{color:var(--accent-ink);font-weight:700}
 .c2{grid-column:span 2} .c3{grid-column:span 3} .c4{grid-column:span 4}
 .c5{grid-column:span 5} .c6{grid-column:span 6} .c8{grid-column:span 8} .c12{grid-column:span 12}
 
@@ -202,6 +202,9 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .docrow:has(input.dck:checked) .doc-t{color:var(--ink)}
 .doc-st{font-size:12.5px;color:var(--muted)}
 .docrow.has-files .doc-st{color:var(--good-ink);font-weight:600}
+/* กดส่งแล้วยังขาดไฟล์ที่บังคับ — กรอบแดง + ข้อความสถานะแดง จนกว่าจะแนบ (renderChips ถอด .miss) */
+.docrow.miss{border-color:var(--bad);background:var(--bad-soft)}
+.docrow.miss .doc-st{color:var(--bad-ink);font-weight:600}
 
 .docrow .note{grid-column:1 / -1;font-size:13.5px;padding:9px 11px}
 .docrow:not(:has(input.dck:checked)) .note{display:none}

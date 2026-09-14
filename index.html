@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260914-7">
+<link rel="stylesheet" href="style.css?v=20260914-8">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260914-7"></script>
+<script src="config.js?v=20260914-8"></script>
 
 <header>
   <div class="brand">
@@ -119,7 +119,7 @@
         <span class="p3-count" id="docCount"></span>
       </div>
       <p class="sub">ถ่ายรูปจากมือถือหรือเลือกไฟล์ก็ได้ (PDF / JPG / PNG ไม่เกิน 10 MB ต่อไฟล์)
-        · ยังไม่มีเอกสารตอนนี้ก็ส่งได้ แนบเพิ่มทีหลังได้</p>
+        · เอกสารที่มี <span class="req">*</span> ต้องแนบไฟล์ก่อนส่งคำขอ</p>
       <div class="docs" id="docRows"></div>
 
       <label class="f note-f">หมายเหตุเพิ่มเติม <span class="optl">(ไม่บังคับ)</span>
@@ -218,11 +218,13 @@ const cfgReady = !!(CFG.url && CFG.anonKey
   && !CFG.url.includes('YOUR-PROJECT-REF') && !CFG.anonKey.includes('YOUR-ANON-KEY'));
 const sb = cfgReady ? createClient(CFG.url, CFG.anonKey) : null;
 
+/* [tag, ชื่อ, บังคับแนบไฟล์] — 3 ตัวแรกต้องแนบไฟล์ก่อนส่ง (ผู้ใช้สั่ง 2026-09-14) ทั้ง 2 แบบคำขอ
+   ⚠️ บังคับได้แค่ฝั่งหน้าเว็บ: ไฟล์อัปโหลด "หลัง" ins_submit (ต้องมี id ของใบก่อน) เซิร์ฟเวอร์จึงเช็คตอนยื่นไม่ได้ */
 const DOC_TYPES = [
-  ['carReg',    'สำเนาทะเบียนรถ'],
-  ['idCard',    'สำเนาบัตรประชาชนผู้ทำประกัน'],
-  ['oldPolicy', 'สำเนากรมธรรม์เดิม'],
-  ['relDoc',    'เอกสารแสดงความสัมพันธ์'],
+  ['carReg',    'สำเนาทะเบียนรถ', true],
+  ['idCard',    'สำเนาบัตรประชาชนผู้ทำประกัน', true],
+  ['oldPolicy', 'สำเนากรมธรรม์เดิม', true],
+  ['relDoc',    'เอกสารแสดงความสัมพันธ์', false],
 ];
 const MAX_FILE = 10 * 1024 * 1024;
 const MAX_FILES = 8;
@@ -491,7 +493,7 @@ $('relOpts').addEventListener('change', ()=>{ syncRel(); saveDraft(); });
 const STEP_NOTE = {
   1: 'บันทึกร่างในเครื่องให้อัตโนมัติ',
   2: 'ช่องที่มี * ต้องกรอก · หมู่ / ถนน เว้นว่างได้',
-  3: 'ตรวจข้อมูลด้านบนอีกครั้งก่อนกดส่ง',
+  3: 'แนบเอกสารที่มี * ให้ครบ แล้วตรวจข้อมูลก่อนกดส่ง',
 };
 function stepFail(n){
   if(n === 1){
@@ -508,12 +510,20 @@ function stepFail(n){
     if(!$('fAmphoe').value.trim())   return {msg:'กรุณากรอกอำเภอ / เขต', el:'fAmphoe'};
     if(!$('fProvince').value.trim()) return {msg:'กรุณากรอกจังหวัด', el:'fProvince'};
   }
+  if(n === 3){
+    for(const [tag, label, req] of DOC_TYPES){
+      if(!req || activeFiles().some(p=> p.tag === tag)) continue;
+      const row = $('docRows').querySelector('.docrow[data-tag="' + tag + '"]');
+      if(row) row.classList.add('miss');
+      return {msg:'กรุณาแนบไฟล์' + label, el: row ? row.querySelector('input[type=file]') : 'docRows'};
+    }
+  }
   return null;
 }
 function showFail(bad, atStep){
   STEP = atStep; paintSteps();
   toast(bad.msg, 'no');
-  let el = $(bad.el);
+  let el = typeof bad.el === 'string' ? $(bad.el) : bad.el;
   /* select ถูกซ่อน โฟกัสไม่ได้ → ชี้ไปที่ปุ่มดรอปดาวน์ของเราแทน */
   if(el.tagName === 'SELECT' && el.closest('.csel')) el = el.closest('.csel').__btn;
   el.setAttribute('aria-invalid','true');
@@ -628,10 +638,11 @@ function addFiles(tag, list){
 }
 
 function renderDocRows(){
-  $('docRows').innerHTML = DOC_TYPES.map(([tag,label])=>
-    '<div class="docrow" data-tag="' + tag + '">'
+  $('docRows').innerHTML = DOC_TYPES.map(([tag,label,req])=>
+    '<div class="docrow' + (req ? ' req-doc' : '') + '" data-tag="' + tag + '">'
     + '<label class="doc-main"><input type="checkbox" class="dck" data-tag="' + tag + '">'
-    +   '<span class="doc-txt"><span class="doc-t">' + esc(label) + '</span>'
+    +   '<span class="doc-txt"><span class="doc-t">' + esc(label)
+    +     (req ? ' <span class="req" aria-label="ต้องแนบ">*</span>' : '') + '</span>'
     +   '<span class="doc-st" data-st="' + tag + '"></span></span></label>'
     + '<label class="pick">' + ICO_UP + '<span>แนบไฟล์</span>'
     +   '<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple data-tag="' + tag + '"></label>'
@@ -660,7 +671,7 @@ addEventListener('dragover', e=>{ if(!e.target.closest || !e.target.closest('.do
 addEventListener('drop',     e=>{ if(!e.target.closest || !e.target.closest('.docrow')) e.preventDefault(); });
 
 function renderChips(){
-  DOC_TYPES.forEach(([tag])=>{
+  DOC_TYPES.forEach(([tag,,req])=>{
     const row = $('docRows').querySelector('.docrow[data-tag="' + tag + '"]');
     if(!row) return;
     const box = row.querySelector('[data-chips]');
@@ -685,7 +696,9 @@ function renderChips(){
     });
     const st = row.querySelector('.doc-st');
     row.classList.toggle('has-files', mine.length > 0);
+    if(mine.length) row.classList.remove('miss');
     st.textContent = mine.length ? '✓ แนบแล้ว ' + mine.length + ' ไฟล์'
+                   : req ? 'ยังไม่ได้แนบ · ต้องแนบก่อนส่ง'
                    : ck.checked ? 'มีเอกสาร · ยังไม่ได้แนบ ส่งให้ทีหลังได้'
                    : 'ยังไม่ได้แนบ';
   });
@@ -716,10 +729,10 @@ function renderReview(){
     + (go ? '<button type="button" class="rv-edit" data-go="' + go + '">แก้ไข</button>' : '')
     + '</div><dl class="rv-dl">' + body + '</dl></section>';   // ⚠️ ห้ามใช้ <header> — กฎ header ของแถบหัวหน้าเว็บจะทับเป็นพื้นเข้ม
 
-  const docs = DOC_TYPES.filter(([tag])=> !(refer && tag === 'relDoc')).map(([tag, label])=>{
+  const docs = DOC_TYPES.filter(([tag])=> !(refer && tag === 'relDoc')).map(([tag, label, req])=>{
     const nf = activeFiles().filter(p=> p.tag === tag).length;
     const ck = $('docRows').querySelector('.dck[data-tag="' + tag + '"]');
-    return [label, nf ? 'แนบ ' + nf + ' ไฟล์' : (ck && ck.checked ? 'ส่งให้ทีหลัง' : '')];
+    return [label, nf ? 'แนบ ' + nf + ' ไฟล์' : req ? '⚠ ยังไม่ได้แนบ (ต้องแนบ)' : (ck && ck.checked ? 'ส่งให้ทีหลัง' : '')];
   }).filter(([,v])=> v);
 
   $('review').innerHTML =
@@ -792,7 +805,7 @@ async function uploadFiles(items){
 $('btnSave').onclick = async ()=>{
   if(!sb) return toast('ยังตั้งค่าเชื่อมฐานข้อมูลไม่เสร็จ (ดู config.js)', 'no');
   /* ตรวจย้อนทุกขั้นอีกครั้ง — เผื่อผู้ใช้กดกลับไปลบค่าทิ้งหลังผ่านขั้นนั้นไปแล้ว */
-  for(let i=1;i<=2;i++){
+  for(let i=1;i<=3;i++){
     const bad = stepFail(i);
     if(bad){ showFail(bad, i); return; }
   }
