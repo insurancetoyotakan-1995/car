@@ -131,6 +131,7 @@ create index if not exists ins_submit_log_idx on public.ins_submit_log (ip, crea
 --    บัญชี Auth ตั้งอีเมลเป็น <รหัสพนักงาน>@staff.toyotakan (หน้าเว็บให้พิมพ์แค่รหัส)
 --    เพิ่มคน:   insert into public.ins_staff (emp_id, note) values ('11001246', 'ชื่อ');
 --    ปิดสิทธิ์: update public.ins_staff set active = false where emp_id = '...';
+--    บัญชีกลางที่ใช้อีเมลจริง: ใส่อีเมลเต็มใน emp_id เช่น ('insurance@toyotakan.co.th', 'บัญชีกลางแผนกประกัน')
 -- ---------------------------------------------------------------------
 create table if not exists public.ins_staff (
   emp_id      text primary key,
@@ -151,7 +152,8 @@ as $$
   select exists (
     select 1 from public.ins_staff s
      where s.active
-       and lower(coalesce(auth.jwt()->>'email', '')) = lower(s.emp_id) || '@staff.toyotakan'
+       -- รหัสพนักงาน → <รหัส>@staff.toyotakan · ใส่อีเมลเต็มใน emp_id ได้ด้วย (บัญชีกลาง เช่น insurance@toyotakan.co.th)
+       and lower(coalesce(auth.jwt()->>'email', '')) in (lower(s.emp_id) || '@staff.toyotakan', lower(s.emp_id))
   );
 $$;
 revoke all on function public.is_ins_staff() from public;
