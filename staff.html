@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260914-9">
-<script src="config.js?v=20260914-9"></script>
+<link rel="stylesheet" href="style.css?v=20260914-10">
+<script src="config.js?v=20260914-10"></script>
 
 <header class="staffbar">
   <div class="brand">
@@ -19,6 +19,7 @@
   <span class="spacer"></span>
   <span class="who-chip" id="whoChip" hidden></span>
   <a class="hbtn" href="index.html">📝 ฟอร์มยื่นคำขอ</a>
+  <button class="hbtn" id="btnLine" type="button" hidden>🔗 แจ้งเตือน LINE</button>
   <button class="hbtn" id="btnOut" hidden>ออกจากระบบ</button>
 </header>
 
@@ -90,7 +91,19 @@
   </div>
 </div>
 
+<!-- ผูก LINE: QR แอดเพื่อน + รหัส 6 หลัก → ส่งรหัสในแชท OA (webhook อยู่ที่เซิร์ฟเวอร์ใบสำคัญจ่ายในออฟฟิศ) -->
+<div class="ov" id="ovLine">
+  <div class="card" style="max-width:440px">
+    <div class="hd"><h3>🔗 แจ้งเตือนผ่าน LINE</h3>
+      <p id="lnSub">รับแจ้งเตือนทันทีเมื่อมีลูกค้าใหม่ที่คุณดูแล</p></div>
+    <div class="bd" id="lnBody"></div>
+    <div class="ft"><button class="btn danger" id="lnUnlink" hidden>ยกเลิกการผูก</button>
+      <span class="grow"></span><button class="btn" id="lnClose">ปิด</button></div>
+  </div>
+</div>
+
 <div id="toasts"></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
 <script type="module">
 /* ==========================================================================
@@ -264,7 +277,7 @@ $('btnOut').onclick = async ()=>{
   LIST = []; FILES = {}; ME = null; AGENTS = [];
   $('agentFilterBox').hidden = true; $('agentStrip').hidden = true; ST = '';
   $('listPanel').hidden = true; $('loginBox').hidden = false;
-  $('whoChip').hidden = true; $('btnOut').hidden = true;
+  $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
   toast('ออกจากระบบแล้ว');
 };
 
@@ -574,6 +587,84 @@ async function openFile(path){
   }catch(e){ toast(e.message || 'เปิดไฟล์ไม่สำเร็จ', 'no'); }
 }
 
+/* ---------- ผูก LINE ----------
+   ขอรหัส 6 หลัก (ins_line_code) → เจ้าหน้าที่ส่งรหัสในแชท OA → เซิร์ฟเวอร์ในออฟฟิศเรียก ins_line_bind
+   ระหว่างเปิดกล่องไว้ ถามสถานะทุก 4 วิ — ผูกสำเร็จแล้วเปลี่ยนเป็นหน้าสำเร็จเอง ไม่ต้องกดอะไร */
+let lineTimer = null, lineExp = 0;
+function paintLineBtn(linked){
+  $('btnLine').textContent = linked ? '✅ LINE' : '🔗 แจ้งเตือน LINE';
+  $('btnLine').title = linked ? 'ผูก LINE แล้ว — กดเพื่อดูหรือยกเลิก' : 'ผูก LINE เพื่อรับแจ้งเตือนลูกค้าใหม่';
+}
+async function lineStatus(){
+  const { data, error } = await sb.rpc('ins_line_status');
+  if(error) throw error;
+  return !!(data && data.linked);
+}
+function qrSvg(url){
+  try{
+    const q = qrcode(0, 'M'); q.addData(url); q.make();
+    return q.createSvgTag({ cellSize: 5, margin: 20, scalable: true });   // ขอบขาว 4 ช่องตามมาตรฐาน QR
+  }catch(e){ return ''; }
+}
+function stopLinePoll(){ clearInterval(lineTimer); lineTimer = null; }
+function closeLine(){ stopLinePoll(); $('ovLine').removeAttribute('open'); }
+function showLinked(){
+  stopLinePoll();
+  paintLineBtn(true);
+  $('lnSub').textContent = 'บัญชีนี้ผูก LINE แล้ว';
+  $('lnBody').innerHTML = '<div class="ln-ok"><b>✅ เปิดแจ้งเตือนแล้ว</b>'
+    + '<span>เมื่อมีคำขอประกันที่ระบบให้คุณดูแล จะมีข้อความเข้า LINE ทันที</span></div>';
+  $('lnUnlink').hidden = false;
+}
+async function openLine(){
+  $('lnUnlink').hidden = true;
+  $('lnSub').textContent = 'รับแจ้งเตือนทันทีเมื่อมีลูกค้าใหม่ที่คุณดูแล';
+  $('lnBody').innerHTML = '<p class="ln-wait">กำลังโหลด…</p>';
+  $('ovLine').setAttribute('open','');
+  try{
+    if(await lineStatus()) return showLinked();
+    const { data, error } = await sb.rpc('ins_line_code');
+    if(error) throw error;
+    const add = (window.SUPA && window.SUPA.lineAddUrl) || '';
+    lineExp = Date.now() + (data.expiresInMin || 10) * 60000;
+    $('lnBody').innerHTML =
+        '<ol class="ln-steps">'
+      + '<li><b>เพิ่มเพื่อน LINE OA ของบริษัท</b>'
+      +   (add ? '<div class="ln-qr">' + qrSvg(add) + '</div>'
+               + '<a class="btn sm" href="' + esc(add) + '" target="_blank" rel="noopener">เปิดใน LINE (บนมือถือ)</a>' : '')
+      + '</li>'
+      + '<li><b>พิมพ์รหัสนี้ส่งในแชท OA</b>'
+      +   '<div class="ln-code" aria-label="รหัสผูก LINE">' + esc(data.code) + '</div>'
+      +   '<span class="ln-exp" id="lnExp"></span></li>'
+      + '</ol>'
+      + '<p class="ln-wait" aria-live="polite">⏳ รอรับรหัสจาก LINE… ผูกสำเร็จแล้วหน้านี้จะเปลี่ยนเอง</p>';
+    const tick = async ()=>{
+      const left = Math.max(0, Math.round((lineExp - Date.now()) / 1000));
+      const el = $('lnExp');
+      if(el) el.textContent = left ? 'ใช้ได้อีก ' + Math.floor(left/60) + ':' + pad2(left%60) + ' นาที · ใช้ได้ครั้งเดียว'
+                                   : 'รหัสหมดอายุแล้ว — ปิดแล้วกดปุ่มใหม่เพื่อขอรหัสใหม่';
+      if(!left){ stopLinePoll(); return; }
+      if(Math.round((lineExp - Date.now())/1000) % 4 === 0){
+        try{ if(await lineStatus()){ showLinked(); toast('ผูก LINE เรียบร้อย', 'ok'); } }catch(e){}
+      }
+    };
+    stopLinePoll(); tick(); lineTimer = setInterval(tick, 1000);
+  }catch(e){
+    $('lnBody').innerHTML = '<p class="ln-wait" style="color:var(--bad-ink)">ขอรหัสไม่สำเร็จ: ' + esc(e.message || '') + '</p>';
+  }
+}
+$('btnLine').onclick = openLine;
+$('lnClose').onclick = closeLine;
+$('ovLine').addEventListener('mousedown', e=>{ if(e.target === $('ovLine')) closeLine(); });
+addEventListener('keydown', e=>{ if(e.key === 'Escape' && $('ovLine').hasAttribute('open') && !askResolve) closeLine(); });
+$('lnUnlink').onclick = async ()=>{
+  const ok = await ask({ title:'ยกเลิกการผูก LINE', msg:'จะไม่ได้รับแจ้งเตือนลูกค้าใหม่ทาง LINE อีก จนกว่าจะผูกใหม่', okText:'ยกเลิกการผูก' });
+  if(!ok) return;
+  const { error } = await sb.rpc('ins_line_unlink');
+  if(error) return toast(error.message || 'ยกเลิกไม่สำเร็จ', 'no');
+  paintLineBtn(false); closeLine(); toast('ยกเลิกการผูก LINE แล้ว', 'ok');
+};
+
 /* ---------- เริ่มทำงาน ---------- */
 async function start(){
   const { data } = await sb.auth.getUser();
@@ -584,7 +675,7 @@ async function start(){
   if(chk.error || chk.data !== true){
     await sb.auth.signOut();
     $('loginBox').hidden = false; $('listPanel').hidden = true;
-    $('whoChip').hidden = true; $('btnOut').hidden = true;
+    $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
     showErr(chk.error ? 'ตรวจสิทธิ์ไม่สำเร็จ: ' + (chk.error.message || '') : 'บัญชีนี้ไม่มีสิทธิ์เข้าหลังบ้าน (เฉพาะเจ้าหน้าที่ประกัน)');
     return;
   }
@@ -592,7 +683,8 @@ async function start(){
   ME = (w.data && w.data.empId) ? w.data
      : { empId: String(u.email||'').replace('@' + STAFF_DOMAIN, ''), role: 'agent', name: u.email || '' };
   $('loginBox').hidden = true; $('listPanel').hidden = false;
-  $('whoChip').hidden = false; $('btnOut').hidden = false;
+  $('whoChip').hidden = false; $('btnOut').hidden = false; $('btnLine').hidden = false;
+  lineStatus().then(paintLineBtn).catch(()=>{});   // ปุ่มบอกสถานะ ✅ ถ้าผูกแล้ว
   $('whoChip').textContent = ME.name + (isAdmin() ? ' · ผู้ดูแล' : '');
   $('whoChip').title = u.email || '';   // จอแคบตัดด้วย ellipsis — ต้องมี title ให้อ่านเต็ม
   $('listHead').textContent = isAdmin() ? 'รายการคำขอทั้งหมด' : 'ลูกค้าที่คุณดูแล';

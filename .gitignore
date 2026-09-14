@@ -9,3 +9,6 @@ supabase/employees.sql
 
 # รายชื่อผู้มีสิทธิ์เข้าหลังบ้าน (สร้างใหม่ได้ด้วย scripts/export-ins-staff.cjs)
 supabase/ins-staff.sql
+
+# hash ของกุญแจผูก LINE (ตัวจริงอยู่ใน backend/.env ของเซิร์ฟเวอร์ในออฟฟิศ)
+supabase/line-bind-secret.sql

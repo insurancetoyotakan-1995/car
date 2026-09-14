@@ -559,6 +559,8 @@ label.f .csel{width:100%}
   .staffbar .who-chip{flex:1 1 0;min-width:0;text-align:center;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .staffbar .hbtn{flex:0 0 auto}
+  /* มีปุ่ม LINE เพิ่มมา → 4 ชิ้นไม่พอแถวเดียว แถบหัวสูง 176px · ลิงก์กลับฟอร์มแทบไม่ได้ใช้บนมือถือ ซ่อนไว้ */
+  .staffbar a.hbtn[href="index.html"]{display:none}
   main{padding:16px 14px 30px}
   .panel{padding:18px 16px}
   .kinds{grid-template-columns:1fr}
@@ -591,3 +593,20 @@ label.f .csel{width:100%}
   input[type=checkbox]:checked::after{left:6px;top:2.5px}
   .done-no{font-size:22px;padding:11px 20px}
 }
+
+/* ---------- ผูก LINE (staff.html) ---------- */
+.ln-steps{margin:0;padding:0;list-style:none;counter-reset:ln;display:flex;flex-direction:column;gap:16px}
+.ln-steps li{counter-increment:ln;position:relative;padding-left:34px;display:flex;flex-direction:column;align-items:flex-start;gap:9px}
+.ln-steps li::before{content:counter(ln);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;
+  background:var(--accent);color:#fff;font-size:12.5px;font-weight:700;display:grid;place-items:center}
+.ln-steps b{font-size:14px;color:var(--ink);line-height:1.5}
+.ln-qr{width:176px;height:176px;background:#fff;border:1px solid var(--line);border-radius:var(--r-sm);padding:4px}
+.ln-qr svg{width:100%;height:100%;display:block}
+.ln-code{font-family:var(--font-head);font-size:34px;font-weight:600;letter-spacing:.22em;color:var(--accent-ink);
+  background:var(--accent-soft);border:1px dashed var(--red-200);border-radius:var(--r-sm);padding:6px 16px 6px 22px;
+  font-variant-numeric:tabular-nums;user-select:all}
+.ln-exp{font-size:12.5px;color:var(--muted)}
+.ln-wait{font-size:13px;color:var(--muted);margin:16px 0 0;line-height:1.6}
+.ln-ok{display:flex;flex-direction:column;gap:6px;background:var(--good-soft);border:1px solid #cfe3ca;
+  border-radius:var(--r-sm);padding:14px 16px;color:var(--good-ink);font-size:13.5px;line-height:1.6}
+.ln-ok b{font-size:15px}

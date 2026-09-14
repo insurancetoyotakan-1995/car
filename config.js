@@ -13,4 +13,6 @@
 window.SUPA = {
   url:     'https://wpbjjiaheoquhigmqynz.supabase.co',
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwYmpqaWFoZW9xdWhpZ21xeW56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxOTkxNjQsImV4cCI6MjEwNDc3NTE2NH0.7V9mXlHJN8NYzOuytqzmgXIH2th1rc7w-dvBabAvEN4',
+  // ลิงก์แอดเพื่อน LINE OA (ตัวเดียวกับระบบใบสำคัญจ่าย) — ใช้ทำ QR ในหน้าผูก LINE ของเจ้าหน้าที่
+  lineAddUrl: 'https://line.me/R/ti/p/@380zeynm',
 };
