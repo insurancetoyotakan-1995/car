@@ -3,6 +3,7 @@
 --  วิธีติดตั้ง: เปิด Supabase Dashboard → SQL Editor → วางไฟล์นี้ทั้งไฟล์ → Run
 --  ⚠️ แล้วรัน supabase/migrate-2026-09-14-assign.sql ต่อ (แจกผู้ดูแล + เจ้าหน้าที่เห็นเฉพาะใบตัวเอง)
 --     ไฟล์นั้นทับ ins_submit / ins_set_status / policy ของเจ้าหน้าที่ในไฟล์นี้
+--  ⚠️ แล้วรัน supabase/migrate-2026-09-14-done-contact.sql (ins_submit รุ่นล่าสุด + ins_staff.phone)
 --  รันซ้ำได้ (idempotent) — ใช้ IF NOT EXISTS / DROP ... IF EXISTS ทุกที่
 --
 --  🔑 หลักความปลอดภัยของไฟล์นี้

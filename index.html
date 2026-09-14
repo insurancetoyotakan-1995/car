@@ -145,9 +145,15 @@
   <div id="tabDone" hidden>
     <section class="panel done">
       <div class="done-ic" aria-hidden="true">✓</div>
-      <h2>ส่งคำขอเรียบร้อยแล้ว</h2>
-      <p class="sub">เจ้าหน้าที่ประกันภัยจะติดต่อกลับตามเบอร์ที่ให้ไว้ · กรุณาจดเลขที่คำขอไว้อ้างอิง</p>
+      <h2 id="doneTitle">ส่งคำขอเรียบร้อยแล้ว</h2>
+      <p class="sub" id="doneMsg">เจ้าหน้าที่ประกันภัยจะติดต่อกลับตามเบอร์ที่ให้ไว้ · กรุณาจดเลขที่คำขอไว้อ้างอิง</p>
       <div class="done-no" id="doneNo">—</div>
+      <!-- แบบพนักงานทำเอง: บอกเจ้าหน้าที่ประกันที่ระบบสุ่มให้ดูแล -->
+      <div class="done-contact" id="doneContact" hidden>
+        <span class="lb">เจ้าหน้าที่ประกันที่ดูแลคำขอนี้</span>
+        <span class="nm" id="doneAgName"></span>
+        <a class="btn primary" id="doneAgTel" hidden>โทรหาเจ้าหน้าที่</a>
+      </div>
       <dl class="dl" id="doneSum"></dl>
       <div class="done-files">
         <div class="sec">เอกสารแนบ</div>
@@ -722,6 +728,29 @@ $('btnSave').onclick = async ()=>{
 /* ---------- หน้า "ส่งสำเร็จ" ---------- */
 function showDone(d, v){
   $('doneNo').textContent = d.no || '—';
+  /* 2 ข้อความตามแบบคำขอ (ผู้ใช้กำหนด)
+     - พนักงานทำเอง → ส่งสำเร็จ + ให้พนักงานติดต่อเจ้าหน้าที่ประกันที่ระบบสุ่มได้
+     - แนะนำลูกค้า → คนกรอกคือลูกค้า ให้รอเจ้าหน้าที่ติดต่อกลับ (ไม่โชว์ชื่อเจ้าหน้าที่) */
+  const ag = d.kind !== 'refer' ? d.assignee : null;
+  $('doneContact').hidden = !ag;
+  if(ag){
+    $('doneTitle').textContent = 'ส่งคำขอเรียบร้อยแล้ว';
+    $('doneMsg').textContent = 'กรุณาติดต่อเจ้าหน้าที่ประกันด้านล่าง พร้อมแจ้งเลขที่คำขอนี้';
+    $('doneAgName').textContent = ag.name || '—';
+    const ph = String(ag.phone || '').trim();
+    $('doneAgTel').hidden = !ph;
+    if(ph){
+      $('doneAgTel').href = 'tel:' + ph.replace(/[^0-9+]/g,'');
+      $('doneAgTel').textContent = 'โทร ' + ph;
+    }
+  }else if(d.kind === 'refer'){
+    $('doneTitle').textContent = 'ส่งคำขอเรียบร้อยแล้ว';
+    $('doneMsg').textContent = 'กรุณารอเจ้าหน้าที่ประกันภัยติดต่อกลับตามเบอร์ที่ให้ไว้ · จดเลขที่คำขอไว้อ้างอิง';
+  }else{
+    // พนักงานทำเอง แต่ยังไม่มีเจ้าหน้าที่ในระบบให้แจก
+    $('doneTitle').textContent = 'ส่งคำขอเรียบร้อยแล้ว';
+    $('doneMsg').textContent = 'เจ้าหน้าที่ประกันภัยจะติดต่อกลับตามเบอร์ที่ให้ไว้ · กรุณาจดเลขที่คำขอไว้อ้างอิง';
+  }
   $('doneSum').innerHTML = [
     ['แบบคำขอ', d.kind==='refer' ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง'],
     ['ผู้ทำประกัน', d.insuredName],
