@@ -49,9 +49,13 @@
           <option value="cancelled">ยกเลิก</option>
         </select>
       </label>
+      <label class="f" style="font-size:0" id="agentFilterBox" hidden>
+        <select id="fltAgent"><option value="">ผู้ดูแลทุกคน</option></select>
+      </label>
       <span class="grow"></span>
       <button class="btn sm" id="btnReload">🔄 โหลดใหม่</button>
     </div>
+    <div class="agstrip" id="agentStrip" hidden></div>
     <div id="listBody"></div>
   </section>
 
@@ -103,6 +107,16 @@ const STATUS = { new:'รอตรวจสอบ', contacted:'ติดต่�
 const DOC_LABEL = { carReg:'สำเนาทะเบียนรถ', idCard:'สำเนาบัตรประชาชนผู้ทำประกัน', oldPolicy:'สำเนากรมธรรม์เดิม', relDoc:'เอกสารแสดงความสัมพันธ์' };
 
 let LIST = [], FILES = {};
+/* ME = บัญชีที่ล็อกอิน {empId, role:'agent'|'admin', name}
+   agent เห็นเฉพาะใบของตัวเอง (บังคับที่ RLS) · admin (บัญชีกลาง) เห็นทุกใบ + เปลี่ยนผู้ดูแลได้ */
+let ME = null, AGENTS = [];
+const isAdmin = () => !!ME && ME.role === 'admin';
+const agentName = id => {
+  if(!id) return '';
+  if(ME && id === ME.empId) return ME.name;
+  const a = AGENTS.find(x=>x.emp_id===id);
+  return a ? a.name : id;
+};
 
 /* ⚠️ ห้ามใช้ toISOString() หาวันที่ — ไทยเป็น UTC+7 ช่วงเช้ามืดจะได้วันของเมื่อวาน */
 function thDate(iso){
@@ -225,7 +239,8 @@ $('lgPw').addEventListener('keydown', e=>{ if(e.key==='Enter') signIn(); });
 $('lgEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') $('lgPw').focus(); });
 $('btnOut').onclick = async ()=>{
   await sb.auth.signOut();
-  LIST = []; FILES = {};
+  LIST = []; FILES = {}; ME = null; AGENTS = [];
+  $('agentFilterBox').hidden = true; $('agentStrip').hidden = true;
   $('listPanel').hidden = true; $('loginBox').hidden = false;
   $('whoChip').hidden = true; $('btnOut').hidden = true;
   toast('ออกจากระบบแล้ว');
@@ -249,17 +264,45 @@ async function loadList(){
     $('listBody').innerHTML = '<div class="empty"><b>โหลดรายการไม่สำเร็จ</b>' + esc(e.message||'') + '</div>';
   }
 }
+/* ---------- ผู้ดูแล (เฉพาะบัญชีกลาง) ---------- */
+async function loadAgents(){
+  if(!isAdmin()) return;
+  const { data, error } = await sb.rpc('ins_agents');
+  if(error){ toast('โหลดรายชื่อผู้ดูแลไม่สำเร็จ: ' + (error.message||''), 'no'); return; }
+  AGENTS = data || [];
+  const sel = $('fltAgent'), cur = sel.value;
+  sel.innerHTML = '<option value="">ผู้ดูแลทุกคน</option><option value="__none">ยังไม่มีผู้ดูแล</option>'
+    + AGENTS.map(a=>'<option value="' + esc(a.emp_id) + '">' + esc(a.name) + ' (' + a.active_count + ')</option>').join('');
+  sel.value = [...sel.options].some(o=>o.value===cur) ? cur : '';
+  csel(sel);
+  $('agentFilterBox').hidden = false;
+  /* แถบยอดสะสมของแต่ละคน (ไม่นับใบที่ยกเลิก) — ให้เห็นว่าแจกเท่ากันจริง */
+  const strip = $('agentStrip');
+  strip.hidden = !AGENTS.length;
+  strip.innerHTML = '<span class="lb">ยอดสะสมต่อคน</span>'
+    + AGENTS.map(a=>'<button type="button" class="ag" data-emp="' + esc(a.emp_id) + '">'
+      + esc(a.name.split(' ')[0]) + ' <b>' + a.active_count + '</b></button>').join('');
+  strip.querySelectorAll('.ag').forEach(b=> b.onclick = ()=>{
+    sel.value = sel.value === b.dataset.emp ? '' : b.dataset.emp;
+    sel.dispatchEvent(new Event('change'));
+  });
+}
+
 const norm = s => String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
 function renderList(){
-  const q = norm($('find').value), st = $('fltStatus').value;
+  const q = norm($('find').value), st = $('fltStatus').value, ag = isAdmin() ? $('fltAgent').value : '';
+  $('agentStrip').querySelectorAll('.ag').forEach(b=> b.classList.toggle('on', b.dataset.emp === ag));
   const rows = LIST.filter(r=>{
     if(st && r.status !== st) return false;
+    if(ag === '__none' && r.assigned_to) return false;
+    if(ag && ag !== '__none' && r.assigned_to !== ag) return false;
     if(!q) return true;
-    return norm([r.no, r.insured_name, r.phone_mobile, r.car_plate, r.emp_name].join(' ')).includes(q);
+    return norm([r.no, r.insured_name, r.phone_mobile, r.car_plate, r.emp_name, agentName(r.assigned_to)].join(' ')).includes(q);
   });
   if(!rows.length){
     $('listBody').innerHTML = '<div class="empty"><b>' + (LIST.length ? 'ไม่พบคำขอที่ตรงกับที่ค้นหา' : 'ยังไม่มีคำขอ')
-      + '</b>' + (LIST.length ? 'ลองเปลี่ยนคำค้นหรือตัวกรองสถานะ' : 'คำขอที่ส่งเข้ามาจะแสดงที่นี่') + '</div>';
+      + '</b>' + (LIST.length ? 'ลองเปลี่ยนคำค้นหรือตัวกรอง'
+         : (isAdmin() ? 'คำขอที่ส่งเข้ามาจะแสดงที่นี่' : 'ลูกค้าที่ระบบแจกให้คุณดูแลจะแสดงที่นี่')) + '</div>';
     return;
   }
   $('listBody').innerHTML = rows.map(r=>{
@@ -278,6 +321,8 @@ function renderList(){
       +   '<span>' + esc((r.covers||[]).map(c=>COVERS[c]||c).join(' · ') || '—') + '</span>'
       +   (r.car_brand||r.car_plate ? '<span>🚗 ' + esc([r.car_brand, r.car_model, r.car_plate].filter(Boolean).join(' ')) + '</span>' : '')
       +   '<span>👤 ' + esc(r.emp_name) + '</span>'
+      +   (isAdmin() ? '<span class="' + (r.assigned_to ? '' : 'noag') + '">🧑‍💼 '
+            + esc(r.assigned_to ? agentName(r.assigned_to) : 'ยังไม่มีผู้ดูแล') + '</span>' : '')
       +   '<span>🕒 ' + esc(thDate(r.created_at)) + '</span>'
       + '</div></div>';
   }).join('');
@@ -288,7 +333,8 @@ function renderList(){
 }
 $('find').addEventListener('input', renderList);
 $('fltStatus').addEventListener('change', renderList);
-$('btnReload').onclick = loadList;
+$('fltAgent').addEventListener('change', renderList);
+$('btnReload').onclick = async ()=>{ await loadAgents(); await loadList(); };
 
 /* ---------- รายละเอียด ---------- */
 function openView(id){
@@ -331,6 +377,19 @@ function openView(id){
         ['สาขา', r.emp_branch],
         r.emp_typed_name ? ['ชื่อที่ผู้กรอกพิมพ์มา', r.emp_typed_name] : null,
       ])
+    + '<div class="sec">ผู้ดูแลลูกค้า</div>'
+    + (isAdmin()
+        ? '<div class="grid" style="gap:11px;align-items:end">'
+          + '<label class="f c8">เจ้าหน้าที่ที่ดูแลใบนี้<select id="vAg">'
+          +   '<option value="">— ยังไม่มีผู้ดูแล —</option>'
+          +   AGENTS.map(a=>'<option value="' + esc(a.emp_id) + '"' + (a.emp_id===r.assigned_to?' selected':'') + '>'
+                + esc(a.name) + ' · ดูแลอยู่ ' + a.active_count + ' ใบ</option>').join('')
+          + '</select></label>'
+          + '<div class="c4"><button class="btn" id="vSaveAg" style="width:100%">เปลี่ยนผู้ดูแล</button></div>'
+          + '</div>'
+          + (r.assigned_at ? '<p class="agnote">แจกให้เมื่อ ' + esc(thDate(r.assigned_at)) + '</p>' : '')
+        : '<p style="font-size:13.5px;margin:0">คุณ (' + esc(ME ? ME.name : '') + ')'
+          + (r.assigned_at ? ' <span style="color:var(--muted)">· ได้รับเมื่อ ' + esc(thDate(r.assigned_at)) + '</span>' : '') + '</p>')
     + (r.note ? '<div class="sec">หมายเหตุจากผู้ยื่น</div><p style="font-size:13.5px;margin:0;white-space:pre-line">' + esc(r.note) + '</p>' : '')
     + '<div class="sec">เอกสารแนบ</div>'
     + (docs.length ? '<p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">แจ้งว่ามี: ' + esc(docs.join(' · '))
@@ -347,6 +406,24 @@ function openView(id){
 
   renderFiles(r);
   csel($('vSt'));
+  if(isAdmin()){
+    csel($('vAg'));
+    $('vSaveAg').onclick = async ()=>{
+      const emp = $('vAg').value || null;
+      if(emp === (r.assigned_to || null)) return toast('ยังเป็นผู้ดูแลคนเดิม');
+      $('vSaveAg').disabled = true;
+      try{
+        const { error } = await sb.rpc('ins_assign', { p_req: r.id, p_emp: emp });
+        if(error) throw error;
+        r.assigned_to = emp; r.assigned_at = emp ? new Date().toISOString() : null;
+        await loadAgents();
+        renderList();
+        openView(r.id);                                   // วาดใหม่ให้ยอดในดรอปดาวน์ตรงกับที่เพิ่งเปลี่ยน
+        toast(emp ? 'เปลี่ยนผู้ดูแลเป็น ' + agentName(emp) + ' แล้ว' : 'เอาผู้ดูแลออกแล้ว', 'ok');
+      }catch(e){ toast(e.message || 'เปลี่ยนผู้ดูแลไม่สำเร็จ', 'no'); }
+      finally{ const b=$('vSaveAg'); if(b) b.disabled = false; }
+    };
+  }
   $('vSaveSt').onclick = async ()=>{
     $('vSaveSt').disabled = true;
     try{
@@ -406,12 +483,16 @@ async function start(){
     showErr(chk.error ? 'ตรวจสิทธิ์ไม่สำเร็จ: ' + (chk.error.message || '') : 'บัญชีนี้ไม่มีสิทธิ์เข้าหลังบ้าน (เฉพาะเจ้าหน้าที่ประกัน)');
     return;
   }
+  const w = await sb.rpc('ins_whoami');
+  ME = (w.data && w.data.empId) ? w.data
+     : { empId: String(u.email||'').replace('@' + STAFF_DOMAIN, ''), role: 'agent', name: u.email || '' };
   $('loginBox').hidden = true; $('listPanel').hidden = false;
   $('whoChip').hidden = false; $('btnOut').hidden = false;
-  const who = String(u.email || '').replace('@' + STAFF_DOMAIN, '');   // บัญชีรหัสพนักงาน → โชว์แค่รหัส
-  $('whoChip').textContent = who;
+  $('whoChip').textContent = ME.name + (isAdmin() ? ' · ผู้ดูแล' : '');
   $('whoChip').title = u.email || '';   // จอแคบตัดด้วย ellipsis — ต้องมี title ให้อ่านเต็ม
+  $('listHead').textContent = isAdmin() ? 'รายการคำขอทั้งหมด' : 'ลูกค้าที่คุณดูแล';
   csel($('fltStatus'));
+  await loadAgents();
   await loadList();
 }
 if(!cfgReady){ $('cfgWarn').hidden = false; }
