@@ -16,5 +16,5 @@ window.SUPA = {
   // ลิงก์แอดเพื่อน LINE OA "แจ้งเตือนทำประกันภัย" (แยกจาก OA ใบสำคัญจ่าย) — ใช้ทำ QR ในหน้าผูก LINE
   // หาได้ที่ LINE Official Account Manager → เพิ่มเพื่อน · รูปแบบ https://line.me/R/ti/p/@xxxxxxx
   // ว่าง = หน้าผูก LINE ขึ้นข้อความให้ขอลิงก์จากผู้ดูแลแทน QR
-  lineAddUrl: '',
+  lineAddUrl: 'https://line.me/R/ti/p/@560lwdcw',
 };
