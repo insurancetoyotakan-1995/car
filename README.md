@@ -86,28 +86,33 @@ Repo → **Settings → Pages** → Source: **Deploy from a branch** → Branch:
 - ใส่เบอร์เจ้าหน้าที่ให้หน้าส่งสำเร็จมีปุ่มโทร: `update public.ins_staff set phone = '081-234-5678' where emp_id = '11001019';`
 - ปิดคนที่ลา/ย้ายออกจากการแจก: `update public.ins_staff set active = false where emp_id = '...';` (ใบเดิมของเขาต้องให้บัญชีกลางย้ายให้คนอื่น)
 
-### แจ้งเตือนผ่าน LINE OA
-ใช้ OA ตัวเดียวกับระบบใบสำคัญจ่ายในออฟฟิศ
+### แจ้งเตือนผ่าน LINE OA "แจ้งเตือนทำประกันภัย"
+OA ของตัวเอง **แยกจาก OA ระบบใบสำคัญจ่าย** · ทำงานบน Supabase ทั้งหมด ไม่พึ่งเครื่องในออฟฟิศ
 - **ใบใหม่เข้ามา** → เจ้าหน้าที่ที่ระบบสุ่มให้ดูแลได้ข้อความ (เลขที่ · ชื่อ · เบอร์ · ผู้แนะนำ · ลิงก์เปิดใบนั้นใน `staff.html`)
 - **บัญชีกลางย้ายผู้ดูแล** → คนใหม่ได้ข้อความ
-- บัญชี `role = admin` ที่ใส่ `line_user_id` ไว้ ได้สรุปทุกใบใหม่
+- บัญชี `role = admin` ที่ผูก LINE ไว้ ได้สรุปทุกใบใหม่
+- **เจ้าหน้าที่ผูก LINE เอง:** `staff.html` → ปุ่ม **🔗 แจ้งเตือน LINE** → แอด OA จาก QR → พิมพ์รหัส 6 หลักส่งในแชท → หน้าเปลี่ยนเป็น "เปิดแจ้งเตือนแล้ว" เอง
+
+| ส่วน | ไฟล์ / ที่อยู่ |
+|---|---|
+| ส่งแจ้งเตือน | trigger + pg_net · `supabase/migrate-2026-09-14-line-notify.sql` · token ใน Vault `line_channel_token` |
+| ขอรหัส / ผูก | `supabase/migrate-2026-09-14-line-link.sql` |
+| รับ webhook | Edge Function `supabase/functions/line-webhook/index.ts` (ตรวจลายเซ็น LINE) |
 
 ติดตั้งครั้งเดียว:
-1. SQL Editor → วาง `supabase/migrate-2026-09-14-line-notify.sql` → Run
-2. ใส่ Channel access token (คนดูแลระบบใส่เอง — ห้ามใส่ใน repo):
+1. สร้าง LINE OA + Messaging API channel ใหม่ (LINE Developers) · ปิด Auto-reply / Greeting ใน OA Manager
+2. SQL Editor → วาง `migrate-2026-09-14-line-notify.sql` → Run · แล้ว `migrate-2026-09-14-line-link.sql` → Run
+3. token ของ OA ใหม่ใน Vault (ครั้งแรกใช้ `create_secret` · มีอยู่แล้วใช้ `update_secret`):
    ```sql
-   select vault.create_secret('<Channel access token>', 'line_channel_token');
+   select vault.update_secret(id, '<Channel access token>') from vault.secrets where name = 'line_channel_token';
    ```
-3. `node scripts/export-ins-staff.cjs` → วาง `supabase/ins-staff.sql` → Run
-   (ดึง LINE ของเจ้าหน้าที่ที่ผูกไว้ในระบบใบสำคัญจ่ายแล้ว)
+4. Edge Functions → สร้างฟังก์ชัน `line-webhook` วางโค้ดจาก `index.ts` → **ปิด Verify JWT** → Deploy
+5. Edge Functions → Secrets: `LINE_CHANNEL_SECRET` (Channel secret) · `LINE_CHANNEL_TOKEN` (Channel access token)
+6. LINE Developers → Messaging API → Webhook URL `https://<project-ref>.supabase.co/functions/v1/line-webhook` → Verify → เปิด **Use webhook**
+7. ใส่ลิงก์แอดเพื่อนใน `config.js` → `lineAddUrl` (ใช้ทำ QR)
 
-**เจ้าหน้าที่ผูก LINE เอง:** `staff.html` → ปุ่ม **🔗 แจ้งเตือน LINE** → แอด OA จาก QR → พิมพ์รหัส 6 หลักส่งในแชท → หน้าเปลี่ยนเป็น "เปิดแจ้งเตือนแล้ว" เอง
-- OA มี webhook ได้ที่เดียว (เซิร์ฟเวอร์ใบสำคัญจ่ายในออฟฟิศ) → รหัสที่ไม่ใช่ของใบสำคัญจ่าย เซิร์ฟเวอร์ส่งต่อไป `rpc ins_line_bind` พร้อมกุญแจ `INS_LINE_BIND_SECRET` (ใน `backend/.env`) · ในฐานเก็บแค่ SHA-256
-- ติดตั้ง: วาง `supabase/migrate-2026-09-14-line-link.sql` → Run · วาง `supabase/line-bind-secret.sql` (ไม่อยู่ใน repo) → Run · รีสตาร์ตเซิร์ฟเวอร์ใบสำคัญจ่าย
-- ถ้าเซิร์ฟเวอร์ในออฟฟิศ/อุโมงค์ LINE ดับ → ผูกใหม่ไม่ได้ชั่วคราว (แจ้งเตือนของคนที่ผูกแล้วยังส่งได้ เพราะ Supabase ยิงตรง)
-
-ทางเลือก: ดึงคนที่ผูก LINE ในระบบใบสำคัญจ่ายไว้แล้วมาใช้เลย → รันขั้นที่ 3 ใหม่
 ยังไม่ใส่ token = ไม่ส่งอะไรเลย · ส่งไม่สำเร็จไม่กระทบการยื่นคำขอ
+⚠️ `scripts/export-ins-staff.cjs` ไม่แตะ `line_user_id` — รันซ้ำไม่ลบการผูก
 ดูผลการส่งล่าสุด: `select status_code, content from net._http_response order by created desc limit 5;`
 
 ---

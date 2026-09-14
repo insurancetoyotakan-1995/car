@@ -1,5 +1,5 @@
 -- =====================================================================
---  migrate 2026-09-14 (5) : แจ้งเตือนผ่าน LINE OA (OA ตัวเดียวกับระบบใบสำคัญจ่าย)
+--  migrate 2026-09-14 (5) : แจ้งเตือนผ่าน LINE OA "แจ้งเตือนทำประกันภัย" (แยกจาก OA ใบสำคัญจ่าย)
 --
 --  ใครได้ข้อความ:
 --  - ใบใหม่เข้ามา        → เจ้าหน้าที่ที่ระบบสุ่มให้ดูแล ("มีคำขอใหม่ ระบบให้คุณดูแล")
@@ -17,8 +17,7 @@
 --       select vault.create_secret('<Channel access token>', 'line_channel_token');
 --     เปลี่ยน token ภายหลัง:
 --       select vault.update_secret(id, '<token ใหม่>') from vault.secrets where name = 'line_channel_token';
---  3) ใส่ LINE ของเจ้าหน้าที่: node scripts/export-ins-staff.cjs → วาง supabase/ins-staff.sql → Run
---     (ดึง lineUserId ของคนที่ผูก LINE ในระบบใบสำคัญจ่ายแล้ว — OA เดียวกัน userId จึงใช้ร่วมกันได้)
+--  3) รัน migrate-2026-09-14-line-link.sql — เจ้าหน้าที่ผูก LINE เองจาก staff.html
 -- =====================================================================
 
 create extension if not exists pg_net;

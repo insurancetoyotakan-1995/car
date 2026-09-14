@@ -1,21 +1,18 @@
 -- =====================================================================
---  migrate 2026-09-14 (6) : เจ้าหน้าที่ผูก LINE เองจากหลังบ้าน (เหมือนระบบใบสำคัญจ่าย)
+--  migrate 2026-09-14 (6) : เจ้าหน้าที่ผูก LINE เองจากหลังบ้าน
+--  ใช้ LINE OA "แจ้งเตือนทำประกันภัย" ของตัวเอง (แยกจาก OA ระบบใบสำคัญจ่าย)
 --
 --  ขั้นตอนของเจ้าหน้าที่:
 --  staff.html → ปุ่ม "🔗 แจ้งเตือน LINE" → ได้รหัส 6 หลัก (อายุ 10 นาที ใช้ครั้งเดียว)
 --  → แอด LINE OA แล้วพิมพ์รหัสส่งในแชท
---  → LINE ยิง webhook ไปเซิร์ฟเวอร์ใบสำคัญจ่ายในออฟฟิศ (OA มี webhook ได้ที่เดียว)
---  → รหัสไม่ใช่ของใบสำคัญจ่าย → เซิร์ฟเวอร์เรียก ins_line_bind พร้อมกุญแจลับ → เก็บ line_user_id
+--  → LINE ยิง webhook ไป Edge Function `line-webhook` (supabase/functions/line-webhook/index.ts)
+--  → ฟังก์ชันตรวจลายเซ็น LINE แล้วเรียก ins_line_bind_srv ด้วย service role → เก็บ line_user_id
 --
---  🔒 ทำไม ins_line_bind ต้องมีกุญแจ: เรียกได้จาก anon (เซิร์ฟเวอร์ไม่มีบัญชี Auth)
---     ถ้าไม่มีกุญแจ ใครก็เดารหัส 6 หลักแล้วผูก LINE ตัวเองเข้ากับเจ้าหน้าที่ = ได้ข้อมูลลูกค้าทาง LINE
---     ในฐานเก็บแค่ SHA-256 ของกุญแจ (ตัวจริงอยู่ใน backend/.env ของออฟฟิศเท่านั้น)
+--  ⚠️ LINE userId ผูกกับ Provider — OA คนละตัว (คนละ Provider) ได้ userId คนละค่า
+--     → ล้าง line_user_id ที่เคยดึงมาจาก OA ใบสำคัญจ่ายทิ้งครั้งเดียว (มีธงกันล้างซ้ำ)
 --
---  วิธีใช้: ต้องรัน migrate-2026-09-14-line-notify.sql มาก่อน
---  1) วางไฟล์นี้ → Run (รันซ้ำได้)
---  2) วาง supabase/line-bind-secret.sql (ไม่อยู่ใน repo) → Run
+--  ต้องรัน migrate-2026-09-14-line-notify.sql มาก่อน · รันซ้ำได้
 -- =====================================================================
-
 create table if not exists public.ins_settings (
   k text primary key,
   v text not null
@@ -77,33 +74,41 @@ begin
 end;
 $$;
 
--- ---------- ผูก (เซิร์ฟเวอร์ในออฟฟิศเรียก) ----------
-create or replace function public.ins_line_bind(p_code text, p_line_user_id text, p_secret text)
+-- ---------- 1) เลิกใช้ทางเดิม (กุญแจร่วมกับเซิร์ฟเวอร์ในออฟฟิศ) ----------
+drop function if exists public.ins_line_bind(text, text, text);
+delete from public.ins_settings where k = 'line_bind_hash';
+
+-- ---------- 2) ล้าง LINE ที่มาจาก OA ใบสำคัญจ่าย (ครั้งเดียว) ----------
+do $$
+begin
+  if not exists (select 1 from public.ins_settings where k = 'line_oa') then
+    update public.ins_staff set line_user_id = null;
+    delete from public.ins_line_codes;
+    insert into public.ins_settings (k, v) values ('line_oa', 'insurance');
+  end if;
+end $$;
+
+-- ---------- 3) ผูก — เรียกได้เฉพาะ service role (Edge Function) ----------
+create or replace function public.ins_line_bind_srv(p_code text, p_line_user_id text)
 returns jsonb
 language plpgsql volatile security definer
-set search_path = public, extensions
+set search_path = public
 as $$
 declare
-  v_hash text;
   v_emp  text;
   v_name text;
 begin
-  select v into v_hash from public.ins_settings where k = 'line_bind_hash';
-  if v_hash is null or coalesce(p_secret, '') = ''
-     or encode(extensions.digest(p_secret, 'sha256'), 'hex') <> v_hash then
-    return jsonb_build_object('ok', false, 'reason', 'auth');
-  end if;
   if coalesce(p_line_user_id, '') !~ '^U[0-9a-f]{32}$' then
     return jsonb_build_object('ok', false, 'reason', 'line');
   end if;
-
   delete from public.ins_line_codes
    where code = btrim(coalesce(p_code, '')) and expires_at >= now()
-   returning emp_id into v_emp;                                    -- รหัสใช้ได้ครั้งเดียว
+   returning emp_id into v_emp;                                     -- รหัสใช้ได้ครั้งเดียว
   if v_emp is null then
     return jsonb_build_object('ok', false, 'reason', 'code');
   end if;
-
+  -- LINE เดียวผูกได้บัญชีเดียว (ย้ายจากคนเดิมมาคนใหม่)
+  update public.ins_staff set line_user_id = null where line_user_id = p_line_user_id and emp_id <> v_emp;
   update public.ins_staff set line_user_id = p_line_user_id where emp_id = v_emp and active;
   if not found then
     return jsonb_build_object('ok', false, 'reason', 'code');
@@ -115,11 +120,12 @@ begin
 end;
 $$;
 
+revoke all on function public.ins_line_bind_srv(text, text) from public, anon, authenticated;
+grant execute on function public.ins_line_bind_srv(text, text) to service_role;
+
 revoke all on function public.ins_line_code()                  from public, anon;
 revoke all on function public.ins_line_status()                from public, anon;
 revoke all on function public.ins_line_unlink()                from public, anon;
-revoke all on function public.ins_line_bind(text, text, text)  from public;
 grant execute on function public.ins_line_code()   to authenticated;
 grant execute on function public.ins_line_status() to authenticated;
 grant execute on function public.ins_line_unlink() to authenticated;
-grant execute on function public.ins_line_bind(text, text, text) to anon;

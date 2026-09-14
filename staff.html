@@ -91,7 +91,7 @@
   </div>
 </div>
 
-<!-- ผูก LINE: QR แอดเพื่อน + รหัส 6 หลัก → ส่งรหัสในแชท OA (webhook อยู่ที่เซิร์ฟเวอร์ใบสำคัญจ่ายในออฟฟิศ) -->
+<!-- ผูก LINE: QR แอดเพื่อน + รหัส 6 หลัก → ส่งรหัสในแชท OA (OA "แจ้งเตือนทำประกันภัย" → Edge Function line-webhook) -->
 <div class="ov" id="ovLine">
   <div class="card" style="max-width:440px">
     <div class="hd"><h3>🔗 แจ้งเตือนผ่าน LINE</h3>
@@ -588,7 +588,7 @@ async function openFile(path){
 }
 
 /* ---------- ผูก LINE ----------
-   ขอรหัส 6 หลัก (ins_line_code) → เจ้าหน้าที่ส่งรหัสในแชท OA → เซิร์ฟเวอร์ในออฟฟิศเรียก ins_line_bind
+   ขอรหัส 6 หลัก (ins_line_code) → เจ้าหน้าที่ส่งรหัสในแชท OA → Edge Function line-webhook เรียก ins_line_bind_srv
    ระหว่างเปิดกล่องไว้ ถามสถานะทุก 4 วิ — ผูกสำเร็จแล้วเปลี่ยนเป็นหน้าสำเร็จเอง ไม่ต้องกดอะไร */
 let lineTimer = null, lineExp = 0;
 function paintLineBtn(linked){
@@ -629,9 +629,10 @@ async function openLine(){
     lineExp = Date.now() + (data.expiresInMin || 10) * 60000;
     $('lnBody').innerHTML =
         '<ol class="ln-steps">'
-      + '<li><b>เพิ่มเพื่อน LINE OA ของบริษัท</b>'
+      + '<li><b>เพิ่มเพื่อน LINE OA "แจ้งเตือนทำประกันภัย"</b>'
       +   (add ? '<div class="ln-qr">' + qrSvg(add) + '</div>'
-               + '<a class="btn sm" href="' + esc(add) + '" target="_blank" rel="noopener">เปิดใน LINE (บนมือถือ)</a>' : '')
+               + '<a class="btn sm" href="' + esc(add) + '" target="_blank" rel="noopener">เปิดใน LINE (บนมือถือ)</a>'
+               : '<span class="ln-exp">ขอลิงก์หรือ QR ของ OA จากผู้ดูแลระบบ</span>')
       + '</li>'
       + '<li><b>พิมพ์รหัสนี้ส่งในแชท OA</b>'
       +   '<div class="ln-code" aria-label="รหัสผูก LINE">' + esc(data.code) + '</div>'
