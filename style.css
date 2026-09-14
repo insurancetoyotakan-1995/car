@@ -282,6 +282,9 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
   text-align:left;width:100%;min-height:44px;transition:border-color .15s var(--ease)}
 .csel-btn:hover{border-color:#c6b59c}
 .csel-btn[disabled]{opacity:.55;cursor:default;background:var(--panel-2)}
+/* ยังไม่เลือก = ขึ้นข้อความชวนเลือกสีจาง เหมือน placeholder ของช่องกรอก */
+.csel.is-empty .csel-lbl{color:var(--muted)}
+.csel-btn[aria-invalid="true"]{border-color:var(--bad);background:#fffafa}
 .csel-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .csel-ar{width:8px;height:8px;flex:0 0 auto;border-right:1.5px solid var(--muted);
   border-bottom:1.5px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px);

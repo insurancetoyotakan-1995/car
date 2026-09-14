@@ -60,6 +60,9 @@
           <input id="fEmpId" inputmode="numeric" autocomplete="off" placeholder="เช่น 11001234"></label>
         <label class="f c8">ชื่อ–นามสกุลพนักงาน <span class="req">*</span>
           <input id="fEmpName" autocomplete="off" placeholder="พิมพ์ชื่อ หรือรอระบบเติมให้"></label>
+        <label class="f c6">แผนก <span class="req">*</span>
+          <select id="fDept"><option value="">— เลือกแผนก —</option></select>
+        </label>
         <label class="f c6">สาขา
           <select id="fBranch">
             <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
@@ -356,6 +359,7 @@ async function lookupEmp(){
     if(r && r.found){
       $('fEmpName').value = r.name;                             // เติมชื่อให้ แก้ทับได้
       $('fEmpName').removeAttribute('aria-invalid');
+      if(r.dept) setDept(r.dept);                               // เติมแผนกจากทำเนียบให้ด้วย แก้ทับได้
       paintEmpChk('ok', r.name, r.dept ? '· ' + r.dept : '');
       saveDraft();
     }else{
@@ -368,6 +372,25 @@ $('fEmpId').addEventListener('input', ()=>{
   clearTimeout(empTimer);
   empTimer = setTimeout(lookupEmp, 350);
 });
+
+/* ---------- แผนก ----------
+   🔑 รายชื่อต้องตรงกับ DEPARTMENTS ของระบบในออฟฟิศ (admin.html / login.html / ใบสำคัญจ่าย.html)
+      ค่าที่ไม่อยู่ในลิสต์ (มาจากทำเนียบหรือร่างเก่า) → ใส่เป็นตัวเลือกเพิ่ม ไม่ให้หายเงียบ */
+const DEPARTMENTS = ['เจ้าของกิจการ','เลขานุการ','ส่วนกลาง Center','แผนกขาย','แผนกบริการ','แผนกตัวถังและสี',
+  'แผนกอะไหล่','แผนกการเงิน','แผนกบัญชี','แผนกบุคคล','แผนกลูกค้าสัมพันธ์','แผนกการตลาดประชาสัมพันธ์',
+  'แผนก Digital Marketing','แผนกอาคารสถานที่และรปภ.','แผนกแม่บ้าน'];
+DEPARTMENTS.forEach(d=>{ const o = document.createElement('option'); o.value = o.textContent = d; $('fDept').appendChild(o); });
+function setDept(v){
+  const sel = $('fDept');
+  v = String(v || '').trim();
+  if(v && ![...sel.options].some(o=> o.value === v)){
+    const o = document.createElement('option'); o.value = o.textContent = v; sel.appendChild(o);
+  }
+  sel.value = v;
+  const box = sel.closest('.csel');
+  if(box){ cselLabel(box); box.classList.toggle('is-empty', !v); box.__btn.removeAttribute('aria-invalid'); }
+}
+$('fDept').addEventListener('change', ()=>{ setDept($('fDept').value); saveDraft(); });
 
 /* ---------- เบอร์โทร: ใส่ขีดให้เองขณะพิมพ์ ----------
    🔑 คงตำแหน่งเคอร์เซอร์โดยนับ "จำนวนตัวเลขก่อนเคอร์เซอร์" ไม่ใช่ตำแหน่งตัวอักษร
@@ -426,6 +449,7 @@ function stepFail(n){
   if(n === 1){
     if(!$('fEmpId').value.trim())   return {msg:'กรุณากรอกรหัสพนักงาน', el:'fEmpId'};
     if(!$('fEmpName').value.trim()) return {msg:'กรุณากรอกชื่อ–นามสกุลพนักงาน', el:'fEmpName'};
+    if(!$('fDept').value)           return {msg:'กรุณาเลือกแผนก', el:'fDept'};
   }
   if(n === 2){
     if(!$('fName').value.trim()) return {msg:'กรุณากรอกชื่อผู้ทำประกันภัย', el:'fName'};
@@ -437,7 +461,9 @@ function stepFail(n){
 function showFail(bad, atStep){
   STEP = atStep; paintSteps();
   toast(bad.msg, 'no');
-  const el = $(bad.el);
+  let el = $(bad.el);
+  /* select ถูกซ่อน โฟกัสไม่ได้ → ชี้ไปที่ปุ่มดรอปดาวน์ของเราแทน */
+  if(el.tagName === 'SELECT' && el.closest('.csel')) el = el.closest('.csel').__btn;
   el.setAttribute('aria-invalid','true');
   el.focus();
   el.scrollIntoView({block:'center'});
@@ -503,7 +529,7 @@ function saveDraft(){
   clearTimeout(draftTimer);
   draftTimer = setTimeout(()=>{
     try{
-      const d = { kind: kindNow(), rel: relNow(), branch: $('fBranch').value, at: Date.now() };
+      const d = { kind: kindNow(), rel: relNow(), branch: $('fBranch').value, dept: $('fDept').value, at: Date.now() };
       TEXT_FIELDS.forEach(id=>{ const e = $(id); if(e && e.value) d[id] = e.value; });
       localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
     }catch(e){ /* โหมดส่วนตัว/พื้นที่เต็ม → ข้ามไป ฟอร์มยังใช้ได้ */ }
@@ -522,6 +548,7 @@ function restoreDraft(){
   const r = document.querySelector('input[name=rel][value="' + (d.rel||'self') + '"]');
   if(r) r.checked = true;
   if(d.branch) $('fBranch').value = d.branch;
+  if(d.dept) setDept(d.dept);
   return TEXT_FIELDS.some(id=> d[id]);
 }
 $('tabForm').addEventListener('input', saveDraft);
@@ -578,7 +605,8 @@ function renderReview(){
   const rows = [
     ['แบบคำขอ', refer ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง', 1],
     [refer ? 'พนักงานผู้แนะนำ' : 'พนักงาน',
-      ($('fEmpName').value || '—') + ' · ' + ($('fEmpId').value || '—') + ' · ' + $('fBranch').value, 1],
+      [($('fEmpName').value || '—'), ($('fEmpId').value || '—'), $('fDept').value, $('fBranch').value]
+        .filter(Boolean).join(' · '), 1],
     [refer ? 'ลูกค้า' : 'ผู้ทำประกัน', $('fName').value || '—', 2],
     ['เบอร์ติดต่อ', [$('fMobile').value, $('fHome').value].filter(Boolean).join(' · ') || '—', 2],
   ];
@@ -598,6 +626,7 @@ function collect(){
   return {
     kind: kindNow(),
     empId: $('fEmpId').value, empName: $('fEmpName').value, empBranch: $('fBranch').value,
+    empDept: $('fDept').value,
     insuredName: $('fName').value, phoneMobile: $('fMobile').value, phoneHome: $('fHome').value,
     addr: $('fAddr').value, moo: $('fMoo').value, road: $('fRoad').value,
     tambon: $('fTambon').value, amphoe: $('fAmphoe').value, province: $('fProvince').value,
@@ -721,7 +750,7 @@ function resetForm(keepEmp){
   ['fName','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe',
    'fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
   $('fProvince').value = 'กาญจนบุรี';
-  if(!keepEmp){ $('fEmpId').value=''; $('fEmpName').value=''; paintEmpChk(null); }
+  if(!keepEmp){ $('fEmpId').value=''; $('fEmpName').value=''; setDept(''); paintEmpChk(null); }
   document.querySelector('input[name=kind][value=self]').checked = true;
   document.querySelector('input[name=rel][value=self]').checked = true;
   document.querySelectorAll('[aria-invalid]').forEach(e=> e.removeAttribute('aria-invalid'));
@@ -739,6 +768,8 @@ $('btnReset').onclick = async ()=>{
 /* ---------- เริ่มทำงาน ---------- */
 renderDocRows(); renderChips();
 csel($('fBranch'));
+csel($('fDept'));
+setDept('');
 const hadDraft = restoreDraft();
 cselLabel($('fBranch').closest('.csel'));            // ร่างอาจเปลี่ยนสาขา — ป้ายบนปุ่มต้องตามด้วย
 syncKind();

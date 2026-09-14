@@ -271,14 +271,16 @@ begin
   if found then
     v_verified := true;
     v_name := v_emp.name;
-    v_dept := coalesce(v_emp.dept, '');
+    -- แผนก: ทำเนียบชนะ · ทำเนียบไม่มีแผนก → ใช้ที่เลือกในฟอร์ม
+    v_dept := coalesce(nullif(v_emp.dept, ''), left(btrim(coalesce(payload->>'empDept', '')), 60));
     if v_typed <> '' and v_typed <> v_emp.name then v_typedkeep := v_typed; end if;
   else
     if v_typed = '' then
       raise exception 'กรุณากรอกชื่อ-นามสกุลพนักงาน' using errcode = 'P0001';
     end if;
     v_name := v_typed;
-    v_dept := '';
+    -- ไม่เจอในทำเนียบ → เก็บแผนกที่เลือกในฟอร์ม (เจ้าหน้าที่ใช้ตามตัวผู้แนะนำ)
+    v_dept := left(btrim(coalesce(payload->>'empDept', '')), 60);
   end if;
 
   -- ผู้เอาประกัน
