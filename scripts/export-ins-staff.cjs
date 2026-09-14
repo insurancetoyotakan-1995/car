@@ -30,7 +30,9 @@ const rows = db.prepare('SELECT data FROM users').all()
   .filter((u) => u.empId && u.name && u.active !== false)
   .filter((u) => /ประกัน/.test(String(u.position || '') + ' ' + String(u.dept || '')))
   .map((u) => ({ empId: String(u.empId).trim(), name: String(u.name).replace(/\s+/g, ' ').trim(),
-                 position: String(u.position || '').trim() }))
+                 position: String(u.position || '').trim(),
+                 // LINE userId จากการผูกบัญชีในระบบใบสำคัญจ่าย (OA เดียวกัน → ใช้ส่งแจ้งเตือนได้เลย)
+                 line: /^U[0-9a-f]{32}$/.test(String(u.lineUserId || '')) ? u.lineUserId : null }))
   .sort((a, b) => a.empId.localeCompare(b.empId));
 db.close();
 
@@ -42,13 +44,18 @@ const sql = [
   '-- สร้างโดย scripts/export-ins-staff.cjs เมื่อ ' + new Date().toLocaleString('th-TH'),
   '-- จำนวน ' + rows.length + ' คน · รันซ้ำได้',
   '-- ⚠️ ต้องสร้างบัญชี Auth ให้แต่ละคนด้วย: อีเมล <รหัส>@staff.toyotakan + ติ๊ก Auto Confirm User',
+  '-- ผูก LINE แล้ว ' + rows.filter((u) => u.line).length + ' คน (คนที่เหลือให้กด "🔗 แจ้งเตือน LINE" ในระบบใบสำคัญจ่าย แล้วรันสคริปต์นี้ใหม่)',
+  '-- ต้องรัน supabase/migrate-2026-09-14-line-notify.sql ก่อน (เพิ่มคอลัมน์ line_user_id)',
+  '-- 🔑 ไม่แตะ active ของคนเดิม — คนที่ปิดสิทธิ์ไว้เองจะไม่ถูกเปิดกลับตอนรันซ้ำ',
   '',
-  'insert into public.ins_staff (emp_id, note) values',
-  rows.map((u) => '  (' + q(u.empId) + ', ' + q(u.name + (u.position ? ' · ' + u.position : '')) + ')').join(',\n'),
-  'on conflict (emp_id) do update set note = excluded.note, active = true;',
+  'insert into public.ins_staff (emp_id, note, line_user_id) values',
+  rows.map((u) => '  (' + q(u.empId) + ', ' + q(u.name + (u.position ? ' · ' + u.position : '')) + ', '
+    + (u.line ? q(u.line) : 'null') + ')').join(',\n'),
+  'on conflict (emp_id) do update set note = excluded.note, line_user_id = excluded.line_user_id;',
   '',
 ].join('\n');
 
 fs.writeFileSync(OUT, sql, 'utf8');
 console.log('เขียนไฟล์: ' + OUT);
-console.log('เจ้าหน้าที่ประกัน ' + rows.length + ' คน');
+console.log('เจ้าหน้าที่ประกัน ' + rows.length + ' คน · ผูก LINE แล้ว ' + rows.filter((u) => u.line).length + ' คน');
+rows.filter((u) => !u.line).forEach((u) => console.log('  ยังไม่ผูก LINE: ' + u.empId + ' ' + u.name));

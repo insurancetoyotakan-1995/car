@@ -86,6 +86,25 @@ Repo → **Settings → Pages** → Source: **Deploy from a branch** → Branch:
 - ใส่เบอร์เจ้าหน้าที่ให้หน้าส่งสำเร็จมีปุ่มโทร: `update public.ins_staff set phone = '081-234-5678' where emp_id = '11001019';`
 - ปิดคนที่ลา/ย้ายออกจากการแจก: `update public.ins_staff set active = false where emp_id = '...';` (ใบเดิมของเขาต้องให้บัญชีกลางย้ายให้คนอื่น)
 
+### แจ้งเตือนผ่าน LINE OA
+ใช้ OA ตัวเดียวกับระบบใบสำคัญจ่ายในออฟฟิศ
+- **ใบใหม่เข้ามา** → เจ้าหน้าที่ที่ระบบสุ่มให้ดูแลได้ข้อความ (เลขที่ · ชื่อ · เบอร์ · ผู้แนะนำ · ลิงก์เปิดใบนั้นใน `staff.html`)
+- **บัญชีกลางย้ายผู้ดูแล** → คนใหม่ได้ข้อความ
+- บัญชี `role = admin` ที่ใส่ `line_user_id` ไว้ ได้สรุปทุกใบใหม่
+
+ติดตั้งครั้งเดียว:
+1. SQL Editor → วาง `supabase/migrate-2026-09-14-line-notify.sql` → Run
+2. ใส่ Channel access token (คนดูแลระบบใส่เอง — ห้ามใส่ใน repo):
+   ```sql
+   select vault.create_secret('<Channel access token>', 'line_channel_token');
+   ```
+3. `node scripts/export-ins-staff.cjs` → วาง `supabase/ins-staff.sql` → Run
+   (ดึง LINE ของเจ้าหน้าที่ที่ผูกไว้ในระบบใบสำคัญจ่ายแล้ว)
+
+เจ้าหน้าที่ที่ยังไม่ผูก LINE: เข้าระบบใบสำคัญจ่าย → ปุ่ม **🔗 แจ้งเตือน LINE** → ผูกบัญชี → แล้วรันขั้นที่ 3 ใหม่
+ยังไม่ใส่ token = ไม่ส่งอะไรเลย · ส่งไม่สำเร็จไม่กระทบการยื่นคำขอ
+ดูผลการส่งล่าสุด: `select status_code, content from net._http_response order by created desc limit 5;`
+
 ---
 
 ## ความปลอดภัย — สิ่งที่ทำไว้แล้ว
