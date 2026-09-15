@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-3">
+<link rel="stylesheet" href="style.css?v=20260915-4">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260915-3"></script>
+<script src="config.js?v=20260915-4"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -170,30 +170,33 @@
         <div id="review"></div>
       </div>
 
-      <!-- ความยินยอม PDPA — ต้องติ๊กก่อนส่ง · ข้อความผูกกับรุ่น CONSENT_VER (เปลี่ยนข้อความ = เปลี่ยนรุ่น) -->
+      <!-- ความยินยอม PDPA — ต้องติ๊กก่อนส่ง · ข้อความผูกกับรุ่น CONSENT_VER (เปลี่ยนข้อความ = เปลี่ยนรุ่น)
+           ลำดับตั้งใจ: อ่านข้อความ → (กางรายละเอียด) → กดยินยอมท้ายกล่อง
+           ตัวข้อความไม่ใช่ label — กันติ๊กโดยไม่ตั้งใจระหว่างแตะอ่านบนมือถือ -->
       <div class="consent" id="consentBox">
-        <label class="cs-main">
-          <input type="checkbox" id="fConsent">
-          <span class="cs-txt">
-            <b>ยินยอมให้เก็บและใช้ข้อมูลส่วนบุคคล <span class="req">*</span></b>
-            <span id="consentLead">ข้าพเจ้ายินยอมให้ บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด
-              เก็บรวบรวม ใช้ และเปิดเผยข้อมูลที่กรอกและเอกสารที่แนบ เพื่อดำเนินการขอทำประกันภัยรถยนต์</span>
-          </span>
-        </label>
+        <div class="cs-head">
+          <span class="cs-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z"/><path d="M8.8 12.2l2.3 2.3 4.3-4.6"/></svg></span>
+          <div class="cs-txt">
+            <h3>ความยินยอมในการใช้<span class="nw">ข้อมูลส่วนบุคคล <span class="req">*</span></span></h3>
+            <p id="consentLead">ข้าพเจ้ายินยอมให้ บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด
+              เก็บรวบรวม ใช้ และเปิดเผยข้อมูลที่กรอกและเอกสารที่แนบ เพื่อดำเนินการขอทำประกันภัยรถยนต์</p>
+          </div>
+        </div>
         <details class="cs-more">
-          <summary>อ่านรายละเอียดการใช้ข้อมูล</summary>
-          <ul>
-            <li><b>ข้อมูลที่เก็บ</b> ชื่อ–นามสกุล เลขบัตรประชาชน เบอร์โทร ที่อยู่ อาชีพ ที่ทำงาน รายได้
-              และสำเนาเอกสาร (ทะเบียนรถ บัตรประชาชน กรมธรรม์เดิม)</li>
-            <li><b>ใช้เพื่อ</b> ติดต่อกลับ เสนอราคา และจัดทำกรมธรรม์ประกันภัยรถยนต์</li>
-            <li><b>เปิดเผยให้</b> บริษัทประกันภัยและนายหน้าประกันภัยที่เกี่ยวข้องกับคำขอนี้เท่านั้น</li>
-            <li><b>สำเนาบัตรประชาชน</b> อาจมีข้อมูลศาสนาหรือหมู่โลหิต ซึ่งบริษัทไม่นำไปใช้
-              — ขีดฆ่าหรือปิดส่วนนั้นก่อนแนบได้</li>
-            <li><b>ระยะเวลาเก็บ</b> เท่าที่จำเป็นต่อการทำประกันภัย และตามที่กฎหมายกำหนด</li>
-            <li><b>สิทธิ์ของเจ้าของข้อมูล</b> ขอดู แก้ไข ลบ หรือถอนความยินยอมได้ โดยติดต่อบริษัท โทร 034-540789
-              · การถอนความยินยอมอาจทำให้ดำเนินการทำประกันต่อไม่ได้</li>
+          <summary><span>รายละเอียดการใช้ข้อมูล</span><span class="cs-cnt">6 หัวข้อ</span></summary>
+          <ul class="cs-list">
+            <li><span class="cs-i" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span><span><b>ข้อมูลที่เก็บ</b>ชื่อ–นามสกุล เลขบัตรประชาชน วันเกิด เบอร์โทร ที่อยู่ อาชีพ ที่ทำงาน รายได้ และสำเนาเอกสาร (ทะเบียนรถ บัตรประชาชน กรมธรรม์เดิม)</span></li>
+            <li><span class="cs-i" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1.2"/><path d="M9 14l2 2 4-4"/></svg></span><span><b>ใช้เพื่อ</b>ติดต่อกลับ เสนอราคา และจัดทำกรมธรรม์ประกันภัยรถยนต์</span></li>
+            <li><span class="cs-i" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V9l7-5 7 5v12"/><path d="M9.5 21v-5h5v5"/></svg></span><span><b>เปิดเผยให้</b>บริษัทประกันภัยและนายหน้าประกันภัยที่เกี่ยวข้องกับคำขอนี้เท่านั้น</span></li>
+            <li><span class="cs-i" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><path d="M5.8 16c.6-1.4 1.6-2 2.7-2s2.1.6 2.7 2M14 10h4M14 14h3"/></svg></span><span><b>สำเนาบัตรประชาชน</b>อาจมีข้อมูลศาสนาหรือหมู่โลหิต ซึ่งบริษัทไม่นำไปใช้ — ขีดฆ่าหรือปิดส่วนนั้นก่อนแนบได้</span></li>
+            <li><span class="cs-i" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span><span><b>ระยะเวลาเก็บ</b>เท่าที่จำเป็นต่อการทำประกันภัย และตามที่กฎหมายกำหนด</span></li>
+            <li><span class="cs-i" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c.8-3.4 3.1-5.5 6-5.5 1.2 0 2.3.3 3.2.9"/><path d="M15 17.5l2 2 4-4.2"/></svg></span><span><b>สิทธิ์ของเจ้าของข้อมูล</b>ขอดู แก้ไข ลบ หรือถอนความยินยอมได้ โดยติดต่อบริษัท โทร 034-540789 · การถอนความยินยอมอาจทำให้ดำเนินการทำประกันต่อไม่ได้</span></li>
           </ul>
         </details>
+        <label class="cs-agree">
+          <input type="checkbox" id="fConsent">
+          <span class="cs-agree-t"><span class="off">ข้าพเจ้าได้อ่านและยินยอมตามข้างต้น</span><span class="on" aria-hidden="true">ยินยอมแล้ว</span></span>
+        </label>
       </div>
 
       <!-- กับดักบอท: คนมองไม่เห็นช่องนี้ ถ้ามีค่ามาแปลว่าไม่ใช่คนกรอก (เซิร์ฟเวอร์ปฏิเสธ)

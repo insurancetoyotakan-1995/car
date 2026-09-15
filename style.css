@@ -264,27 +264,66 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .rv-dl dd{margin:0;color:var(--ink);font-weight:600;overflow-wrap:anywhere}
 .rv-dl dd.empty{color:var(--muted);font-weight:400}
 
-/* ---------- ความยินยอม PDPA (ท้ายขั้นที่ 3) ---------- */
+/* ---------- ความยินยอม PDPA (ท้ายขั้นที่ 3) ----------
+   หัว (ไอคอนโล่ + ข้อความ) → รายละเอียดแบบการ์ดไอคอน → ปุ่มยินยอมเต็มความกว้าง
+   🔑 สีเขียว = ยินยอมแล้ว อยู่ที่ "ปุ่มยินยอม" ที่เดียว กล่องทั้งใบคงสีกลาง (ไม่ชนกับแดงแบรนด์) */
 .consent{margin-top:16px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);
-  transition:border-color .15s var(--ease),background .15s var(--ease)}
-.consent:has(#fConsent:checked){border-color:var(--good-ink);background:var(--good-soft)}
-.consent.miss{border-color:var(--bad);background:var(--bad-soft)}
-.cs-main{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;cursor:pointer}
-.cs-main input{margin-top:3px}
-.cs-main:focus-within{box-shadow:var(--ring);border-radius:var(--r)}
-.cs-txt{display:flex;flex-direction:column;gap:4px;text-align:left;font-size:13.5px;line-height:1.6;color:var(--ink-soft)}
-.cs-txt b{font-size:14px;color:var(--ink)}
-.cs-txt .req{color:var(--accent-ink)}
-.cs-more{border-top:1px solid var(--line-soft);padding:0 16px}
-.cs-more summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--accent-ink);
-  padding:11px 0;min-height:44px;display:flex;align-items:center;list-style:none}
+  overflow:hidden;box-shadow:0 1px 2px rgba(34,28,29,.04);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.consent:has(#fConsent:checked){border-color:#cfe2cb}
+.consent.miss{border-color:var(--bad);box-shadow:0 0 0 3px rgba(208,23,22,.12)}
+.cs-head{display:flex;gap:14px;align-items:flex-start;padding:16px 18px 14px}
+.cs-badge{flex:0 0 auto;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+  background:var(--accent-soft);color:var(--accent-ink)}
+.cs-badge svg{width:22px;height:22px}
+.cs-txt{min-width:0;text-align:left}
+.cs-txt h3{font-family:var(--font-head);font-size:15.5px;font-weight:600;color:var(--ink);margin:0 0 4px;line-height:1.45}
+.cs-txt h3 .req{color:var(--accent-ink)}
+.cs-txt h3 .nw{white-space:nowrap}   /* ภาษาไทยไม่มีเว้นวรรค — กันตัดกลางคำ "ส่วน|บุคคล" บนมือถือ */
+.cs-txt p{margin:0;font-size:13.5px;line-height:1.7;color:var(--ink-soft);max-width:72ch}
+
+.cs-more{border-top:1px solid var(--line-soft)}
+.cs-more summary{display:flex;align-items:center;gap:10px;min-height:46px;padding:0 18px;cursor:pointer;
+  list-style:none;font-size:13.5px;font-weight:600;color:var(--ink-soft);transition:background .15s var(--ease)}
 .cs-more summary::-webkit-details-marker{display:none}
-.cs-more summary::before{content:"";width:7px;height:7px;margin:0 10px 0 2px;border:solid currentColor;
-  border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .15s var(--ease)}
-.cs-more[open] summary::before{transform:rotate(45deg)}
-.cs-more ul{margin:0 0 14px;padding-left:20px;font-size:13px;line-height:1.65;color:var(--ink-soft)}
-.cs-more li + li{margin-top:4px}
-.cs-more li b{color:var(--ink)}
+.cs-more summary:hover{background:var(--panel-2)}
+.cs-more summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cs-more summary::after{content:"";margin-left:auto;width:8px;height:8px;border:solid var(--muted);
+  border-width:0 2px 2px 0;transform:translateY(-2px) rotate(45deg);transition:transform .2s var(--ease)}
+.cs-more[open] summary::after{transform:translateY(2px) rotate(-135deg)}
+.cs-cnt{font-size:12px;font-weight:600;color:var(--muted);background:var(--panel-2);
+  border:1px solid var(--line-soft);border-radius:999px;padding:1px 9px}
+.cs-list{list-style:none;margin:0;padding:4px 18px 16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.cs-list li{display:flex;gap:11px;align-items:flex-start;padding:11px 12px;border-radius:var(--r-sm);
+  background:var(--panel-2);border:1px solid var(--line-soft)}
+.cs-i{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:var(--panel);color:var(--ink-soft);border:1px solid var(--line-soft)}
+.cs-i svg{width:17px;height:17px}
+.cs-list li > span:last-child{min-width:0;font-size:13px;line-height:1.6;color:var(--ink-soft)}
+.cs-list b{display:block;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:1px}
+.cust .cs-more[open] .cs-list li{animation:rise .28s var(--ease) both}
+
+.cs-agree{display:flex;align-items:center;gap:12px;min-height:54px;padding:12px 18px;cursor:pointer;
+  border-top:1px solid var(--line-soft);background:var(--panel-2);
+  transition:background .18s var(--ease),color .18s var(--ease)}
+.cs-agree:hover{background:#f5f1f1}
+.cs-agree:focus-within{box-shadow:inset var(--ring)}
+.consent .cs-agree input[type=checkbox]{width:22px;height:22px;border-radius:6px;border-width:2px}
+.consent .cs-agree input[type=checkbox]:checked{background:var(--good-ink);border-color:var(--good-ink)}
+.consent .cs-agree input[type=checkbox]:checked::after{left:6px;top:2.5px;width:6px;height:11px}
+.cs-agree-t{font-size:14px;font-weight:700;color:var(--ink)}
+.cs-agree-t .on{display:none}
+.cs-agree:has(input:checked){background:var(--good-soft);color:var(--good-ink)}
+.cs-agree:has(input:checked) .cs-agree-t{color:var(--good-ink)}
+.cs-agree:has(input:checked) .on{display:inline;margin-left:8px;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--good-ink);color:#fff}
+.consent.miss .cs-agree{background:var(--bad-soft)}
+.consent.miss .cs-agree-t{color:var(--bad-ink)}
+.consent.miss .cs-agree input[type=checkbox]{border-color:var(--bad)}
+@media (max-width:640px){
+  .cs-head{padding:14px 14px 12px;gap:12px}
+  .cs-badge{width:36px;height:36px}
+  .cs-list{grid-template-columns:1fr;padding:2px 14px 14px}
+  .cs-more summary,.cs-agree{padding-left:14px;padding-right:14px}
+}
 
 /* ---------- ปุ่ม ---------- */
 .btn{font-family:inherit;font-size:14px;font-weight:700;border-radius:var(--r-sm);
