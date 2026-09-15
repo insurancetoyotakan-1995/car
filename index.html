@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-2">
+<link rel="stylesheet" href="style.css?v=20260915-3">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260915-2"></script>
+<script src="config.js?v=20260915-3"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -101,9 +101,12 @@
         <label class="f c6">เลขบัตรประชาชน <span class="req">*</span>
           <input id="fIdCard" inputmode="numeric" autocomplete="off" placeholder="x-xxxx-xxxxx-xx-x">
           <span class="fnote" id="idNote" hidden></span></label>
-        <label class="f c6">เบอร์มือถือ <span class="req">*</span>
+        <label class="f c4">วันเดือนปีเกิด <span class="req">*</span>
+          <input id="fDob" inputmode="numeric" autocomplete="bday" placeholder="วว/ดด/ปปปป (พ.ศ.)">
+          <span class="fnote" id="dobNote" hidden></span></label>
+        <label class="f c4">เบอร์มือถือ <span class="req">*</span>
           <input id="fMobile" inputmode="tel" autocomplete="tel" placeholder="08x-xxx-xxxx"></label>
-        <label class="f c6">เบอร์บ้าน<input id="fHome" inputmode="tel"></label>
+        <label class="f c4">เบอร์บ้าน<input id="fHome" inputmode="tel"></label>
       </div>
 
       <div class="sec">ที่อยู่ที่ติดต่อได้</div>
@@ -300,7 +303,7 @@ const DRAFT_KEY = 'ins_form_draft_v1';
 /* ช่องข้อความทั้งหมดที่บันทึกร่างไว้ในเครื่อง — ใช้ทั้งตอนเก็บ กู้คืน และล้าง */
 /* 🔒 ไม่เก็บเลขบัตรประชาชนลงร่าง — เครื่องที่ใช้ร่วมกันคนถัดไปจะเห็นเลขของคนก่อน */
 const TEXT_FIELDS = ['fEmpId','fEmpName','fName','fMobile','fHome','fAddr','fMoo','fRoad',
-  'fTambon','fAmphoe','fProvince','fZip','fOcc','fWork','fIncome','fRelNote','fNote'];
+  'fTambon','fAmphoe','fProvince','fZip','fOcc','fWork','fIncome','fDob','fRelNote','fNote'];
 const COMPANY = 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด';
 
 let PENDING = [];                                   // ไฟล์ที่เลือกไว้ แต่ใบยังไม่ถูกสร้าง
@@ -557,6 +560,51 @@ function paintIdNote(){
 }
 $('fIdCard').addEventListener('input', paintIdNote);
 
+/* ---------- วันเดือนปีเกิด: พิมพ์ตัวเลขล้วน ใส่ / ให้เอง · ปีเป็น พ.ศ. ----------
+   พิมพ์ปี ค.ศ. (19xx/20xx) มาก็รับ แล้วแปลงเป็น พ.ศ. ให้ตอนออกจากช่อง
+   ส่งขึ้นเซิร์ฟเวอร์เป็น ISO yyyy-mm-dd (ค.ศ.) · ประกอบสตริงเอง ไม่ใช้ toISOString (ไทย UTC+7) */
+const fmtDob = d => [d.slice(0,2), d.slice(2,4), d.slice(4,8)].filter(Boolean).join('/');
+bindMask('fDob', 8, fmtDob);
+function dobParse(s){
+  const m = String(s || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return null;
+  const dd = +m[1], mm = +m[2];
+  let y = +m[3];
+  if(y >= 2400) y -= 543; else if(y < 1900 || y > 2100) return null;
+  const dt = new Date(y, mm - 1, dd);
+  if(dt.getFullYear() !== y || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return null;   // 31/02 ฯลฯ
+  const now = new Date();
+  let age = now.getFullYear() - y;
+  if(now.getMonth() < mm - 1 || (now.getMonth() === mm - 1 && now.getDate() < dd)) age--;
+  return { iso: y + '-' + String(mm).padStart(2,'0') + '-' + String(dd).padStart(2,'0'), age, be: y + 543, dd, mm };
+}
+const DOB_MIN_AGE = 15, DOB_MAX_AGE = 100;
+function dobProblem(s){
+  const v = String(s || '').trim();
+  if(!v) return 'กรุณากรอกวันเดือนปีเกิด';
+  if(!/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return 'กรอกวันเดือนปีเกิดให้ครบ เช่น 05/03/2533';
+  const p = dobParse(v);
+  if(!p) return 'วันเดือนปีเกิดไม่ถูกต้อง กรุณาตรวจอีกครั้ง';
+  if(p.age < DOB_MIN_AGE || p.age > DOB_MAX_AGE) return 'อายุต้องอยู่ระหว่าง ' + DOB_MIN_AGE + '–' + DOB_MAX_AGE + ' ปี — ตรวจปี พ.ศ. อีกครั้ง';
+  return '';
+}
+function paintDob(){
+  const v = $('fDob').value.trim();
+  if(v.length < 10) return setNote('dobNote', '');
+  const bad = dobProblem(v);
+  if(bad) return setNote('dobNote', bad, 'no');
+  const p = dobParse(v);
+  setNote('dobNote', 'อายุ ' + p.age + ' ปี · ' + p.dd + ' ' + TH_MON_FULL[p.mm - 1] + ' ' + p.be, 'ok');
+}
+const TH_MON_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+$('fDob').addEventListener('input', paintDob);
+$('fDob').addEventListener('blur', ()=>{
+  const m = $('fDob').value.trim().match(/^(\d{2}\/\d{2}\/)(\d{4})$/);
+  if(m && +m[2] >= 1900 && +m[2] <= 2100){           // ปี ค.ศ. → พ.ศ.
+    $('fDob').value = m[1] + (+m[2] + 543); paintDob(); saveDraft();
+  }
+});
+
 /* ---------- รหัสไปรษณีย์: เติมให้เองจาก ตำบล / อำเภอ / จังหวัด ----------
    ข้อมูลอยู่ในไฟล์ th-zip.json (77 จังหวัด · 7,436 ตำบล · MIT จาก thailand-geography-json)
    โหลดครั้งแรกตอนเริ่มพิมพ์ที่อยู่ (~58 KB) · 🔑 dataset.auto แบบเดียวกับชื่อผู้ทำประกัน:
@@ -713,6 +761,8 @@ function stepFail(n){
     const idc = $('fIdCard').value.replace(/\D/g,'');
     if(idc.length !== 13)  return {msg:'กรุณากรอกเลขบัตรประชาชนให้ครบ 13 หลัก', el:'fIdCard'};
     if(!idCardValid(idc))  return {msg:'เลขบัตรประชาชนไม่ถูกต้อง กรุณาตรวจอีกครั้ง', el:'fIdCard'};
+    const dobBad = dobProblem($('fDob').value);
+    if(dobBad) return {msg: dobBad, el:'fDob'};
     if($('fMobile').value.replace(/\D/g,'').length < 9)
       return {msg:'กรุณากรอกเบอร์โทรศัพท์มือถือให้ครบ', el:'fMobile'};
     if(!$('fAddr').value.trim())     return {msg:'กรุณากรอกบ้านเลขที่', el:'fAddr'};
@@ -980,6 +1030,7 @@ function renderReview(){
     + block(2, refer ? 'ลูกค้าที่แนะนำ' : 'ผู้ทำประกัน', 2,
           row('ชื่อ', val('fName'))
         + row('เลขบัตรประชาชน', val('fIdCard'))
+        + row('วันเดือนปีเกิด', (()=>{ const p = dobParse(val('fDob')); return p ? p.dd + ' ' + TH_MON_FULL[p.mm - 1] + ' ' + p.be + ' (อายุ ' + p.age + ' ปี)' : ''; })())
         + row('เบอร์ติดต่อ', [val('fMobile'), val('fHome')].filter(Boolean).join(' · '))
         + (refer ? '' : row('ความสัมพันธ์', REL_LABEL[relNow()] + (relNow()==='other' && val('fRelNote') ? ' (' + val('fRelNote') + ')' : '')))
         + row('ที่อยู่', addr, 'ยังไม่ได้กรอก')
@@ -1002,6 +1053,7 @@ function collect(){
     addr: $('fAddr').value, moo: $('fMoo').value, road: $('fRoad').value,
     tambon: $('fTambon').value, amphoe: $('fAmphoe').value, province: $('fProvince').value,
     zipcode: $('fZip').value, idCard: $('fIdCard').value.replace(/\D/g,''),
+    birthDate: (dobParse($('fDob').value) || {}).iso || '',
     occupation: $('fOcc').value, workplace: $('fWork').value,
     income: $('fIncome').value.replace(/\D/g,''),
     relation: kindNow()==='refer' ? 'other' : relNow(),
@@ -1187,8 +1239,8 @@ $('btnNewOne').onclick = ()=>{
 /* keepEmp = คงรหัส/ชื่อพนักงานไว้ — คนเดิมมักส่งหลายใบติดกัน ไม่ต้องพิมพ์ซ้ำ */
 function resetForm(keepEmp){
   ['fName','fIdCard','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe',
-   'fZip','fOcc','fWork','fIncome','fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e){ e.value=''; delete e.dataset.auto; } });
-  setNote('idNote', ''); setNote('zipNote', '');
+   'fZip','fOcc','fWork','fIncome','fDob','fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e){ e.value=''; delete e.dataset.auto; } });
+  setNote('idNote', ''); setNote('zipNote', ''); setNote('dobNote', '');
   $('fConsent').checked = false; $('consentBox').classList.remove('miss');
   $('consentBox').querySelector('details').open = false;
   $('fProvince').value = 'กาญจนบุรี';
@@ -1222,6 +1274,7 @@ if(hadDraft){
   toast('กู้ข้อมูลที่กรอกค้างไว้ให้แล้ว — กด "เริ่มใหม่" ถ้าจะเริ่มจากฟอร์มว่าง');
   lookupEmp();                                       // ยืนยันชื่อพนักงานให้ด้วย ไม่ต้องให้พิมพ์ซ้ำ
   if($('fAmphoe').value.trim()) syncZip();
+  paintDob();
 }
 if(!cfgReady){
   $('tabForm').hidden = true;

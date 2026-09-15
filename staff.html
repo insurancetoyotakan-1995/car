@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-2">
-<script src="config.js?v=20260915-2"></script>
+<link rel="stylesheet" href="style.css?v=20260915-3">
+<script src="config.js?v=20260915-3"></script>
 
 <body class="ops">
 <header class="staffbar">
@@ -487,6 +487,14 @@ function openView(id){
     + dl([
         ['ชื่อ–นามสกุล', r.insured_name],
         ['เลขบัตรประชาชน', idFmt],
+        ['วันเดือนปีเกิด', (()=>{
+          const m = String(r.birth_date || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if(!m) return '';
+          const y = +m[1], mo = +m[2], d = +m[3], now = new Date();
+          let age = now.getFullYear() - y;
+          if(now.getMonth() + 1 < mo || (now.getMonth() + 1 === mo && now.getDate() < d)) age--;
+          return d + ' ' + TH_MON[mo - 1] + ' ' + (y + 543) + ' · อายุ ' + age + ' ปี';
+        })()],
         ['เบอร์มือถือ', tel(r.phone_mobile)],
         ['เบอร์บ้าน', tel(r.phone_home)],
         ['ที่อยู่', addr],
