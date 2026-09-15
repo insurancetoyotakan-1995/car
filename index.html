@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-7">
+<link rel="stylesheet" href="style.css?v=20260915-8">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260915-7"></script>
+<script src="config.js?v=20260915-8"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -941,7 +941,9 @@ function saveDraft(){
     }catch(e){ /* โหมดส่วนตัว/พื้นที่เต็ม → ข้ามไป ฟอร์มยังใช้ได้ */ }
   }, 400);
 }
-function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
+/* 🔑 ต้องยกเลิกตัวหน่วงเวลาที่ค้างอยู่ด้วย — ติ๊กยินยอม (ยิง input) แล้วกดส่งภายใน 0.4 วิ
+   ตัวหน่วงจะมาบันทึกร่างของฟอร์มที่เพิ่งล้าง → เปิดครั้งหน้าขึ้น "กู้ข้อมูลที่กรอกค้างไว้" ทั้งที่ส่งไปแล้ว */
+function clearDraft(){ clearTimeout(draftTimer); try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
 function restoreDraft(){
   let d = null;
   try{ d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); }catch(e){}
