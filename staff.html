@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260914-15">
-<script src="config.js?v=20260914-15"></script>
+<link rel="stylesheet" href="style.css?v=20260915-1">
+<script src="config.js?v=20260915-1"></script>
 
 <body class="ops">
 <header class="staffbar">
@@ -385,7 +385,7 @@ function renderList(){
     if(ag && ag !== '__none' && r.assigned_to !== ag) return false;
     if(!q) return true;
     return norm([r.no, r.insured_name, r.phone_mobile, r.phone_mobile && r.phone_mobile.replace(/\D/g,''),
-                 r.car_plate, r.emp_name, agentName(r.assigned_to)].join(' ')).includes(q);
+                 r.car_plate, r.emp_name, agentName(r.assigned_to), r.id_card].join(' ')).includes(q);
   });
   const cnt = { '': base.length };
   STATUS_ORDER.forEach(k=> cnt[k] = base.filter(r=>r.status===k).length);
@@ -469,7 +469,10 @@ function openView(id){
   const addr = [
     r.addr && ('เลขที่ ' + r.addr), r.moo && ('หมู่ ' + r.moo), r.road && ('ถ.' + r.road),
     r.tambon && ('ต.' + r.tambon), r.amphoe && ('อ.' + r.amphoe), r.province && ('จ.' + r.province),
+    r.zipcode,
   ].filter(Boolean).join(' ') || '—';
+  const idc = String(r.id_card || '');
+  const idFmt = idc.length === 13 ? [idc.slice(0,1), idc.slice(1,5), idc.slice(5,10), idc.slice(10,12), idc.slice(12)].join('-') : idc;
   /* ค่าที่เป็น {html} = ประกอบ HTML เองแล้ว (escape แล้วทุกส่วน) */
   const dl = rows => '<dl class="dl">' + rows.filter(Boolean).map(([k,v])=>
     '<dt>' + esc(k) + '</dt><dd>' + (v && v.html ? v.html : esc(v || '—')) + '</dd>').join('') + '</dl>';
@@ -483,9 +486,13 @@ function openView(id){
       '<div class="sec">ผู้ทำประกันภัย</div>'
     + dl([
         ['ชื่อ–นามสกุล', r.insured_name],
+        ['เลขบัตรประชาชน', idFmt],
         ['เบอร์มือถือ', tel(r.phone_mobile)],
         ['เบอร์บ้าน', tel(r.phone_home)],
         ['ที่อยู่', addr],
+        ['อาชีพ', r.occupation],
+        ['ที่ทำงาน', r.workplace],
+        ['รายได้ต่อเดือน', r.income ? Number(r.income).toLocaleString('th-TH') + ' บาท' : ''],
         r.kind !== 'refer' ? ['ความสัมพันธ์', (RELS[r.relation]||r.relation) + (r.relation_note ? ' (' + r.relation_note + ')' : '')] : null,
       ])
     + (!hasCar ? '' : '<div class="sec">รถและความคุ้มครอง</div>'

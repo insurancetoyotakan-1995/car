@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260914-15">
+<link rel="stylesheet" href="style.css?v=20260915-1">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260914-15"></script>
+<script src="config.js?v=20260915-1"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -98,9 +98,12 @@
       <p class="sub" id="insSub">ข้อมูลของผู้ที่จะเอาประกัน — ใช้ติดต่อกลับและออกกรมธรรม์</p>
       <div class="grid">
         <label class="f c6">ชื่อ–นามสกุล <span class="req">*</span><input id="fName" autocomplete="off"></label>
-        <label class="f c3">เบอร์มือถือ <span class="req">*</span>
+        <label class="f c6">เลขบัตรประชาชน <span class="req">*</span>
+          <input id="fIdCard" inputmode="numeric" autocomplete="off" placeholder="x-xxxx-xxxxx-xx-x">
+          <span class="fnote" id="idNote" hidden></span></label>
+        <label class="f c6">เบอร์มือถือ <span class="req">*</span>
           <input id="fMobile" inputmode="tel" autocomplete="tel" placeholder="08x-xxx-xxxx"></label>
-        <label class="f c3">เบอร์บ้าน<input id="fHome" inputmode="tel"></label>
+        <label class="f c6">เบอร์บ้าน<input id="fHome" inputmode="tel"></label>
       </div>
 
       <div class="sec">ที่อยู่ที่ติดต่อได้</div>
@@ -109,8 +112,21 @@
         <label class="f c2">หมู่<input id="fMoo"></label>
         <label class="f c3">ถนน<input id="fRoad"></label>
         <label class="f c4">ตำบล / แขวง <span class="req">*</span><input id="fTambon"></label>
-        <label class="f c6">อำเภอ / เขต <span class="req">*</span><input id="fAmphoe"></label>
-        <label class="f c6">จังหวัด <span class="req">*</span><input id="fProvince" value="กาญจนบุรี"></label>
+        <label class="f c4">อำเภอ / เขต <span class="req">*</span><input id="fAmphoe"></label>
+        <label class="f c4">จังหวัด <span class="req">*</span><input id="fProvince" value="กาญจนบุรี"></label>
+        <label class="f c4">รหัสไปรษณีย์ <span class="req">*</span>
+          <input id="fZip" inputmode="numeric" autocomplete="postal-code" placeholder="เติมให้จากที่อยู่">
+          <span class="fnote" id="zipNote" hidden></span></label>
+      </div>
+
+      <div class="sec">อาชีพและรายได้</div>
+      <div class="grid">
+        <label class="f c6">อาชีพ <span class="hint">(ระบุให้เจาะจง)</span> <span class="req">*</span>
+          <input id="fOcc" autocomplete="off" placeholder="เช่น พนักงานขายรถยนต์ · ครูประถม · ขายของชำ"></label>
+        <label class="f c6">ที่ทำงาน <span class="req">*</span>
+          <input id="fWork" autocomplete="off" placeholder="ชื่อบริษัท / หน่วยงาน / ร้าน · ไม่มีใส่ -"></label>
+        <label class="f c4">รายได้ต่อเดือน (บาท) <span class="req">*</span>
+          <input id="fIncome" inputmode="numeric" autocomplete="off" placeholder="เช่น 25,000"></label>
       </div>
 
       <div id="relBox">
@@ -256,8 +272,10 @@ const MAX_FILE = 10 * 1024 * 1024;
 const MAX_FILES = 8;
 const DRAFT_KEY = 'ins_form_draft_v1';
 /* ช่องข้อความทั้งหมดที่บันทึกร่างไว้ในเครื่อง — ใช้ทั้งตอนเก็บ กู้คืน และล้าง */
+/* 🔒 ไม่เก็บเลขบัตรประชาชนลงร่าง — เครื่องที่ใช้ร่วมกันคนถัดไปจะเห็นเลขของคนก่อน */
 const TEXT_FIELDS = ['fEmpId','fEmpName','fName','fMobile','fHome','fAddr','fMoo','fRoad',
-  'fTambon','fAmphoe','fProvince','fRelNote','fNote'];
+  'fTambon','fAmphoe','fProvince','fZip','fOcc','fWork','fIncome','fRelNote','fNote'];
+const COMPANY = 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด';
 
 let PENDING = [];                                   // ไฟล์ที่เลือกไว้ แต่ใบยังไม่ถูกสร้าง
 /* แบบ "แนะนำลูกค้าทั่วไป" ไม่มีเอกสารแสดงความสัมพันธ์ (ลูกค้าไม่ใช่ครอบครัวพนักงาน)
@@ -470,11 +488,21 @@ function fmtPhone(d){
   if(d.length <= 6) return d.slice(0,3) + '-' + d.slice(3);
   return d.slice(0,3) + '-' + d.slice(3,6) + '-' + d.slice(6);
 }
-function bindPhone(id){
+const fmtIdCard = d => [d.slice(0,1), d.slice(1,5), d.slice(5,10), d.slice(10,12), d.slice(12,13)].filter(Boolean).join('-');
+const fmtMoney  = d => d.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+/* เลขบัตรประชาชน: หลักสุดท้ายคือตัวตรวจ — (11 − ผลรวม(หลักที่ i × (13−i)) mod 11) mod 10 */
+function idCardValid(d){
+  if(!/^\d{13}$/.test(d)) return false;
+  let s = 0;
+  for(let i = 0; i < 12; i++) s += +d[i] * (13 - i);
+  return (11 - s % 11) % 10 === +d[12];
+}
+const bindPhone = id => bindMask(id, 10, fmtPhone);
+function bindMask(id, max, fmt){
   const el = $(id);
   el.addEventListener('input', ()=>{
     const before = el.value.slice(0, el.selectionStart || 0).replace(/\D/g,'').length;
-    el.value = fmtPhone(el.value.replace(/\D/g,'').slice(0,10));
+    el.value = fmt(el.value.replace(/\D/g,'').slice(0, max));
     let seen = 0, pos = el.value.length;
     for(let i=0;i<el.value.length;i++){
       if(/\d/.test(el.value[i])) seen++;
@@ -485,6 +513,94 @@ function bindPhone(id){
   });
 }
 bindPhone('fMobile'); bindPhone('fHome');
+bindMask('fIdCard', 13, fmtIdCard);
+bindMask('fZip', 5, d => d);
+bindMask('fIncome', 8, fmtMoney);        // ไม่เกิน 99,999,999 (ฐานข้อมูลรับไม่เกิน 100 ล้าน)
+
+function setNote(id, text, kind){
+  const n = $(id);
+  n.textContent = text || '';
+  n.className = 'fnote' + (kind ? ' ' + kind : '');
+  n.hidden = !text;
+}
+function paintIdNote(){
+  const d = $('fIdCard').value.replace(/\D/g,'');
+  if(d.length < 13) return setNote('idNote', '');
+  idCardValid(d) ? setNote('idNote', '✓ เลขบัตรถูกต้อง', 'ok')
+                 : setNote('idNote', 'เลขบัตรไม่ถูกต้อง — ตรวจอีกครั้ง', 'no');
+}
+$('fIdCard').addEventListener('input', paintIdNote);
+
+/* ---------- รหัสไปรษณีย์: เติมให้เองจาก ตำบล / อำเภอ / จังหวัด ----------
+   ข้อมูลอยู่ในไฟล์ th-zip.json (77 จังหวัด · 7,436 ตำบล · MIT จาก thailand-geography-json)
+   โหลดครั้งแรกตอนเริ่มพิมพ์ที่อยู่ (~58 KB) · 🔑 dataset.auto แบบเดียวกับชื่อผู้ทำประกัน:
+   คนพิมพ์รหัสเองแล้ว ระบบไม่เขียนทับ แค่บอกว่าตามที่อยู่ควรเป็นเลขอะไร */
+let ZIP_DB = null, zipLoading = null;
+function loadZip(){
+  if(ZIP_DB) return Promise.resolve(ZIP_DB);
+  return zipLoading || (zipLoading = fetch('th-zip.json?v=20260915-1')
+    .then(r => r.ok ? r.json() : null)
+    .then(j => (ZIP_DB = j))
+    .catch(() => { zipLoading = null; return null; }));
+}
+/* เทียบชื่อแบบไม่สนช่องว่าง/สระบน-ล่าง/วรรณยุกต์ — พิมพ์ "ทาม่วง" หรือ "ท่า ม่วง" ก็เจอ */
+const placeSkel = s => String(s || '').normalize('NFC').replace(/\s+/g,'').replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g,'');
+function placeKey(obj, name){
+  if(!obj || !name) return null;
+  if(obj[name] != null) return name;
+  const k = placeSkel(name);
+  return Object.keys(obj).find(x => x && placeSkel(x) === k) || null;
+}
+function zipFor(prov, amp, tam){
+  if(!ZIP_DB) return null;
+  let p = String(prov || '').replace(/\s+/g,'').replace(/^(จังหวัด|จ\.)/,'');
+  if(/^(กทม|กรุงเทพ)/.test(p)) p = 'กรุงเทพมหานคร';
+  const pk = placeKey(ZIP_DB, p);
+  if(!pk) return null;
+  const P = ZIP_DB[pk];
+  const a = String(amp || '').replace(/\s+/g,'').replace(/^(อำเภอ|อ\.|เขต)/,'');
+  const ak = placeKey(P, a) || (a === 'เมือง' ? placeKey(P, 'เมือง' + pk) : null);
+  if(!ak) return null;
+  const A = P[ak];
+  const t = String(tam || '').replace(/\s+/g,'').replace(/^(ตำบล|ต\.|แขวง)/,'');
+  const tk = placeKey(A, t);
+  if(tk) return String(A[tk]);
+  /* ไม่รู้ตำบล: ใช้ได้เฉพาะอำเภอที่ทุกตำบลใช้รหัสเดียวกัน — ไม่เดา */
+  const zs = new Set(Object.keys(A).filter(Boolean).map(k => A[k]));
+  return zs.size === 1 ? String([...zs][0]) : null;
+}
+let zipTimer = null;
+async function syncZip(){
+  const el = $('fZip'), cur = el.value.trim();
+  if(!$('fAmphoe').value.trim() || !$('fProvince').value.trim()){
+    if(cur && cur === el.dataset.auto){ el.value = ''; delete el.dataset.auto; }
+    return setNote('zipNote', '');
+  }
+  const db = await loadZip();
+  if(!db) return setNote('zipNote', cur ? '' : 'ค้นรหัสไปรษณีย์อัตโนมัติไม่ได้ — กรุณากรอกเอง', 'no');
+  const z = zipFor($('fProvince').value, $('fAmphoe').value, $('fTambon').value);
+  const now = el.value.trim();
+  if(!el.dataset.auto && now && now === z) el.dataset.auto = now;     // กู้จากร่าง
+  const untouched = !now || now === el.dataset.auto;
+  if(z){
+    if(untouched){
+      if(now !== z){ el.value = z; saveDraft(); }
+      el.dataset.auto = z; el.removeAttribute('aria-invalid');
+      setNote('zipNote', 'เติมให้จากที่อยู่ · แก้ได้ถ้าไม่ตรง', 'ok');
+    }else if(now !== z){
+      setNote('zipNote', 'ตามที่อยู่ควรเป็น ' + z + ' — ตรวจอีกครั้ง', 'no');
+    }else setNote('zipNote', '');
+  }else{
+    if(untouched && el.dataset.auto){ el.value = ''; delete el.dataset.auto; }
+    setNote('zipNote', $('fZip').value.trim() ? ''
+      : $('fTambon').value.trim() ? 'ไม่พบในข้อมูลไปรษณีย์ — กรุณากรอกเอง' : 'กรอกตำบลแล้วจะเติมรหัสให้', 'no');
+  }
+}
+['fTambon','fAmphoe','fProvince'].forEach(id=>{
+  $(id).addEventListener('focus', loadZip, { once:true });
+  $(id).addEventListener('input', ()=>{ clearTimeout(zipTimer); zipTimer = setTimeout(syncZip, 250); });
+});
+$('fZip').addEventListener('input', ()=>{ if($('fZip').value.trim() !== $('fZip').dataset.auto) setNote('zipNote', ''); });
 
 /* ---------- สลับแบบคำขอ ---------- */
 const kindNow = () => (document.querySelector('input[name=kind]:checked') || {}).value || 'self';
@@ -505,6 +621,18 @@ function syncKind(){
 function syncRel(){
   $('relNoteBox').hidden = !(kindNow() !== 'refer' && relNow() === 'other');
   syncSelfName();
+  syncSelfWork();
+}
+/* ตัวพนักงานเอง → ที่ทำงานคือบริษัทเรา (กติกา dataset.auto เดียวกับ syncSelfName) */
+function syncSelfWork(){
+  const el = $('fWork'), cur = el.value.trim();
+  if(!el.dataset.auto && cur === COMPANY) el.dataset.auto = cur;
+  const untouched = !cur || cur === el.dataset.auto;
+  if(kindNow() !== 'refer' && relNow() === 'self'){
+    if(untouched){ el.value = COMPANY; el.dataset.auto = COMPANY; el.removeAttribute('aria-invalid'); }
+  }else if(cur && cur === el.dataset.auto){
+    el.value = ''; delete el.dataset.auto;
+  }
 }
 /* ความสัมพันธ์ "ตัวพนักงานเอง" → ชื่อผู้ทำประกัน = ชื่อพนักงาน (ขั้นที่ 1) ให้เอง
    🔑 dataset.auto จำค่าที่ระบบเติมไว้ — เขียนทับ/ล้างได้เฉพาะตอนช่องยังเป็นค่าที่เราเติม
@@ -530,9 +658,13 @@ $('relOpts').addEventListener('change', ()=>{ syncRel(); saveDraft(); });
    ======================================================================= */
 const STEP_NOTE = {
   1: 'บันทึกร่างในเครื่องให้อัตโนมัติ',
-  2: 'ช่องที่มี * ต้องกรอก · หมู่ / ถนน เว้นว่างได้',
+  2: 'ช่องที่มี * ต้องกรอก · หมู่ / ถนน / เบอร์บ้าน เว้นว่างได้',
   3: 'แนบเอกสารที่มี * ให้ครบ แล้วตรวจข้อมูลก่อนกดส่ง',
 };
+/* คำที่กว้างเกินไป — ต้องบอกว่าทำงานอะไรจริง ๆ (เทียบทั้งช่อง ไม่ตัดเฉพาะคำ) */
+const VAGUE_OCC = ['พนักงาน','พนักงานบริษัท','พนักงานเอกชน','ลูกจ้าง','รับจ้าง','รับจ้างทั่วไป','ค้าขาย',
+  'ธุรกิจส่วนตัว','อาชีพอิสระ','ฟรีแลนซ์','freelance','ข้าราชการ','รัฐวิสาหกิจ','พนักงานรัฐวิสาหกิจ',
+  'เจ้าของกิจการ','นักธุรกิจ','เกษตรกร','ทำงาน','เอกชน','ทั่วไป','-'];
 function stepFail(n){
   if(n === 1){
     if(!$('fEmpId').value.trim())   return {msg:'กรุณากรอกรหัสพนักงาน', el:'fEmpId'};
@@ -541,12 +673,22 @@ function stepFail(n){
   }
   if(n === 2){
     if(!$('fName').value.trim()) return {msg:'กรุณากรอกชื่อผู้ทำประกันภัย', el:'fName'};
+    const idc = $('fIdCard').value.replace(/\D/g,'');
+    if(idc.length !== 13)  return {msg:'กรุณากรอกเลขบัตรประชาชนให้ครบ 13 หลัก', el:'fIdCard'};
+    if(!idCardValid(idc))  return {msg:'เลขบัตรประชาชนไม่ถูกต้อง กรุณาตรวจอีกครั้ง', el:'fIdCard'};
     if($('fMobile').value.replace(/\D/g,'').length < 9)
       return {msg:'กรุณากรอกเบอร์โทรศัพท์มือถือให้ครบ', el:'fMobile'};
     if(!$('fAddr').value.trim())     return {msg:'กรุณากรอกบ้านเลขที่', el:'fAddr'};
     if(!$('fTambon').value.trim())   return {msg:'กรุณากรอกตำบล / แขวง', el:'fTambon'};
     if(!$('fAmphoe').value.trim())   return {msg:'กรุณากรอกอำเภอ / เขต', el:'fAmphoe'};
     if(!$('fProvince').value.trim()) return {msg:'กรุณากรอกจังหวัด', el:'fProvince'};
+    if(!/^\d{5}$/.test($('fZip').value.trim())) return {msg:'กรุณากรอกรหัสไปรษณีย์ 5 หลัก', el:'fZip'};
+    const occ = $('fOcc').value.trim();
+    if(occ.length < 2) return {msg:'กรุณาระบุอาชีพ', el:'fOcc'};
+    if(VAGUE_OCC.includes(occ.replace(/\s+/g,'').toLowerCase()))
+      return {msg:'ระบุอาชีพให้เจาะจงกว่านี้ เช่น "พนักงานขายรถยนต์" แทน "' + occ + '"', el:'fOcc'};
+    if(!$('fWork').value.trim()) return {msg:'กรุณาระบุที่ทำงาน (ถ้าไม่มีใส่ -)', el:'fWork'};
+    if(!(+$('fIncome').value.replace(/\D/g,'') > 0)) return {msg:'กรุณากรอกรายได้ต่อเดือน', el:'fIncome'};
   }
   if(n === 3){
     for(const [tag, label, req] of DOC_TYPES){
@@ -771,6 +913,7 @@ function renderReview(){
     val('fTambon') && ('ต.' + val('fTambon')),
     val('fAmphoe') && ('อ.' + val('fAmphoe')),
     val('fProvince') && ('จ.' + val('fProvince')),
+    val('fZip'),
   ].filter(Boolean).join(' ');
   const row = (k, v, empty) => '<dt>' + esc(k) + '</dt><dd' + (v ? '' : ' class="empty"') + '>' + esc(v || empty || '—') + '</dd>';
   const block = (n, title, go, body) =>
@@ -791,9 +934,13 @@ function renderReview(){
         + row('แผนก / สาขา', [val('fDept'), $('fBranch').value].filter(Boolean).join(' · ')))
     + block(2, refer ? 'ลูกค้าที่แนะนำ' : 'ผู้ทำประกัน', 2,
           row('ชื่อ', val('fName'))
+        + row('เลขบัตรประชาชน', val('fIdCard'))
         + row('เบอร์ติดต่อ', [val('fMobile'), val('fHome')].filter(Boolean).join(' · '))
         + (refer ? '' : row('ความสัมพันธ์', REL_LABEL[relNow()] + (relNow()==='other' && val('fRelNote') ? ' (' + val('fRelNote') + ')' : '')))
-        + row('ที่อยู่', addr, 'ยังไม่ได้กรอก'))
+        + row('ที่อยู่', addr, 'ยังไม่ได้กรอก')
+        + row('อาชีพ', val('fOcc'))
+        + row('ที่ทำงาน', val('fWork'))
+        + row('รายได้ต่อเดือน', val('fIncome') && (val('fIncome') + ' บาท')))
     + block(3, 'เอกสาร', 0,
           (docs.length ? docs.map(([k,v])=> row(k, v)).join('') : row('เอกสาร', '', 'ยังไม่มี — ส่งคำขอได้ แนบเพิ่มทีหลังได้'))
         + (val('fNote') ? row('หมายเหตุ', val('fNote')) : ''));
@@ -809,6 +956,9 @@ function collect(){
     insuredName: $('fName').value, phoneMobile: $('fMobile').value, phoneHome: $('fHome').value,
     addr: $('fAddr').value, moo: $('fMoo').value, road: $('fRoad').value,
     tambon: $('fTambon').value, amphoe: $('fAmphoe').value, province: $('fProvince').value,
+    zipcode: $('fZip').value, idCard: $('fIdCard').value.replace(/\D/g,''),
+    occupation: $('fOcc').value, workplace: $('fWork').value,
+    income: $('fIncome').value.replace(/\D/g,''),
     relation: kindNow()==='refer' ? 'other' : relNow(),
     relationNote: kindNow()==='refer' ? '' : $('fRelNote').value,
     /* ผู้ใช้สั่งถอดแผง "รถที่ทำประกันภัย" ออกจากฟอร์ม (2026-09-12)
@@ -990,8 +1140,9 @@ $('btnNewOne').onclick = ()=>{
 
 /* keepEmp = คงรหัส/ชื่อพนักงานไว้ — คนเดิมมักส่งหลายใบติดกัน ไม่ต้องพิมพ์ซ้ำ */
 function resetForm(keepEmp){
-  ['fName','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe',
-   'fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
+  ['fName','fIdCard','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe',
+   'fZip','fOcc','fWork','fIncome','fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e){ e.value=''; delete e.dataset.auto; } });
+  setNote('idNote', ''); setNote('zipNote', '');
   $('fProvince').value = 'กาญจนบุรี';
   if(!keepEmp){ $('fEmpId').value=''; $('fEmpName').value=''; setDept(''); paintEmpChk(null); }
   document.querySelector('input[name=kind][value=self]').checked = true;
@@ -1022,6 +1173,7 @@ paintSteps();
 if(hadDraft){
   toast('กู้ข้อมูลที่กรอกค้างไว้ให้แล้ว — กด "เริ่มใหม่" ถ้าจะเริ่มจากฟอร์มว่าง');
   lookupEmp();                                       // ยืนยันชื่อพนักงานให้ด้วย ไม่ต้องให้พิมพ์ซ้ำ
+  if($('fAmphoe').value.trim()) syncZip();
 }
 if(!cfgReady){
   $('tabForm').hidden = true;

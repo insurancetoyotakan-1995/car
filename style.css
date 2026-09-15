@@ -154,6 +154,9 @@ input:disabled{background:var(--panel-2);color:var(--ink-soft);cursor:default}
 input[aria-invalid="true"]{border-color:var(--bad);background:#fffafa}
 textarea{resize:vertical;min-height:76px;line-height:1.55}
 .hint{font-size:11.5px;color:var(--muted);font-weight:400}
+/* บรรทัดสถานะใต้ช่องกรอก (เลขบัตร / รหัสไปรษณีย์) */
+.fnote{display:block;margin-top:5px;font-size:12px;font-weight:500;line-height:1.45;color:var(--muted)}
+.fnote.ok{color:var(--good-ink)} .fnote.no{color:var(--warn-ink)}
 
 /* ---------- ช่องติ๊ก / ตัวเลือก ---------- */
 input[type=checkbox]{appearance:none;-webkit-appearance:none;width:18px;height:18px;
