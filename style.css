@@ -145,6 +145,11 @@ input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink);
   background:var(--panel);border:1px solid #d8d0d1;border-radius:var(--r-sm);
   padding:10px 12px;width:100%;
   transition:border-color .16s var(--ease),box-shadow .16s var(--ease)}
+/* 🔑 สระล่าง/หางตัวอักษรไทยโดนตัดในช่องกรอก (ครู → คร, ญ ไม่มีหาง)
+   เบราว์เซอร์ตัดข้อความใน <input> ที่ความสูงบรรทัด (line-height:normal ของ Sarabun = พอดีตัวอักษร
+   แต่สระ ุ ู และหาง ญ ฐ ยื่นลงไปอีก ~2px · วรรณยุกต์ซ้อน ๊ ้ บนสระบนยื่นขึ้นอีก ~3px)
+   → ขยายบรรทัดเป็น 1.85 แล้วลด padding บน-ล่าง ให้ความสูงช่องเท่าเดิม */
+input:not([type=checkbox]):not([type=radio]):not([type=file]){line-height:1.85;padding-top:7px;padding-bottom:7px}
 input::placeholder,textarea::placeholder{color:#958a8c}
 input:hover:not(:disabled),textarea:hover{border-color:#b8adaf}
 input:focus,textarea:focus{border-color:var(--accent);box-shadow:var(--ring);outline:none}
