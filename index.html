@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-1">
+<link rel="stylesheet" href="style.css?v=20260915-2">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260915-1"></script>
+<script src="config.js?v=20260915-2"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -165,6 +165,32 @@
           <span>ถ้าถูกต้องแล้ว กด "ส่งคำขอ" ด้านล่าง</span>
         </div>
         <div id="review"></div>
+      </div>
+
+      <!-- ความยินยอม PDPA — ต้องติ๊กก่อนส่ง · ข้อความผูกกับรุ่น CONSENT_VER (เปลี่ยนข้อความ = เปลี่ยนรุ่น) -->
+      <div class="consent" id="consentBox">
+        <label class="cs-main">
+          <input type="checkbox" id="fConsent">
+          <span class="cs-txt">
+            <b>ยินยอมให้เก็บและใช้ข้อมูลส่วนบุคคล <span class="req">*</span></b>
+            <span id="consentLead">ข้าพเจ้ายินยอมให้ บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด
+              เก็บรวบรวม ใช้ และเปิดเผยข้อมูลที่กรอกและเอกสารที่แนบ เพื่อดำเนินการขอทำประกันภัยรถยนต์</span>
+          </span>
+        </label>
+        <details class="cs-more">
+          <summary>อ่านรายละเอียดการใช้ข้อมูล</summary>
+          <ul>
+            <li><b>ข้อมูลที่เก็บ</b> ชื่อ–นามสกุล เลขบัตรประชาชน เบอร์โทร ที่อยู่ อาชีพ ที่ทำงาน รายได้
+              และสำเนาเอกสาร (ทะเบียนรถ บัตรประชาชน กรมธรรม์เดิม)</li>
+            <li><b>ใช้เพื่อ</b> ติดต่อกลับ เสนอราคา และจัดทำกรมธรรม์ประกันภัยรถยนต์</li>
+            <li><b>เปิดเผยให้</b> บริษัทประกันภัยและนายหน้าประกันภัยที่เกี่ยวข้องกับคำขอนี้เท่านั้น</li>
+            <li><b>สำเนาบัตรประชาชน</b> อาจมีข้อมูลศาสนาหรือหมู่โลหิต ซึ่งบริษัทไม่นำไปใช้
+              — ขีดฆ่าหรือปิดส่วนนั้นก่อนแนบได้</li>
+            <li><b>ระยะเวลาเก็บ</b> เท่าที่จำเป็นต่อการทำประกันภัย และตามที่กฎหมายกำหนด</li>
+            <li><b>สิทธิ์ของเจ้าของข้อมูล</b> ขอดู แก้ไข ลบ หรือถอนความยินยอมได้ โดยติดต่อบริษัท โทร 034-540789
+              · การถอนความยินยอมอาจทำให้ดำเนินการทำประกันต่อไม่ได้</li>
+          </ul>
+        </details>
       </div>
 
       <!-- กับดักบอท: คนมองไม่เห็นช่องนี้ ถ้ามีค่ามาแปลว่าไม่ใช่คนกรอก (เซิร์ฟเวอร์ปฏิเสธ)
@@ -618,8 +644,19 @@ function syncKind(){
   document.querySelector('.step[data-s="2"] .t').textContent = refer ? 'ลูกค้า' : 'ผู้เอาประกัน';
   syncRel();
 }
+const CONSENT_VER = 'pdpa-2026-09-15';
+const CONSENT_CO = 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด';
+/* ผู้กรอกเป็นเจ้าของข้อมูลเอง (พนักงานทำให้ตัวเอง) vs กรอกแทนคนอื่น (ครอบครัว / ลูกค้าที่แนะนำ) */
+function paintConsent(){
+  const own = kindNow() !== 'refer' && relNow() === 'self';
+  $('consentLead').textContent = (own
+    ? 'ข้าพเจ้ายินยอมให้ ' + CONSENT_CO
+    : 'ข้าพเจ้าเป็นเจ้าของข้อมูล หรือได้แจ้งและได้รับความยินยอมจากผู้ทำประกันภัยแล้ว และยินยอมให้ ' + CONSENT_CO)
+    + ' เก็บรวบรวม ใช้ และเปิดเผยข้อมูลที่กรอกและเอกสารที่แนบ เพื่อดำเนินการขอทำประกันภัยรถยนต์';
+}
 function syncRel(){
   $('relNoteBox').hidden = !(kindNow() !== 'refer' && relNow() === 'other');
+  paintConsent();
   syncSelfName();
   syncSelfWork();
 }
@@ -659,7 +696,7 @@ $('relOpts').addEventListener('change', ()=>{ syncRel(); saveDraft(); });
 const STEP_NOTE = {
   1: 'บันทึกร่างในเครื่องให้อัตโนมัติ',
   2: 'ช่องที่มี * ต้องกรอก · หมู่ / ถนน / เบอร์บ้าน เว้นว่างได้',
-  3: 'แนบเอกสารที่มี * ให้ครบ แล้วตรวจข้อมูลก่อนกดส่ง',
+  3: 'แนบเอกสารที่มี * ให้ครบ · ตรวจข้อมูล แล้วติ๊กยินยอมก่อนกดส่ง',
 };
 /* คำที่กว้างเกินไป — ต้องบอกว่าทำงานอะไรจริง ๆ (เทียบทั้งช่อง ไม่ตัดเฉพาะคำ) */
 const VAGUE_OCC = ['พนักงาน','พนักงานบริษัท','พนักงานเอกชน','ลูกจ้าง','รับจ้าง','รับจ้างทั่วไป','ค้าขาย',
@@ -696,6 +733,10 @@ function stepFail(n){
       const row = $('docRows').querySelector('.docrow[data-tag="' + tag + '"]');
       if(row) row.classList.add('miss');
       return {msg:'กรุณาแนบไฟล์' + label, el: row ? row.querySelector('input[type=file]') : 'docRows'};
+    }
+    if(!$('fConsent').checked){
+      $('consentBox').classList.add('miss');
+      return {msg:'กรุณาอ่านและติ๊กยินยอมให้เก็บและใช้ข้อมูลส่วนบุคคลก่อนส่ง', el:'fConsent'};
     }
   }
   return null;
@@ -806,6 +847,10 @@ function restoreDraft(){
 }
 $('tabForm').addEventListener('input', saveDraft);
 $('fNote').addEventListener('input', ()=>{ if(STEP === 3) renderReview(); });
+$('fConsent').addEventListener('change', ()=>{
+  $('consentBox').classList.remove('miss');
+  $('fConsent').removeAttribute('aria-invalid');
+});
 
 /* ---------- เอกสารแนบในฟอร์ม ----------
    1 แถว = เอกสาร 1 ชนิด: ติ๊กว่ามี · ปุ่มแนบ · รายการไฟล์เต็มความกว้างใต้แถว (ชื่อไฟล์ไม่ถูกบีบ)
@@ -972,6 +1017,7 @@ function collect(){
     docRelDoc:    kindNow()!=='refer' && $('docRows').querySelector('.dck[data-tag=relDoc]').checked,
     docRelDocNote: kindNow()!=='refer' && relDocNote ? relDocNote.value : '',
     note: $('fNote').value,
+    consent: $('fConsent').checked, consentVersion: CONSENT_VER,   // ไม่เก็บลงร่าง — ต้องติ๊กใหม่ทุกครั้งที่ส่ง
     hp: $('fHp').value,                              // กับดักบอท — คนกรอกจะว่างเสมอ
   };
 }
@@ -1143,6 +1189,8 @@ function resetForm(keepEmp){
   ['fName','fIdCard','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe',
    'fZip','fOcc','fWork','fIncome','fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e){ e.value=''; delete e.dataset.auto; } });
   setNote('idNote', ''); setNote('zipNote', '');
+  $('fConsent').checked = false; $('consentBox').classList.remove('miss');
+  $('consentBox').querySelector('details').open = false;
   $('fProvince').value = 'กาญจนบุรี';
   if(!keepEmp){ $('fEmpId').value=''; $('fEmpName').value=''; setDept(''); paintEmpChk(null); }
   document.querySelector('input[name=kind][value=self]').checked = true;

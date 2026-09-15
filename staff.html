@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-1">
-<script src="config.js?v=20260915-1"></script>
+<link rel="stylesheet" href="style.css?v=20260915-2">
+<script src="config.js?v=20260915-2"></script>
 
 <body class="ops">
 <header class="staffbar">
@@ -508,6 +508,12 @@ function openView(id){
         ['แผนก', r.emp_dept],
         ['สาขา', r.emp_branch],
         r.emp_typed_name ? ['ชื่อที่ผู้กรอกพิมพ์มา', r.emp_typed_name] : null,
+      ])
+    + '<div class="sec">ความยินยอม (PDPA)</div>'
+    + dl([
+        ['สถานะ', r.consent_at
+          ? '✓ ยินยอมแล้ว · ' + thDate(r.consent_at) + (r.consent_version ? ' · ฉบับ ' + r.consent_version : '')
+          : 'ไม่มีบันทึก (ใบที่ส่งก่อนมีช่องยินยอม)'],
       ])
     + '<div class="sec">ผู้ดูแลลูกค้า</div>'
     + (isAdmin()
