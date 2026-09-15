@@ -12,3 +12,6 @@ supabase/ins-staff.sql
 
 # hash ของกุญแจผูก LINE (ตัวจริงอยู่ใน backend/.env ของเซิร์ฟเวอร์ในออฟฟิศ)
 supabase/line-bind-secret.sql
+
+# พ mapping (scripts/export-emp-owner.cjs)
+supabase/ins-emp-owner.sql
