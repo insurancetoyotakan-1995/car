@@ -157,6 +157,23 @@ textarea{resize:vertical;min-height:76px;line-height:1.55}
 /* บรรทัดสถานะใต้ช่องกรอก (เลขบัตร / รหัสไปรษณีย์) */
 .fnote{display:block;margin-top:5px;font-size:12px;font-weight:500;line-height:1.45;color:var(--muted)}
 .fnote.ok{color:var(--good-ink)} .fnote.no{color:var(--warn-ink)}
+/* ป้ายสถานะ "ในช่อง" (เลขบัตรถูกต้อง · อายุ · รหัสไปรษณีย์อัตโนมัติ) — ไม่ดันแถวให้สูงไม่เท่ากัน */
+label.f > .fld{display:block;position:relative;margin-top:6px}
+.adorn{position:absolute;right:7px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;gap:4px;
+  height:26px;padding:0 9px 0 7px;border-radius:999px;font-size:12px;font-weight:700;line-height:1;
+  white-space:nowrap;pointer-events:none;animation:adornIn .18s var(--ease)}
+.adorn svg{width:14px;height:14px;flex:0 0 auto}
+.adorn.ok{background:var(--good-soft);color:var(--good-ink)}
+.adorn.auto{background:var(--panel-2);color:var(--ink-soft);border:1px solid var(--line)}
+.fld:has(#idAdorn:not([hidden])) input,.fld:has(#dobAdorn:not([hidden])) input{padding-right:104px}
+.fld:has(#zipAdorn:not([hidden])) input{padding-right:98px}
+.fld input.warn{border-color:#d9a441;background:#fffcf5}
+.note-fix{font:inherit;font-weight:700;color:var(--accent-ink);background:none;border:0;padding:0 2px;
+  margin-left:2px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.note-fix:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.fnote.info{color:var(--muted)}
+@keyframes adornIn{from{opacity:0;transform:translateY(-50%) scale(.9)}to{opacity:1;transform:translateY(-50%) scale(1)}}
+@media (prefers-reduced-motion:reduce){.adorn{animation:none}}
 
 /* ---------- ช่องติ๊ก / ตัวเลือก ---------- */
 input[type=checkbox]{appearance:none;-webkit-appearance:none;width:18px;height:18px;

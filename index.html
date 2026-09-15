@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-4">
+<link rel="stylesheet" href="style.css?v=20260915-5">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260915-4"></script>
+<script src="config.js?v=20260915-5"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -99,10 +99,10 @@
       <div class="grid">
         <label class="f c6">ชื่อ–นามสกุล <span class="req">*</span><input id="fName" autocomplete="off"></label>
         <label class="f c6">เลขบัตรประชาชน <span class="req">*</span>
-          <input id="fIdCard" inputmode="numeric" autocomplete="off" placeholder="x-xxxx-xxxxx-xx-x">
+          <span class="fld"><input id="fIdCard" inputmode="numeric" autocomplete="off" placeholder="x-xxxx-xxxxx-xx-x" aria-describedby="idAdorn idNote"><span class="adorn" id="idAdorn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="t"></span></span></span>
           <span class="fnote" id="idNote" hidden></span></label>
         <label class="f c4">วันเดือนปีเกิด <span class="req">*</span>
-          <input id="fDob" inputmode="numeric" autocomplete="bday" placeholder="วว/ดด/ปปปป (พ.ศ.)">
+          <span class="fld"><input id="fDob" inputmode="numeric" autocomplete="bday" placeholder="วว/ดด/ปปปป (พ.ศ.)" aria-describedby="dobAdorn dobNote"><span class="adorn" id="dobAdorn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="t"></span></span></span>
           <span class="fnote" id="dobNote" hidden></span></label>
         <label class="f c4">เบอร์มือถือ <span class="req">*</span>
           <input id="fMobile" inputmode="tel" autocomplete="tel" placeholder="08x-xxx-xxxx"></label>
@@ -118,7 +118,7 @@
         <label class="f c4">อำเภอ / เขต <span class="req">*</span><input id="fAmphoe"></label>
         <label class="f c4">จังหวัด <span class="req">*</span><input id="fProvince" value="กาญจนบุรี"></label>
         <label class="f c4">รหัสไปรษณีย์ <span class="req">*</span>
-          <input id="fZip" inputmode="numeric" autocomplete="postal-code" placeholder="เติมให้จากที่อยู่">
+          <span class="fld"><input id="fZip" inputmode="numeric" autocomplete="postal-code" placeholder="เติมให้จากที่อยู่" aria-describedby="zipAdorn zipNote"><span class="adorn" id="zipAdorn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span class="t"></span></span></span>
           <span class="fnote" id="zipNote" hidden></span></label>
       </div>
 
@@ -549,16 +549,35 @@ bindMask('fIdCard', 13, fmtIdCard);
 bindMask('fZip', 5, d => d);
 bindMask('fIncome', 8, fmtMoney);        // ไม่เกิน 99,999,999 (ฐานข้อมูลรับไม่เกิน 100 ล้าน)
 
-function setNote(id, text, kind){
-  const n = $(id);
-  n.textContent = text || '';
-  n.className = 'fnote' + (kind ? ' ' + kind : '');
-  n.hidden = !text;
+/* สถานะของช่อง — 2 แบบ ไม่ให้เกะกะ:
+   'ok' / 'auto' = ป้ายเล็กชิดขวา "ในช่อง" (ไม่ดันเลย์เอาต์ แถวเท่ากันทุกแถว)
+   'no' / 'info' = ข้อความใต้ช่อง เฉพาะตอนมีเรื่องต้องแก้ ('no' ขอบช่องเป็นสีเตือนด้วย)
+   fix = {label, run} ปุ่มแก้ให้ในคลิกเดียวต่อท้ายข้อความ */
+function setNote(id, text, kind, fix){
+  const key = id.replace('Note', ''), n = $(id), a = $(key + 'Adorn');
+  const inp = n.closest('label').querySelector('input');
+  const badge = !!text && (kind === 'ok' || kind === 'auto');
+  n.textContent = badge ? '' : (text || '');
+  n.className = 'fnote' + (kind && !badge ? ' ' + kind : '');
+  n.hidden = badge || !text;
+  if(fix && !badge && text){
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'note-fix'; b.textContent = fix.label;
+    b.onclick = e => { e.preventDefault(); fix.run(); };
+    n.append(' ', b);
+  }
+  if(a){
+    a.hidden = !badge;
+    a.className = 'adorn ' + (badge ? kind : '');
+    a.querySelector('.t').textContent = badge ? text : '';
+    a.title = badge && fix && fix.title ? fix.title : '';
+  }
+  inp.classList.toggle('warn', kind === 'no' && !!text);
 }
 function paintIdNote(){
   const d = $('fIdCard').value.replace(/\D/g,'');
   if(d.length < 13) return setNote('idNote', '');
-  idCardValid(d) ? setNote('idNote', '✓ เลขบัตรถูกต้อง', 'ok')
+  idCardValid(d) ? setNote('idNote', 'ถูกต้อง', 'ok')
                  : setNote('idNote', 'เลขบัตรไม่ถูกต้อง — ตรวจอีกครั้ง', 'no');
 }
 $('fIdCard').addEventListener('input', paintIdNote);
@@ -597,7 +616,7 @@ function paintDob(){
   const bad = dobProblem(v);
   if(bad) return setNote('dobNote', bad, 'no');
   const p = dobParse(v);
-  setNote('dobNote', 'อายุ ' + p.age + ' ปี · ' + p.dd + ' ' + TH_MON_FULL[p.mm - 1] + ' ' + p.be, 'ok');
+  setNote('dobNote', 'อายุ ' + p.age + ' ปี', 'ok');
 }
 const TH_MON_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 $('fDob').addEventListener('input', paintDob);
@@ -654,7 +673,7 @@ async function syncZip(){
     return setNote('zipNote', '');
   }
   const db = await loadZip();
-  if(!db) return setNote('zipNote', cur ? '' : 'ค้นรหัสไปรษณีย์อัตโนมัติไม่ได้ — กรุณากรอกเอง', 'no');
+  if(!db) return setNote('zipNote', cur ? '' : 'ค้นรหัสไปรษณีย์อัตโนมัติไม่ได้ — กรุณากรอกเอง', 'info');
   const z = zipFor($('fProvince').value, $('fAmphoe').value, $('fTambon').value);
   const now = el.value.trim();
   if(!el.dataset.auto && now && now === z) el.dataset.auto = now;     // กู้จากร่าง
@@ -663,14 +682,18 @@ async function syncZip(){
     if(untouched){
       if(now !== z){ el.value = z; saveDraft(); }
       el.dataset.auto = z; el.removeAttribute('aria-invalid');
-      setNote('zipNote', 'เติมให้จากที่อยู่ · แก้ได้ถ้าไม่ตรง', 'ok');
+      setNote('zipNote', 'อัตโนมัติ', 'auto');
     }else if(now !== z){
-      setNote('zipNote', 'ตามที่อยู่ควรเป็น ' + z + ' — ตรวจอีกครั้ง', 'no');
+      setNote('zipNote', 'ตามที่อยู่ควรเป็น ' + z, 'no', { label:'ใช้ ' + z, run:()=>{
+        el.value = z; el.dataset.auto = z; el.removeAttribute('aria-invalid');
+        setNote('zipNote', 'อัตโนมัติ', 'auto'); saveDraft();
+      }});
     }else setNote('zipNote', '');
   }else{
     if(untouched && el.dataset.auto){ el.value = ''; delete el.dataset.auto; }
-    setNote('zipNote', $('fZip').value.trim() ? ''
-      : $('fTambon').value.trim() ? 'ไม่พบในข้อมูลไปรษณีย์ — กรุณากรอกเอง' : 'กรอกตำบลแล้วจะเติมรหัสให้', 'no');
+    /* ยังไม่ได้กรอกตำบล = ไม่ต้องขึ้นอะไร (placeholder บอกอยู่แล้วว่าจะเติมให้) */
+    setNote('zipNote', !$('fZip').value.trim() && $('fTambon').value.trim()
+      ? 'ไม่พบในข้อมูลไปรษณีย์ — กรุณากรอกเอง' : '', 'info');
   }
 }
 ['fTambon','fAmphoe','fProvince'].forEach(id=>{
