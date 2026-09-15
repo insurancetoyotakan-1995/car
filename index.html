@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-5">
+<link rel="stylesheet" href="style.css?v=20260915-6">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260915-5"></script>
+<script src="config.js?v=20260915-6"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -97,7 +97,15 @@
       <h2 id="insHead">ผู้ทำประกันภัย</h2>
       <p class="sub" id="insSub">ข้อมูลของผู้ที่จะเอาประกัน — ใช้ติดต่อกลับและออกกรมธรรม์</p>
       <div class="grid">
-        <label class="f c6">ชื่อ–นามสกุล <span class="req">*</span><input id="fName" autocomplete="off"></label>
+        <label class="f c2">คำนำหน้า <span class="req">*</span>
+          <select id="fTitle">
+            <option value="">— เลือก —</option>
+            <option>นาย</option><option>นาง</option><option>นางสาว</option>
+            <option value="other">อื่น ๆ (ระบุ)</option>
+          </select></label>
+        <label class="f c3" id="titleOtherBox" hidden>ระบุคำนำหน้า <span class="req">*</span>
+          <input id="fTitleOther" autocomplete="off" maxlength="30" placeholder="เช่น ดร., ว่าที่ ร.ต."></label>
+        <label class="f c4">ชื่อ–นามสกุล <span class="req">*</span><input id="fName" autocomplete="off"></label>
         <label class="f c6">เลขบัตรประชาชน <span class="req">*</span>
           <span class="fld"><input id="fIdCard" inputmode="numeric" autocomplete="off" placeholder="x-xxxx-xxxxx-xx-x" aria-describedby="idAdorn idNote"><span class="adorn" id="idAdorn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="t"></span></span></span>
           <span class="fnote" id="idNote" hidden></span></label>
@@ -306,7 +314,7 @@ const DRAFT_KEY = 'ins_form_draft_v1';
 /* ช่องข้อความทั้งหมดที่บันทึกร่างไว้ในเครื่อง — ใช้ทั้งตอนเก็บ กู้คืน และล้าง */
 /* 🔒 ไม่เก็บเลขบัตรประชาชนลงร่าง — เครื่องที่ใช้ร่วมกันคนถัดไปจะเห็นเลขของคนก่อน */
 const TEXT_FIELDS = ['fEmpId','fEmpName','fName','fMobile','fHome','fAddr','fMoo','fRoad',
-  'fTambon','fAmphoe','fProvince','fZip','fOcc','fWork','fIncome','fDob','fRelNote','fNote'];
+  'fTambon','fAmphoe','fProvince','fZip','fOcc','fWork','fIncome','fDob','fTitleOther','fRelNote','fNote'];
 const COMPANY = 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด';
 
 let PENDING = [];                                   // ไฟล์ที่เลือกไว้ แต่ใบยังไม่ถูกสร้าง
@@ -500,6 +508,31 @@ const DEPARTMENTS = ['เจ้าของกิจการ','เลขาน�
   'แผนกอะไหล่','แผนกการเงิน','แผนกบัญชี','แผนกบุคคล','แผนกลูกค้าสัมพันธ์','แผนกการตลาดประชาสัมพันธ์',
   'แผนก Digital Marketing','แผนกอาคารสถานที่และรปภ.','แผนกแม่บ้าน'];
 DEPARTMENTS.forEach(d=>{ const o = document.createElement('option'); o.value = o.textContent = d; $('fDept').appendChild(o); });
+/* ---------- คำนำหน้าชื่อ ----------
+   นาย / นาง / นางสาว / อื่น ๆ (ระบุเอง เช่น ดร., ว่าที่ ร.ต.) · ค่าที่ส่ง = ข้อความคำนำหน้าจริง */
+const TITLE_STD = ['นาย','นาง','นางสาว'];
+function setTitle(v){
+  const sel = $('fTitle');
+  sel.value = v || '';
+  const box = sel.closest('.csel');
+  if(box){ cselLabel(box); box.classList.toggle('is-empty', !sel.value); box.__btn.removeAttribute('aria-invalid'); }
+  syncTitleOther();
+}
+function syncTitleOther(){
+  const other = $('fTitle').value === 'other';
+  $('titleOtherBox').hidden = !other;
+  if(!other) $('fTitleOther').removeAttribute('aria-invalid');
+}
+const titleNow = () => $('fTitle').value === 'other' ? $('fTitleOther').value.trim() : $('fTitle').value;
+/* พิมพ์คำนำหน้ามาในช่องชื่อ ("นายสมชาย ...") → ย้ายไปดรอปดาวน์ให้ แล้วตัดออกจากชื่อ */
+function pullTitleFromName(){
+  /* "นาย"/"นาง" ต้องมีเว้นวรรคตามหลัง — ติดกันอาจเป็นชื่อจริง (นางนวล, นายิกา) · นางสาว/น.ส. ไม่กำกวม */
+  const el = $('fName'), m = el.value.match(/^\s*(?:(นางสาว|น\.ส\.)\s*|(นาง|นาย)\s+)(?=\S)/);
+  if(!m) return;
+  const t = m[1] ? 'นางสาว' : m[2];
+  el.value = el.value.slice(m[0].length);
+  setTitle(t); saveDraft();
+}
 function setDept(v){
   const sel = $('fDept');
   v = String(v || '').trim();
@@ -783,6 +816,9 @@ function stepFail(n){
     if(!$('fDept').value)           return {msg:'กรุณาเลือกแผนก', el:'fDept'};
   }
   if(n === 2){
+    if(!$('fTitle').value) return {msg:'กรุณาเลือกคำนำหน้าชื่อ', el:'fTitle'};
+    if($('fTitle').value === 'other' && !$('fTitleOther').value.trim())
+      return {msg:'กรุณาระบุคำนำหน้าชื่อ', el:'fTitleOther'};
     if(!$('fName').value.trim()) return {msg:'กรุณากรอกชื่อผู้ทำประกันภัย', el:'fName'};
     const idc = $('fIdCard').value.replace(/\D/g,'');
     if(idc.length !== 13)  return {msg:'กรุณากรอกเลขบัตรประชาชนให้ครบ 13 หลัก', el:'fIdCard'};
@@ -899,7 +935,7 @@ function saveDraft(){
   clearTimeout(draftTimer);
   draftTimer = setTimeout(()=>{
     try{
-      const d = { kind: kindNow(), rel: relNow(), branch: $('fBranch').value, dept: $('fDept').value, at: Date.now() };
+      const d = { kind: kindNow(), rel: relNow(), branch: $('fBranch').value, dept: $('fDept').value, title: $('fTitle').value, at: Date.now() };
       TEXT_FIELDS.forEach(id=>{ const e = $(id); if(e && e.value) d[id] = e.value; });
       localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
     }catch(e){ /* โหมดส่วนตัว/พื้นที่เต็ม → ข้ามไป ฟอร์มยังใช้ได้ */ }
@@ -919,6 +955,7 @@ function restoreDraft(){
   if(r) r.checked = true;
   if(d.branch) $('fBranch').value = d.branch;
   if(d.dept) setDept(d.dept);
+  if(d.title) setTitle(d.title);
   return TEXT_FIELDS.some(id=> d[id]);
 }
 $('tabForm').addEventListener('input', saveDraft);
@@ -1054,7 +1091,7 @@ function renderReview(){
         + row('ชื่อ', [val('fEmpName'), val('fEmpId') && ('รหัส ' + val('fEmpId'))].filter(Boolean).join(' · '))
         + row('แผนก / สาขา', [val('fDept'), $('fBranch').value].filter(Boolean).join(' · ')))
     + block(2, refer ? 'ลูกค้าที่แนะนำ' : 'ผู้ทำประกัน', 2,
-          row('ชื่อ', val('fName'))
+          row('ชื่อ', [titleNow(), val('fName')].filter(Boolean).join(' '))
         + row('เลขบัตรประชาชน', val('fIdCard'))
         + row('วันเดือนปีเกิด', (()=>{ const p = dobParse(val('fDob')); return p ? p.dd + ' ' + TH_MON_FULL[p.mm - 1] + ' ' + p.be + ' (อายุ ' + p.age + ' ปี)' : ''; })())
         + row('เบอร์ติดต่อ', [val('fMobile'), val('fHome')].filter(Boolean).join(' · '))
@@ -1075,6 +1112,7 @@ function collect(){
     kind: kindNow(),
     empId: $('fEmpId').value, empName: $('fEmpName').value, empBranch: $('fBranch').value,
     empDept: $('fDept').value,
+    insuredTitle: titleNow(),
     insuredName: $('fName').value, phoneMobile: $('fMobile').value, phoneHome: $('fHome').value,
     addr: $('fAddr').value, moo: $('fMoo').value, road: $('fRoad').value,
     tambon: $('fTambon').value, amphoe: $('fAmphoe').value, province: $('fProvince').value,
@@ -1265,11 +1303,12 @@ $('btnNewOne').onclick = ()=>{
 /* keepEmp = คงรหัส/ชื่อพนักงานไว้ — คนเดิมมักส่งหลายใบติดกัน ไม่ต้องพิมพ์ซ้ำ */
 function resetForm(keepEmp){
   ['fName','fIdCard','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe',
-   'fZip','fOcc','fWork','fIncome','fDob','fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e){ e.value=''; delete e.dataset.auto; } });
+   'fZip','fOcc','fWork','fIncome','fDob','fTitleOther','fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e){ e.value=''; delete e.dataset.auto; } });
   setNote('idNote', ''); setNote('zipNote', ''); setNote('dobNote', '');
   $('fConsent').checked = false; $('consentBox').classList.remove('miss');
   $('consentBox').querySelector('details').open = false;
   $('fProvince').value = 'กาญจนบุรี';
+  setTitle('');
   if(!keepEmp){ $('fEmpId').value=''; $('fEmpName').value=''; setDept(''); paintEmpChk(null); }
   document.querySelector('input[name=kind][value=self]').checked = true;
   document.querySelector('input[name=rel][value=self]').checked = true;
@@ -1291,6 +1330,13 @@ renderDocRows(); renderChips();
 csel($('fBranch'));
 csel($('fDept'));
 setDept('');
+csel($('fTitle'));
+setTitle('');
+$('fTitle').addEventListener('change', ()=>{
+  setTitle($('fTitle').value); saveDraft();
+  if($('fTitle').value === 'other') setTimeout(()=> $('fTitleOther').focus(), 30);
+});
+$('fName').addEventListener('blur', pullTitleFromName);
 const hadDraft = restoreDraft();
 cselLabel($('fBranch').closest('.csel'));            // ร่างอาจเปลี่ยนสาขา — ป้ายบนปุ่มต้องตามด้วย
 setBranchByEmp();                                    // ร่างเก่าที่สาขาไม่ตรงกับรหัส → แก้ให้ตรง

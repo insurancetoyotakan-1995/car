@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-5">
-<script src="config.js?v=20260915-5"></script>
+<link rel="stylesheet" href="style.css?v=20260915-6">
+<script src="config.js?v=20260915-6"></script>
 
 <body class="ops">
 <header class="staffbar">
@@ -485,7 +485,7 @@ function openView(id){
   $('vBody').innerHTML =
       '<div class="sec">ผู้ทำประกันภัย</div>'
     + dl([
-        ['ชื่อ–นามสกุล', r.insured_name],
+        ['ชื่อ–นามสกุล', [r.insured_title, r.insured_name].filter(Boolean).join(' ')],
         ['เลขบัตรประชาชน', idFmt],
         ['วันเดือนปีเกิด', (()=>{
           const m = String(r.birth_date || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
