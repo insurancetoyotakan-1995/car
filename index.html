@@ -327,6 +327,65 @@ let STEP = 1;
 
 const fileSize = n => n >= 1048576 ? (n/1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n/1024)) + ' KB';
 
+/* ---------- ย่อรูปก่อนอัปโหลด ----------
+   Storage ของ Free Plan มี 1 GB — รูปจากมือถือไฟล์ละ 2-5 MB ทำให้เก็บได้แค่ ~200 ใบ
+   ย่อด้านยาวเหลือ ≤2000px แล้วเข้ารหัส JPEG ไล่คุณภาพลงจนได้ ≤ SHRINK_TARGET (~300 KB)
+   ตัวหนังสือบนบัตรประชาชน/เล่มทะเบียนยังอ่านได้ที่ 1400-2000px
+   🔑 รูปที่เล็กอยู่แล้วไม่แตะ · ย่อแล้วใหญ่กว่าเดิม = ใช้ของเดิม · PDF ไม่แตะ
+   🔑 หมุนตาม EXIF (รูปมือถือแนวตั้งเก็บเป็นแนวนอน + ธงหมุน) ไม่งั้นรูปตะแคง */
+const SHRINK_TARGET = 300 * 1024;
+const SHRINK_SKIP   = 350 * 1024;             // เล็กกว่านี้อยู่แล้ว ไม่ต้องย่อ
+const SHRINK_DIMS   = [2000, 1700, 1400];
+const SHRINK_QS     = [0.82, 0.72, 0.62];
+const MAX_IMG_IN    = 40 * 1024 * 1024;        // รูปต้นฉบับรับได้ใหญ่กว่า PDF เพราะจะถูกย่อ
+const isImg = f => /^image\/(jpeg|png)$/.test(f.type) || /\.(jpe?g|png)$/i.test(f.name);
+async function decodeImage(file){
+  if(window.createImageBitmap){
+    try{ return await createImageBitmap(file, { imageOrientation: 'from-image' }); }catch(e){}
+  }
+  const url = URL.createObjectURL(file);
+  try{
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = url;
+    await img.decode();
+    return img;
+  } finally { URL.revokeObjectURL(url); }
+}
+const canvasBlob = (cv, q) => new Promise(res => cv.toBlob(res, 'image/jpeg', q));
+async function shrinkImage(file){
+  if(!isImg(file) || file.size <= SHRINK_SKIP) return file;
+  let src;
+  try{ src = await decodeImage(file); }catch(e){ return file; }   // ถอดรหัสไม่ได้ = ส่งของเดิม
+  const w0 = src.width, h0 = src.height;
+  let best = null;
+  try{
+    for(const dim of SHRINK_DIMS){
+      const k = Math.min(1, dim / Math.max(w0, h0));
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(w0 * k)); cv.height = Math.max(1, Math.round(h0 * k));
+      const g = cv.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);   // PNG โปร่งใส → พื้นขาว ไม่ใช่ดำ
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(src, 0, 0, cv.width, cv.height);
+      for(const q of SHRINK_QS){
+        const b = await canvasBlob(cv, q);
+        if(!b) continue;
+        if(!best || b.size < best.size) best = b;
+        if(b.size <= SHRINK_TARGET) break;
+      }
+      cv.width = cv.height = 0;                                          // คืนหน่วยความจำ (iPhone)
+      if(best && best.size <= SHRINK_TARGET) break;
+    }
+  } finally { if(src.close) src.close(); }
+  if(!best || best.size >= file.size) return file;
+  const name = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+  const out = new File([best], name, { type: 'image/jpeg', lastModified: Date.now() });
+  out.origSize = file.size;
+  return out;
+}
+let SHRINKING = 0;                              // จำนวนไฟล์ที่กำลังย่ออยู่ — ห้ามส่งระหว่างนี้
+
 /* ---------- กล่องยืนยันของเราเอง (ไม่ใช้ confirm() เนทีฟ) ---------- */
 let askResolve = null;
 function ask(o){
@@ -840,6 +899,11 @@ function stepFail(n){
     if(!(+$('fIncome').value.replace(/\D/g,'') > 0)) return {msg:'กรุณากรอกรายได้ต่อเดือน', el:'fIncome'};
   }
   if(n === 3){
+    if(SHRINKING > 0){
+      const b = PENDING.find(p => p.busy);
+      const inp = b && $('docRows').querySelector('.docrow[data-tag="' + b.tag + '"] input[type=file]');
+      return {msg:'กำลังย่อรูปที่แนบ รอสักครู่แล้วกดอีกครั้ง', el: inp || 'docRows'};
+    }
     for(const [tag, label, req] of DOC_TYPES){
       if(!req || activeFiles().some(p=> p.tag === tag)) continue;
       const row = $('docRows').querySelector('.docrow[data-tag="' + tag + '"]');
@@ -974,18 +1038,43 @@ const ICO_UP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 
 const ICO_X  = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
 const ACCEPT = /^(application\/pdf|image\/jpeg|image\/png)$/;
 
-function addFiles(tag, list){
-  let added = 0;
+async function addFiles(tag, list){
+  const ok = [];
   for(const f of list){
     if(!ACCEPT.test(f.type) && !/\.(pdf|jpe?g|png)$/i.test(f.name)){ toast('ไฟล์ "' + f.name + '" ไม่ใช่ PDF / JPG / PNG', 'no'); continue; }
-    if(f.size > MAX_FILE){ toast('ไฟล์ "' + f.name + '" ใหญ่เกิน 10 MB', 'no'); continue; }
-    if(PENDING.length >= MAX_FILES){ toast('แนบได้สูงสุด ' + MAX_FILES + ' ไฟล์ต่อใบ', 'no'); break; }
-    PENDING.push({ file: f, tag, url: /^image\//.test(f.type) ? URL.createObjectURL(f) : '' });
-    added++;
+    if(f.size > (isImg(f) ? MAX_IMG_IN : MAX_FILE)){ toast('ไฟล์ "' + f.name + '" ใหญ่เกิน ' + (isImg(f) ? '40' : '10') + ' MB', 'no'); continue; }
+    if(PENDING.length + ok.length >= MAX_FILES){ toast('แนบได้สูงสุด ' + MAX_FILES + ' ไฟล์ต่อใบ', 'no'); break; }
+    ok.push(f);
   }
+  if(!ok.length) return;
   const ck = $('docRows').querySelector('.dck[data-tag="' + tag + '"]');
-  if(ck && added) ck.checked = true;             // แนบมาแล้ว = มีเอกสารนั้นแน่นอน
+  if(ck) ck.checked = true;                      // แนบมาแล้ว = มีเอกสารนั้นแน่นอน
+  /* ใส่แถว "กำลังย่อรูป" ไว้ก่อน → จองโควตาไฟล์ + ผู้ใช้เห็นทันทีว่าระบบรับไฟล์แล้ว */
+  const items = ok.map(f => ({ file: f, tag, url: '', busy: isImg(f) && f.size > SHRINK_SKIP }));
+  items.forEach(p => { if(!p.busy && isImg(p.file)) p.url = URL.createObjectURL(p.file); });
+  PENDING.push(...items);
   renderChips();
+  for(const p of items){
+    if(!p.busy) continue;
+    SHRINKING++;
+    try{
+      const out = await shrinkImage(p.file);
+      if(out.size > MAX_FILE){                   // ย่อไม่ลงจริง ๆ (เกิดยากมาก)
+        toast('ไฟล์ "' + p.file.name + '" ใหญ่เกิน 10 MB แม้ย่อแล้ว', 'no');
+        const i = PENDING.indexOf(p); if(i >= 0) PENDING.splice(i, 1);
+      } else {
+        p.file = out;
+        p.url = URL.createObjectURL(out);
+      }
+    }catch(e){
+      p.url = URL.createObjectURL(p.file);      // ย่อพลาด = ส่งของเดิม (ยังไม่เกิน 10 MB ก็อัปได้)
+      if(p.file.size > MAX_FILE){ const i = PENDING.indexOf(p); if(i >= 0) PENDING.splice(i, 1); toast('ไฟล์ "' + p.file.name + '" ใหญ่เกิน 10 MB', 'no'); }
+    }finally{
+      p.busy = false;
+      SHRINKING--;
+      renderChips();
+    }
+  }
 }
 
 function renderDocRows(){
@@ -1030,11 +1119,14 @@ function renderChips(){
     const ck = row.querySelector('.dck');
     box.innerHTML = mine.map(([p,i])=>{
       const img = !!p.url;
-      return '<li class="dfile">'
+      const size = p.busy ? 'กำลังย่อรูป…'
+                 : fileSize(p.file.size) + (p.file.origSize ? ' · ย่อจาก ' + fileSize(p.file.origSize) : '');
+      return '<li class="dfile' + (p.busy ? ' busy' : '') + '">'
         + (img ? '<img class="dthumb" src="' + p.url + '" alt="">'
+               : p.busy ? '<span class="dthumb pdf" aria-hidden="true">IMG</span>'
                : '<span class="dthumb pdf" aria-hidden="true">PDF</span>')
         + '<span class="dname" title="' + esc(p.file.name) + '">' + esc(p.file.name) + '</span>'
-        + '<span class="dsize">' + fileSize(p.file.size) + '</span>'
+        + '<span class="dsize"' + (p.busy ? ' role="status"' : '') + '>' + size + '</span>'
         + '<button type="button" class="drm" data-i="' + i + '" aria-label="เอาไฟล์ ' + esc(p.file.name) + ' ออก">' + ICO_X + '</button>'
         + '</li>';
     }).join('');
@@ -1048,7 +1140,8 @@ function renderChips(){
     const st = row.querySelector('.doc-st');
     row.classList.toggle('has-files', mine.length > 0);
     if(mine.length) row.classList.remove('miss');
-    st.textContent = mine.length ? '✓ แนบแล้ว ' + mine.length + ' ไฟล์'
+    st.textContent = mine.some(([p]) => p.busy) ? 'กำลังย่อรูปให้เล็กลง…'
+                   : mine.length ? '✓ แนบแล้ว ' + mine.length + ' ไฟล์'
                    : req ? 'ยังไม่ได้แนบ · ต้องแนบก่อนส่ง'
                    : ck.checked ? 'มีเอกสาร · ยังไม่ได้แนบ ส่งให้ทีหลังได้'
                    : 'ยังไม่ได้แนบ';
@@ -1286,10 +1379,17 @@ function renderDoneFiles(){
 }
 $('donePick').onchange = async ()=>{
   const files = [...$('donePick').files]; $('donePick').value = '';
-  const items = files.filter(f=>{
-    if(f.size > MAX_FILE){ toast('ไฟล์ "' + f.name + '" ใหญ่เกิน 10 MB', 'no'); return false; }
-    return true;
-  }).map(f=>({file:f, tag:''}));
+  const items = [];
+  for(const f0 of files){
+    if(f0.size > (isImg(f0) ? MAX_IMG_IN : MAX_FILE)){ toast('ไฟล์ "' + f0.name + '" ใหญ่เกิน ' + (isImg(f0) ? '40' : '10') + ' MB', 'no'); continue; }
+    let f = f0;
+    if(isImg(f0) && f0.size > SHRINK_SKIP){
+      toast('กำลังย่อรูป "' + f0.name + '"…');
+      try{ f = await shrinkImage(f0); }catch(e){}
+    }
+    if(f.size > MAX_FILE){ toast('ไฟล์ "' + f0.name + '" ใหญ่เกิน 10 MB', 'no'); continue; }
+    items.push({file:f, tag:''});
+  }
   if(!items.length) return;
   const u = await uploadFiles(items);
   renderDoneFiles();
