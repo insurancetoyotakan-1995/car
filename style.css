@@ -960,3 +960,35 @@ label.f .csel{width:100%}
   .savebar{position:static;margin-top:12px}
   .ops header.staffbar{padding-top:8px;padding-bottom:8px}
 }
+/* =====================================================================
+   ข้อมูลเสนอราคา (หน้าเจ้าหน้าที่) — บริษัทประกัน · ประเภท · เบี้ย/ส่วนลด
+   แยก 2 ก้อนตามฟอร์มกระดาษ (ประเภท / พ.ร.บ.) แล้วรวมเป็น "รวมทั้งสิ้น"
+   ===================================================================== */
+.secx{float:right;font-weight:600;font-size:11.5px;color:var(--muted)}
+.qhint{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.7}
+.qpr{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2);
+  padding:11px 13px 13px;margin-bottom:10px}
+.qpr-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:9px}
+.qpr-h b{font-size:13.5px;font-weight:700;color:var(--ink)}
+.qpr-h span{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.qpr-h i{font-style:normal;font-weight:700;font-size:13.5px;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.qpr-h i.bad{color:var(--bad-ink)}
+/* จำนวนเงินชิดขวา + เลขความกว้างเท่ากัน จะได้ไล่สายตาลงคอลัมน์ได้ */
+.qpr input.baht{text-align:right;font-variant-numeric:tabular-nums}
+.qpr-tot{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding:12px 14px;border-radius:var(--r-sm);
+  background:var(--accent-soft);border:1px solid var(--red-100)}
+.qpr-tot span{font-size:13px;font-weight:700;color:var(--accent-ink)}
+.qpr-tot b{font-size:17px;font-weight:700;color:var(--accent-ink);font-variant-numeric:tabular-nums}
+.qpr-tot b.bad{color:var(--bad-ink)}
+.qact{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+.qmeta{font-size:12px;color:var(--muted)}
+@media (max-width:640px){
+  .secx{float:none;display:block;margin-top:3px}
+  .qpr-h{flex-direction:column;gap:2px}
+  .qpr-h span{align-self:flex-start}
+  /* 🔑 ช่องเงิน 3 ช่องเรียง 2 คอลัมน์ ไม่ยอมให้ยุบเป็น 1 ช่อง/บรรทัด (บล็อกจะยาวเกินไป)
+        ต้องประกาศหลังกฎ .c4{grid-column:span 12} ของกริดรวม */
+  .qpr .c4{grid-column:span 6}
+}

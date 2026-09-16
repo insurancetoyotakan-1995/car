@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260915-8">
-<script src="config.js?v=20260915-8"></script>
+<link rel="stylesheet" href="style.css?v=20260916-1">
+<script src="config.js?v=20260916-1"></script>
 
 <body class="ops">
 <header class="staffbar">
@@ -130,6 +130,192 @@ const COVERS = { type1:'ประเภท 1', type2plus:'ประเภท 2 �
 const RELS = { self:'ตัวพนักงานเอง', father:'บิดา', mother:'มารดา', husband:'สามี', wife:'ภรรยา', child:'บุตร', other:'อื่น ๆ' };
 const STATUS = { new:'รอตรวจสอบ', contacted:'ติดต่อแล้ว', quoted:'เสนอราคาแล้ว', done:'ปิดการขาย', cancelled:'ยกเลิก' };
 const DOC_LABEL = { carReg:'สำเนาทะเบียนรถ', idCard:'สำเนาบัตรประชาชนผู้ทำประกัน', oldPolicy:'สำเนากรมธรรม์เดิม', relDoc:'เอกสารแสดงความสัมพันธ์' };
+
+/* บริษัทประกัน/ประเภทประกัน = คำที่ฝ่ายประกันใช้อยู่จริงในไฟล์ Excel ของเขา
+   🔑 value = ชื่อเต็มตามไฟล์ (เอาไปจับคู่/ทำรายงานกับข้อมูลเดิมได้ตรง ๆ)
+      label = ชื่อย่อ เพื่อให้ดรอปดาวน์ไม่กว้างเกินจอมือถือ */
+const OTHER_VAL = '__other__';
+const ACT_ONLY  = 'พ.ร.บ. อย่างเดียว';
+const INSURERS = [
+  ['บริษัทไอโออิ กรุงเทพ ประกันภัย จำกัด (มหาชน)',   'ไอโออิ กรุงเทพ'],
+  ['บริษัท วิริยะประกันภัย จำกัด (มหาชน)',            'วิริยะประกันภัย'],
+  ['บริษัท ประกันภัยไทยวิวัฒน์ จำกัด (มหาชน)',        'ไทยวิวัฒน์'],
+  ['บมจ.คุ้มภัยโตเกียวมารีนประกันภัย (ประเทศไทย)',     'คุ้มภัยโตเกียวมารีน'],
+  ['บริษัท นวกิจประกันภัย จำกัด (มหาชน)',             'นวกิจประกันภัย'],
+  ['บริษัท เมืองไทยประกันภัย จำกัด (มหาชน)',          'เมืองไทยประกันภัย'],
+  ['บริษัท กรุงเทพประกันภัย จำกัด (มหาชน)',           'กรุงเทพประกันภัย'],
+  ['บริษัท มิตซุย สุมิโตโม อินชัวร์รันส์ จำกัด',       'มิตซุย สุมิโตโม'],
+  ['บริษัท ซมโปะ ประกันภัย (ประเทศไทย)จำกัด (มหาชน)', 'ซมโปะ ประกันภัย'],
+];
+const QTYPES = [
+  'ประกันภัยประเภท 1 T-CARE (เบี้ยปกติ)',
+  'ประกันภัยประเภท 1 T-CARE (TLT)',
+  'ประกันภัยประเภท 1 T-CARE (ไฟแนนซ์อื่นๆ)',
+  'ประกันภัยประเภท 1 T-CARE (ลูกค้าซื้อซ้ำ)',
+  'ประกันภัยประเภท 1 NON T-CARE',
+  'ประกันภัยประเภท 1 ซ่อมอู่',
+  'ประกันภัยประเภท 1 ซ่อมห้าง(S/R)',
+  'ประกันภัยประเภท 1 COM 10% ซ่อมอู่',
+  'ประกันภัยประเภท 2 พลัส',
+  'ประกันภัยประเภท 2 ซ่อมอู่',
+  'ประกันภัยประเภท 2 ซ่อมห้าง',
+  'ประกันภัยประเภท 3 พลัส',
+  'ประกันภัยประเภท 3',
+];
+const qtLabel = t => t.replace(/^ประกันภัยประเภท\s*/, 'ประเภท ');
+
+/* ---------- ช่องจำนวนเงิน (เบี้ยจริงมีทศนิยม เช่น 45,415.08) ---------- */
+const fmtBaht = n => (n == null || n === '' || isNaN(n)) ? '—'
+  : Number(n).toLocaleString('th-TH', { minimumFractionDigits:2, maximumFractionDigits:2 });
+/* คงจุดทศนิยมที่กำลังพิมพ์ไว้ (จุดเดียว ≤2 ตำแหน่ง) แล้วใส่คอมมาหลักพันให้ */
+function bahtMask(v){
+  let t = String(v).replace(/[^\d.]/g, '');
+  const i = t.indexOf('.');
+  if(i >= 0) t = t.slice(0, i + 1) + t.slice(i + 1).replace(/\./g, '').slice(0, 2);
+  let a = t.split('.')[0], b = t.split('.')[1];
+  a = (a || '').replace(/^0+(?=\d)/, '').slice(0, 8);
+  const out = a.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return b === undefined ? out : out + '.' + b;
+}
+const bahtVal = el => { const t = String(el.value).replace(/,/g, ''); return (t === '' || t === '.') ? null : +t; };
+/* คงตำแหน่งเคอร์เซอร์โดยนับตัวเลข/จุดที่อยู่ก่อนหน้า (แพตเทิร์นเดียวกับ bindMask ในฟอร์มลูกค้า) */
+function bindBaht(el, onChange){
+  el.addEventListener('input', ()=>{
+    const before = el.value.slice(0, el.selectionStart || 0).replace(/[^\d.]/g, '').length;
+    el.value = bahtMask(el.value);
+    let seen = 0, pos = el.value.length;
+    for(let i = 0; i < el.value.length; i++){
+      if(/[\d.]/.test(el.value[i])) seen++;
+      if(seen >= before){ pos = i + 1; break; }
+    }
+    if(before === 0) pos = 0;
+    try{ el.setSelectionRange(pos, pos); }catch(e){}
+    if(onChange) onChange();
+  });
+  el.addEventListener('blur', ()=>{                       /* 7100. → 7,100.00 · .5 → 0.50 */
+    const n = bahtVal(el);
+    el.value = n == null ? '' : fmtBaht(n);
+    if(onChange) onChange();
+  });
+}
+
+/* ---------- บล็อก "ข้อมูลเสนอราคา" (เจ้าหน้าที่กรอก) ---------- */
+const quoteMeta = r => r.quote_at
+  ? 'บันทึกล่าสุด ' + thDate(r.quote_at) + (r.quote_by ? ' โดย ' + agentName(r.quote_by) : '')
+  : 'ยังไม่ได้กรอก';
+
+function quoteBlock(r){
+  const insKnown = INSURERS.some(x => x[0] === r.quote_insurer);
+  const typKnown = QTYPES.indexOf(r.quote_type) >= 0 || r.quote_type === ACT_ONLY;
+  const insOther = !!r.quote_insurer && !insKnown;
+  const typOther = !!r.quote_type && !typKnown;
+  const insSel = insOther ? OTHER_VAL : (r.quote_insurer || '');
+  const typSel = typOther ? OTHER_VAL : (r.quote_type || '');
+  const opt = (v, lb, cur) => '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(lb) + '</option>';
+  const money = (id, lb, v) => '<label class="f c4">' + lb
+    + '<input id="' + id + '" class="baht" inputmode="decimal" autocomplete="off" placeholder="0.00"'
+    + ' value="' + esc(v == null || v === '' ? '' : fmtBaht(v)) + '"></label>';
+  const row = (k, title, ids, vals) =>
+      '<div class="qpr">'
+    +   '<div class="qpr-h"><b>' + esc(title) + '</b>'
+    +     '<span>สุทธิที่ต้องชำระ <i id="qs' + k + '">—</i></span></div>'
+    +   '<div class="grid" style="gap:10px">'
+    +     money(ids[0], 'เบี้ยสุทธิ', vals[0])
+    +     money(ids[1], 'เบี้ยรวม',  vals[1])
+    +     money(ids[2], 'ส่วนลด',    vals[2])
+    +   '</div>'
+    + '</div>';
+  return '<div class="sec">ข้อมูลเสนอราคา <span class="secx">เจ้าหน้าที่กรอก</span></div>'
+    + '<div class="grid" style="gap:11px">'
+    +   '<label class="f c6">บริษัทประกัน<select id="qIns">'
+    +     opt('', '— ยังไม่ระบุ —', insSel)
+    +     INSURERS.map(x => opt(x[0], x[1], insSel)).join('')
+    +     opt(OTHER_VAL, 'อื่น ๆ (ระบุ)', insSel)
+    +   '</select></label>'
+    +   '<label class="f c6">ประเภทประกัน<select id="qTyp">'
+    +     opt('', '— ยังไม่ระบุ —', typSel)
+    +     QTYPES.map(v => opt(v, qtLabel(v), typSel)).join('')
+    +     opt(ACT_ONLY, 'พ.ร.บ. อย่างเดียว', typSel)
+    +     opt(OTHER_VAL, 'อื่น ๆ (ระบุ)', typSel)
+    +   '</select></label>'
+    +   '<label class="f c6" id="qInsOtherBox"' + (insOther ? '' : ' hidden') + '>ระบุชื่อบริษัทประกัน'
+    +     '<input id="qInsOther" maxlength="120" autocomplete="off" value="' + esc(insOther ? r.quote_insurer : '') + '"></label>'
+    +   '<label class="f c6" id="qTypOtherBox"' + (typOther ? '' : ' hidden') + '>ระบุประเภทประกัน'
+    +     '<input id="qTypOther" maxlength="120" autocomplete="off" value="' + esc(typOther ? r.quote_type : '') + '"></label>'
+    + '</div>'
+    + '<p class="qhint">เบี้ยสุทธิ = ก่อนอากรแสตมป์และภาษี · เบี้ยรวม = ยอดก่อนหักส่วนลด · ช่องที่ไม่มีเว้นว่างได้</p>'
+    + row('1', 'ประกันภัย (ภาคสมัครใจ)', ['qNet','qGross','qDisc'],    [r.quote_net, r.quote_gross, r.quote_disc])
+    + row('2', 'พ.ร.บ. (ภาคบังคับ)',     ['qANet','qAGross','qADisc'], [r.quote_act_net, r.quote_act_gross, r.quote_act_disc])
+    + '<div class="qpr-tot"><span>รวมทั้งสิ้นที่ต้องชำระ</span><b id="qTotal">—</b></div>'
+    + '<div class="grid" style="gap:11px;margin-top:11px">'
+    +   '<label class="f c12">หมายเหตุการเสนอราคา<input id="qNote" maxlength="300" autocomplete="off"'
+    +     ' placeholder="เช่น ทุน 200,000 · ซ่อมอู่ · ผ่อน 0% 6 เดือน" value="' + esc(r.quote_note||'') + '"></label>'
+    + '</div>'
+    + '<div class="qact"><button class="btn primary" id="qSave">บันทึกข้อมูลเสนอราคา</button>'
+    +   '<span class="qmeta" id="qMeta">' + esc(quoteMeta(r)) + '</span></div>';
+}
+
+function wireQuote(r){
+  const num = id => bahtVal($(id));
+  function recalc(){
+    const has1 = num('qGross') != null || num('qDisc') != null || num('qNet') != null;
+    const has2 = num('qAGross') != null || num('qADisc') != null || num('qANet') != null;
+    const s1 = (num('qGross') || 0) - (num('qDisc') || 0);
+    const s2 = (num('qAGross') || 0) - (num('qADisc') || 0);
+    const t  = s1 + s2;
+    $('qs1').textContent = has1 ? fmtBaht(s1) + ' บาท' : '—';
+    $('qs2').textContent = has2 ? fmtBaht(s2) + ' บาท' : '—';
+    $('qTotal').textContent = (has1 || has2) ? fmtBaht(t) + ' บาท' : '—';
+    $('qs1').classList.toggle('bad', s1 < 0);
+    $('qs2').classList.toggle('bad', s2 < 0);
+    $('qTotal').classList.toggle('bad', t < 0);
+  }
+  ['qNet','qGross','qDisc','qANet','qAGross','qADisc'].forEach(id => bindBaht($(id), recalc));
+  recalc();
+  csel($('qIns')); csel($('qTyp'));
+  const syncOther = ()=>{
+    $('qInsOtherBox').hidden = $('qIns').value !== OTHER_VAL;
+    $('qTypOtherBox').hidden = $('qTyp').value !== OTHER_VAL;
+  };
+  $('qIns').addEventListener('change', syncOther);
+  $('qTyp').addEventListener('change', syncOther);
+  syncOther();
+
+  $('qSave').onclick = async ()=>{
+    const insurer = $('qIns').value === OTHER_VAL ? $('qInsOther').value.trim() : $('qIns').value;
+    const type    = $('qTyp').value === OTHER_VAL ? $('qTypOther').value.trim() : $('qTyp').value;
+    if($('qIns').value === OTHER_VAL && !insurer){ toast('กรอกชื่อบริษัทประกันด้วย', 'no'); $('qInsOther').focus(); return; }
+    if($('qTyp').value === OTHER_VAL && !type){ toast('กรอกประเภทประกันด้วย', 'no'); $('qTypOther').focus(); return; }
+    const b = $('qSave'); b.disabled = true; b.classList.add('is-loading');
+    try{
+      const res0 = await sb.rpc('ins_set_quote', {
+        p_req: r.id, p_insurer: insurer || null, p_type: type || null,
+        p_net: num('qNet'), p_gross: num('qGross'), p_disc: num('qDisc'),
+        p_act_net: num('qANet'), p_act_gross: num('qAGross'), p_act_disc: num('qADisc'),
+        p_note: $('qNote').value.trim() || null });
+      if(res0.error) throw res0.error;
+      const res = res0.data || {};
+      r.quote_insurer = insurer || null;  r.quote_type = type || null;
+      r.quote_net = num('qNet');      r.quote_gross = num('qGross');      r.quote_disc = num('qDisc');
+      r.quote_act_net = num('qANet'); r.quote_act_gross = num('qAGross'); r.quote_act_disc = num('qADisc');
+      r.quote_total = res.total == null ? null : +res.total;
+      r.quote_note  = $('qNote').value.trim() || null;
+      r.quote_at = res.cleared ? null : new Date().toISOString();
+      r.quote_by = res.cleared ? null : (res.quoteBy || (ME && ME.empId) || null);
+      if(res.statusChanged){
+        r.status = res.status;
+        $('vSt').value = res.status;
+        $('vSt').dispatchEvent(new Event('change'));      /* ให้ป้ายบนดรอปดาวน์ของเราเองตามด้วย */
+      }
+      renderList();
+      $('qMeta').textContent = quoteMeta(r);
+      toast(res.cleared ? 'ล้างข้อมูลเสนอราคาแล้ว'
+        : 'บันทึกเบี้ยแล้ว · รวม ' + fmtBaht(res.total) + ' บาท'
+          + (res.statusChanged ? ' · เปลี่ยนสถานะเป็น "เสนอราคาแล้ว"' : ''), 'ok');
+    }catch(e){ toast(e.message || 'บันทึกไม่สำเร็จ', 'no'); }
+    finally{ const x = $('qSave'); if(x){ x.disabled = false; x.classList.remove('is-loading'); } }
+  };
+}
 
 let LIST = [], FILES = {};
 /* ME = บัญชีที่ล็อกอิน {empId, role:'agent'|'admin', name}
@@ -541,6 +727,7 @@ function openView(id){
     + (docs.length ? '<p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">แจ้งว่ามี: ' + esc(docs.join(' · '))
         + (r.doc_rel_note ? ' (' + esc(r.doc_rel_note) + ')' : '') + '</p>' : '')
     + '<div class="flist" id="vFiles"></div>'
+    + quoteBlock(r)
     + '<div class="sec">สถานะการติดตาม</div>'
     + '<div class="grid" style="gap:11px">'
     +   '<label class="f c4">สถานะ<select id="vSt">'
@@ -552,6 +739,7 @@ function openView(id){
 
   renderFiles(r);
   csel($('vSt'));
+  wireQuote(r);
   if(isAdmin()){
     csel($('vAg'));
     $('vSaveAg').onclick = async ()=>{
