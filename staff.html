@@ -131,11 +131,10 @@ const RELS = { self:'ตัวพนักงานเอง', father:'บิด
 const STATUS = { new:'รอตรวจสอบ', contacted:'ติดต่อแล้ว', quoted:'เสนอราคาแล้ว', done:'ปิดการขาย', cancelled:'ยกเลิก' };
 const DOC_LABEL = { carReg:'สำเนาทะเบียนรถ', idCard:'สำเนาบัตรประชาชนผู้ทำประกัน', oldPolicy:'สำเนากรมธรรม์เดิม', relDoc:'เอกสารแสดงความสัมพันธ์' };
 
-/* บริษัทประกัน/ประเภทประกัน = คำที่ฝ่ายประกันใช้อยู่จริงในไฟล์ Excel ของเขา
+/* รายชื่อบริษัทประกัน = คำที่ฝ่ายประกันใช้อยู่จริงในไฟล์ Excel ของเขา
    🔑 value = ชื่อเต็มตามไฟล์ (เอาไปจับคู่/ทำรายงานกับข้อมูลเดิมได้ตรง ๆ)
       label = ชื่อย่อ เพื่อให้ดรอปดาวน์ไม่กว้างเกินจอมือถือ */
 const OTHER_VAL = '__other__';
-const ACT_ONLY  = 'พ.ร.บ. อย่างเดียว';
 const INSURERS = [
   ['บริษัทไอโออิ กรุงเทพ ประกันภัย จำกัด (มหาชน)',   'ไอโออิ กรุงเทพ'],
   ['บริษัท วิริยะประกันภัย จำกัด (มหาชน)',            'วิริยะประกันภัย'],
@@ -147,22 +146,9 @@ const INSURERS = [
   ['บริษัท มิตซุย สุมิโตโม อินชัวร์รันส์ จำกัด',       'มิตซุย สุมิโตโม'],
   ['บริษัท ซมโปะ ประกันภัย (ประเทศไทย)จำกัด (มหาชน)', 'ซมโปะ ประกันภัย'],
 ];
-const QTYPES = [
-  'ประกันภัยประเภท 1 T-CARE (เบี้ยปกติ)',
-  'ประกันภัยประเภท 1 T-CARE (TLT)',
-  'ประกันภัยประเภท 1 T-CARE (ไฟแนนซ์อื่นๆ)',
-  'ประกันภัยประเภท 1 T-CARE (ลูกค้าซื้อซ้ำ)',
-  'ประกันภัยประเภท 1 NON T-CARE',
-  'ประกันภัยประเภท 1 ซ่อมอู่',
-  'ประกันภัยประเภท 1 ซ่อมห้าง(S/R)',
-  'ประกันภัยประเภท 1 COM 10% ซ่อมอู่',
-  'ประกันภัยประเภท 2 พลัส',
-  'ประกันภัยประเภท 2 ซ่อมอู่',
-  'ประกันภัยประเภท 2 ซ่อมห้าง',
-  'ประกันภัยประเภท 3 พลัส',
-  'ประกันภัยประเภท 3',
-];
-const qtLabel = t => t.replace(/^ประกันภัยประเภท\s*/, 'ประเภท ');
+/* 🔑 ประเภทประกันใช้ "ชุดเดียวกับ COVERS" ที่ลูกค้าติ๊กในฟอร์ม — แหล่งความจริงเดียว
+   เปลี่ยน COVERS ที่เดียวแล้วทั้ง 2 ที่ตามกันเอง และคำที่เจ้าหน้าที่บันทึกจะตรงกับที่ลูกค้าเลือกเป๊ะ */
+const QTYPES = Object.values(COVERS);
 
 /* ---------- ช่องจำนวนเงิน (เบี้ยจริงมีทศนิยม เช่น 45,415.08) ---------- */
 const fmtBaht = n => (n == null || n === '' || isNaN(n)) ? '—'
@@ -206,7 +192,7 @@ const quoteMeta = r => r.quote_at
 
 function quoteBlock(r){
   const insKnown = INSURERS.some(x => x[0] === r.quote_insurer);
-  const typKnown = QTYPES.indexOf(r.quote_type) >= 0 || r.quote_type === ACT_ONLY;
+  const typKnown = QTYPES.indexOf(r.quote_type) >= 0;
   const insOther = !!r.quote_insurer && !insKnown;
   const typOther = !!r.quote_type && !typKnown;
   const insSel = insOther ? OTHER_VAL : (r.quote_insurer || '');
@@ -234,8 +220,7 @@ function quoteBlock(r){
     +   '</select></label>'
     +   '<label class="f c6">ประเภทประกัน<select id="qTyp">'
     +     opt('', '— ยังไม่ระบุ —', typSel)
-    +     QTYPES.map(v => opt(v, qtLabel(v), typSel)).join('')
-    +     opt(ACT_ONLY, 'พ.ร.บ. อย่างเดียว', typSel)
+    +     QTYPES.map(v => opt(v, v, typSel)).join('')
     +     opt(OTHER_VAL, 'อื่น ๆ (ระบุ)', typSel)
     +   '</select></label>'
     +   '<label class="f c6" id="qInsOtherBox"' + (insOther ? '' : ' hidden') + '>ระบุชื่อบริษัทประกัน'
