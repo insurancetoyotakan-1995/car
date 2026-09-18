@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260916-1">
+<link rel="stylesheet" href="style.css?v=20260918-1">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260916-1"></script>
+<script src="config.js?v=20260918-1"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -314,7 +314,8 @@ const DRAFT_KEY = 'ins_form_draft_v1';
 /* ช่องข้อความทั้งหมดที่บันทึกร่างไว้ในเครื่อง — ใช้ทั้งตอนเก็บ กู้คืน และล้าง */
 /* 🔒 ไม่เก็บเลขบัตรประชาชนลงร่าง — เครื่องที่ใช้ร่วมกันคนถัดไปจะเห็นเลขของคนก่อน */
 const TEXT_FIELDS = ['fEmpId','fEmpName','fName','fMobile','fHome','fAddr','fMoo','fRoad',
-  'fTambon','fAmphoe','fProvince','fZip','fOcc','fWork','fIncome','fDob','fTitleOther','fRelNote','fNote'];
+  'fTambon','fAmphoe','fProvince','fZip','fOcc','fWork','fIncome','fDob','fTitleOther','fRelNote','fNote',
+  'fPlate','fPlateProv','fVin'];
 const COMPANY = 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด';
 
 let PENDING = [];                                   // ไฟล์ที่เลือกไว้ แต่ใบยังไม่ถูกสร้าง
@@ -904,6 +905,7 @@ function stepFail(n){
       const inp = b && $('docRows').querySelector('.docrow[data-tag="' + b.tag + '"] input[type=file]');
       return {msg:'กำลังย่อรูปที่แนบ รอสักครู่แล้วกดอีกครั้ง', el: inp || 'docRows'};
     }
+    if(CAR.busy) return {msg:'กำลังอ่านข้อมูลจากสำเนาทะเบียนรถ รอสักครู่ หรือกด "หยุดอ่าน" แล้วกรอกเอง', el:'coStop'};
     for(const [tag, label, req] of DOC_TYPES){
       if(!req || activeFiles().some(p=> p.tag === tag)) continue;
       const row = $('docRows').querySelector('.docrow[data-tag="' + tag + '"]');
@@ -1050,7 +1052,7 @@ async function addFiles(tag, list){
   const ck = $('docRows').querySelector('.dck[data-tag="' + tag + '"]');
   if(ck) ck.checked = true;                      // แนบมาแล้ว = มีเอกสารนั้นแน่นอน
   /* ใส่แถว "กำลังย่อรูป" ไว้ก่อน → จองโควตาไฟล์ + ผู้ใช้เห็นทันทีว่าระบบรับไฟล์แล้ว */
-  const items = ok.map(f => ({ file: f, tag, url: '', busy: isImg(f) && f.size > SHRINK_SKIP }));
+  const items = ok.map(f => ({ file: f, orig: tag === 'carReg' ? f : null, tag, url: '', busy: isImg(f) && f.size > SHRINK_SKIP }));
   items.forEach(p => { if(!p.busy && isImg(p.file)) p.url = URL.createObjectURL(p.file); });
   PENDING.push(...items);
   renderChips();
@@ -1075,6 +1077,7 @@ async function addFiles(tag, list){
       renderChips();
     }
   }
+  if(tag === 'carReg') runCarOcr();                 // อ่านเลขทะเบียน/จังหวัด/เลขตัวรถ ให้ผู้กรอกตรวจ
 }
 
 function renderDocRows(){
@@ -1088,7 +1091,9 @@ function renderDocRows(){
     +   '<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple data-tag="' + tag + '"></label>'
     + (tag==='relDoc' ? '<input class="note" id="fRelDocNote" placeholder="ระบุชนิดเอกสาร เช่น สูติบัตร ทะเบียนสมรส">' : '')
     + '<ul class="dfiles" data-chips="' + tag + '"></ul>'
+    + (tag==='carReg' ? CAR_BOX : '')
     + '</div>').join('');
+  wireCarBox();
 
   $('docRows').querySelectorAll('input[type=file]').forEach(inp=>{
     inp.addEventListener('change', ()=>{ addFiles(inp.dataset.tag, [...inp.files]); inp.value = ''; });
@@ -1135,6 +1140,7 @@ function renderChips(){
       const p = PENDING[+b.dataset.i];
       if(p && p.url) URL.revokeObjectURL(p.url);
       PENDING.splice(+b.dataset.i, 1);
+      if(p && p.tag === 'carReg' && !PENDING.some(x => x.tag === 'carReg')){ if(CAR.busy) carStop(true); carClearAuto(); }
       renderChips();
     });
     const st = row.querySelector('.doc-st');
@@ -1149,7 +1155,502 @@ function renderChips(){
   const n = activeFiles().length;
   $('docCount').textContent = n ? 'แนบแล้ว ' + n + ' / ' + MAX_FILES + ' ไฟล์' : '';
   $('docCount').hidden = !n;
+  syncCarBox();
   if(STEP === 3) paintSteps();
+}
+
+/* =====================================================================
+   อ่านสำเนาทะเบียนรถ — เลขทะเบียน · จังหวัด · เลขตัวรถ (ผู้ใช้สั่ง 2026-09-18)
+   แนบไฟล์ในแถว "สำเนาทะเบียนรถ" แล้วระบบอ่านให้เอง → ผู้กรอกตรวจ/แก้ก่อนส่ง
+   🔒 อ่านในเบราว์เซอร์ทั้งหมด (tesseract.js) — รูปไม่ถูกส่งไปที่อื่น jsdelivr แค่ให้ดาวน์โหลดตัวอ่าน
+   🔑 โหลดตัวอ่าน (~8 MB ครั้งแรก แล้วเบราว์เซอร์จำไว้) เฉพาะตอนแนบสำเนาทะเบียนรถเท่านั้น
+   🔑 ต้องใช้ tha+eng — เลขทะเบียนเป็นอักษรไทย ส่วนเลขตัวรถเป็นอักษรอังกฤษ
+   🔑 ค่าที่อ่านได้เป็นแค่ "ค่าตั้งต้น" — แก้ได้ทุกช่อง และระบบไม่เขียนทับสิ่งที่ผู้กรอกพิมพ์เอง
+   ===================================================================== */
+const OCR_JS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+const PDFJS  = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/legacy/build/';
+const CAR_FIELDS = ['fPlate', 'fPlateProv', 'fVin'];
+const CAR = { busy:false, again:false, run:0 };
+let ocrLibP = null, ocrWorkerP = null, ocrEngP = null, ocrLog = null, pdfjsP = null;
+
+/* ---- ตัวแยกข้อความ (ไม่แตะ DOM — ทดสอบแยกได้) ---- */
+const thDigits = s => String(s || '').replace(/[๐-๙]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x0E50 + 48));
+/* โครงพยัญชนะ: เก็บแค่พยัญชนะไทย/ตัวเลข/อังกฤษ + แผนที่กลับไปตำแหน่งในข้อความเดิม
+   OCR ภาษาไทยชอบแทรกช่องว่างกลางคำและอ่านสระ/วรรณยุกต์เพี้ยน — จับป้ายบนโครงพยัญชนะทนกว่ามาก */
+function carSkel(s){
+  let sk = ''; const map = [];
+  for(let i = 0; i < s.length; i++){ if(/[ก-ฮ0-9A-Za-z]/.test(s[i])){ sk += s[i]; map.push(i); } }
+  return { sk, map };
+}
+const thSkel = s => String(s || '').replace(/[^ก-ฮ]/g, '');
+/* หาป้ายในโครงพยัญชนะ → {j, len} · ไม่เจอแบบตรงตัว ป้ายหลัก (ตัวแรกในรายการ) ยอมพลาดได้ 1 ตัว
+   🔑 วัดจริง: OCR อ่าน "เลขตัวรถ" เป็น "เลขตัวรธถ" (แทรกเกินมา 1 ตัว) → หาป้ายไม่เจอ → ไม่ได้อ่านเลขตัวรถซ้ำ
+   ⚠️ ยอมพลาดเฉพาะป้ายยาว ≥ 6 ตัว — "ขทบยน" (5) พลาด 1 ตัวจะไปตรงกับ "ดทบยน" ของ "วันจดทะเบียน" */
+function findLabel(sk, labels, from){
+  let best = null;
+  for(const L of labels){
+    const j = sk.indexOf(L, from);
+    if(j >= 0 && (!best || j < best.j)) best = { j, len: L.length };
+  }
+  if(best) return best;
+  const L = labels[0];
+  if(L.length < 6) return null;
+  for(let i = from; i < sk.length; i++){
+    for(const len of [L.length + 1, L.length, L.length - 1]){   // ยาวก่อน = กินป้ายที่เพี้ยนให้หมดทั้งคำ
+      const seg = sk.substr(i, len);
+      if(seg.length === len && lev(seg, L) <= 1) return { j: i, len };
+    }
+  }
+  return null;
+}
+/* หาป้าย → คืนตำแหน่งในข้อความเดิมที่ "ถัดจากป้าย" (ไม่เจอ = -1) · from = เริ่มค้นจากตำแหน่งนี้ */
+function afterLabel(text, labels, from){
+  const { sk, map } = carSkel(text);
+  let s0 = 0;
+  if(from > 0){ s0 = map.findIndex(i => i >= from); if(s0 < 0) return -1; }
+  const f = findLabel(sk, labels, s0);
+  return f ? map[f.j + f.len - 1] + 1 : -1;
+}
+const PLATE_L = ['ลขทบยน', 'ขทบยน'];                      // เลขทะเบียน · ⚠️ ห้ามใช้ "ทบยน" เดี่ยว ๆ ชน "วันจดทะเบียน"
+const PROV_L  = ['จงหวด', 'งหวด'];                        // จังหวัด
+const VIN_L   = ['ลขตวรถ', 'ขตวรถ', 'ลขตวถง', 'ขตวถง'];   // เลขตัวรถ / เลขตัวถัง (เล่มรุ่นเก่า)
+/* ป้ายทะเบียนรถยนต์: [เลขนำหน้า 0-1 ตัว][พยัญชนะ 1-2 ตัว] [ตัวเลข 1-4 หลัก] เช่น 5ขจ 7692 · กข 1234
+   🔑 ลองรูปแบบที่ "ครบที่สุด" ก่อน — OCR ชอบอ่านเศษหมึกเป็นตัวอักษรเกินมาหน้าเลข
+      (เคสจริงตอนทดสอบ: "ว2ขข 88" · ถ้าจับแบบหลวม ๆ ตัวแรกจะได้ "ว 2") */
+const PLATE_PATS = [
+  /(\d)\s*([ก-ฮ])\s?([ก-ฮ])\s*[-–]?\s*(\d{1,4})(?!\d)/,   // 5ขจ 7692
+  /()([ก-ฮ])\s?([ก-ฮ])\s*[-–]?\s*(\d{1,4})(?!\d)/,          // กข 1234
+  /(\d)\s*([ก-ฮ])()\s*[-–]?\s*(\d{1,4})(?!\d)/,             // 1ก 234
+  /()([ก-ฮ])()\s*[-–]?\s*(\d{1,4})(?!\d)/,                  // ก 1234 (รุ่นเก่ามาก)
+];
+function matchPlate(w){
+  for(const re of PLATE_PATS){
+    const m = w.match(re);
+    if(m) return { plate: m[1] + m[2] + m[3] + ' ' + m[4], idx: m.index, len: m[0].length };
+  }
+  return null;
+}
+function findPlate(text){
+  const at = afterLabel(text, PLATE_L, 0);
+  if(at < 0) return null;
+  const m = matchPlate(text.slice(at, at + 30));
+  return m ? { plate: m.plate, end: at + m.idx + m.len } : null;
+}
+function lev(a, b){
+  const d = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for(let i = 1; i <= a.length; i++){
+    let prev = d[0]; d[0] = i;
+    for(let j = 1; j <= b.length; j++){
+      const t = d[j];
+      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = t;
+    }
+  }
+  return d[b.length];
+}
+/* จังหวัด: อ่านต่อจากป้าย "จังหวัด" ที่อยู่หลังเลขทะเบียน แล้วเทียบกับรายชื่อ 77 จังหวัด
+   🔑 เทียบบนโครงพยัญชนะ + ยอมพิมพ์ผิดได้ตามความยาวชื่อ (OCR อ่าน "กรุงเทพมหานคร" เพี้ยนบ่อย)
+   🔑 ชื่อสั้น (≤3 พยัญชนะ เช่น น่าน ตาก) ต้องตรงเป๊ะที่ต้นหน้าต่าง — ไม่งั้นไปจับเศษคำอื่น
+   🔑 เจอหลายตัว → เลือกชื่อที่ยาวกว่า ("นนทบุรี" ต้องชนะ "น่าน" ที่พยัญชนะขึ้นต้นเหมือนกัน) */
+function findProvince(text, from, provs){
+  if(!provs || !provs.length) return '';
+  let at = afterLabel(text, PROV_L, from);
+  if(at < 0 || at - from > 60) at = from;
+  if(at < 0) return '';
+  const w = thSkel(text.slice(at, at + 45));
+  if(!w) return '';
+  let best = null;
+  for(const p of provs){
+    const k = thSkel(p);
+    if(!k) continue;
+    const tol = k.length >= 8 ? 2 : k.length >= 5 ? 1 : 0;
+    const maxOff = k.length <= 3 ? 0 : 2;
+    for(let off = 0; off <= maxOff; off++){
+      const seg = w.substr(off, k.length);
+      if(seg.length < k.length) break;
+      const d = seg === k ? 0 : (tol ? lev(seg, k) : 99);
+      if(d > tol) continue;
+      const score = d * 10 + off * 3 - k.length;       // พลาดน้อย > อยู่ต้นหน้าต่าง > ชื่อยาว
+      if(!best || score < best.score) best = { p, score };
+    }
+  }
+  return best ? best.p : '';
+}
+/* เลขตัวรถ (VIN): 17 ตัว ไม่มีตัว I O Q ตามมาตรฐาน → อ่านเป็น I/O/Q ได้แปลว่า OCR พลาด แก้เป็น 1/0/0
+   เล่มรุ่นเก่าเลขตัวถังสั้นกว่า 17 ได้ → รับ 8-16 ตัวเฉพาะตอนเจอป้าย "เลขตัวรถ" */
+const vinFix = s => s.toUpperCase().replace(/[OQ]/g, '0').replace(/I/g, '1');
+function findVin(text){
+  const at = afterLabel(text, VIN_L, 0);
+  if(at >= 0){
+    let w = text.slice(at, at + 50).replace(/^[\sก-๙.:]+/, '');   // ข้ามเศษป้ายที่ OCR อ่านเกินมา
+    const th = w.search(/[ก-๙]/);
+    if(th >= 0) w = w.slice(0, th);                       // หยุดที่อักษรไทยตัวแรก = ป้ายช่องถัดไป
+    const t = vinFix(w.replace(/[^0-9A-Za-z]/g, ''));
+    if(t.length > 20) return t.slice(0, 17);             // ยาวมากผิดปกติ = ข้อความช่องอื่นติดมา
+    if(t.length >= 8 && /\d/.test(t)) return t;          // 18-20 ตัว = อ่านเกินมา ไม่ตัดทิ้งเงียบ ๆ ให้คำเตือนขึ้นแทน
+  }
+  /* ไม่เจอป้าย → หาคำ 17 ตัวที่หน้าตาเป็น VIN · เจอหลายตัว = ไม่เดา */
+  const hits = (text.toUpperCase().match(/\b[A-HJ-NPR-Z0-9]{17}\b/g) || [])
+    .filter(x => /[A-Z]/.test(x) && (x.match(/\d/g) || []).length >= 5);
+  const uniq = [...new Set(hits)];
+  return uniq.length === 1 ? uniq[0] : '';
+}
+function parseCarReg(raw, provs){
+  const text = thDigits(raw).replace(/[ \t]+/g, ' ');
+  const pl = findPlate(text);
+  return {
+    plate: pl ? pl.plate : '',
+    province: findProvince(text, pl ? pl.end : 0, provs),
+    vin: findVin(text),
+  };
+}
+
+/* ---- อ่านซ้ำเฉพาะ "ช่องข้างป้าย" ด้วยชุดตัวอักษรที่จำกัด ----
+   🔑 โหลดภาษาไทย+อังกฤษพร้อมกัน ตัวอ่านภาษาไทยชอบอ่านเลขตัวรถ (อักษรอังกฤษ) เป็นอักษรไทย
+      (วัดจริง: "MR2BD8A3900073087" → "ห๒280883900073087") และอ่าน 8 เป็น B ได้
+   → รอบแรกอ่านทั้งหน้าเพื่อหา "ตำแหน่งป้าย" (อักษรไทยอ่านแม่น) แล้วอ่านช่องถัดจากป้ายซ้ำ
+      โดยบังคับให้ออกได้แค่ตัวที่เป็นไปได้ (เลขตัวรถ = A-Z + 0-9 · ทะเบียน = พยัญชนะไทย + 0-9)
+   🔑 เลขตัวรถอ่านซ้ำด้วย "ตัวอ่านภาษาอังกฤษล้วน" — วัดจริงกับรูปทดสอบ 5 แบบ แม่นกว่าไทย+อังกฤษชัดเจน
+      (ไทย+อังกฤษ: "MR0FB8CD3K0654321" → "1180860360654321" · อังกฤษล้วน: "MROFB8CD3K0654321" แก้ O→0 แล้วถูก)
+   🔑 ต้อง "ยอม" ให้อ่านเป็น O I Q ได้ แล้วค่อยแปลงเป็น 0 1 0 — ถ้าตัดออกจาก whitelist
+      เลข 0 หน้าตากลม ๆ จะถูกบังคับให้เป็นตัวอื่นแทน (วัดจริง: 0 → U) */
+const VIN_WL   = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const PLATE_WL = 'กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ0123456789 -';
+const NEXT_VIN = ['อยท'];                                  // อยู่ที่ (ช่องถัดจากเลขตัวรถบนเล่ม)
+function labelInLines(lines, labels){
+  for(const ln of lines || []){
+    const ws = ln.words || []; let sk = ''; const map = [];
+    ws.forEach((w, i) => { for(const ch of (w.text || '')) if(/[ก-ฮ0-9A-Za-z]/.test(ch)){ sk += ch; map.push(i); } });
+    const f = findLabel(sk, labels, 0);
+    if(f) return { ln, ws, sk, map, endWord: map[f.j + f.len - 1], after: f.j + f.len };
+  }
+  return null;
+}
+async function readBeside(worker, cv, hit, stopLabels, maxH, whitelist){
+  const lb = hit.ln.bbox, h = Math.max(12, lb.y1 - lb.y0);
+  const x0 = Math.min(cv.width - 1, hit.ws[hit.endWord].bbox.x1 + 2);
+  let x1 = null;
+  for(const L of stopLabels){ const j = hit.sk.indexOf(L, hit.after); if(j >= 0){ x1 = hit.ws[hit.map[j]].bbox.x0 - 2; break; } }
+  if(x1 == null || x1 < x0 + h) x1 = x0 + maxH * h;
+  x1 = Math.min(cv.width, x1);
+  const y0 = Math.max(0, lb.y0 - Math.round(h * .3)), y1 = Math.min(cv.height, lb.y1 + Math.round(h * .3));
+  if(x1 - x0 < h) return '';
+  await worker.setParameters({ tessedit_char_whitelist: whitelist, tessedit_pageseg_mode: '7' });
+  try{
+    return (await worker.recognize(cv, { rectangle: { left: x0, top: y0, width: x1 - x0, height: y1 - y0 } })).data.text || '';
+  } finally {
+    await worker.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '6' });   // 6 = ค่าเริ่มต้นของ tesseract.js
+  }
+}
+/* ผลอ่านซ้ำเชื่อได้กว่ารอบแรก — แต่ถ้ารอบซ้ำได้เลขตัวรถไม่ครบ 17 ตัว ขณะที่รอบแรกได้ 17 ตัวพอดี ให้ใช้รอบแรก */
+/* 🔑 ได้เกิน 17 ตัว = OCR อ่านตัวอักษรเกินมา (วัดจริง: "B8" → "BS8") — "ไม่ตัดทิ้งเงียบ ๆ"
+      เพราะเดาไม่ได้ว่าตัวไหนเกิน · ปล่อยให้ยาวเกิน แล้วคำเตือน "ไม่ใช่ 17 ตัว ตรวจกับเล่ม" ขึ้นให้ผู้กรอกเห็น */
+function vinFromLine(raw){
+  const toks = String(raw || '').toUpperCase().split(/\s+/).map(t => t.replace(/[^0-9A-Z]/g, '')).filter(Boolean);
+  let v = '';
+  for(const t of toks){ v += t; if(v.length >= 17) break; }   // OCR ชอบแบ่ง VIN เป็น 2 ท่อน — ต่อจนครบ 17
+  return vinFix(v);
+}
+async function carRefine(worker, cv, lines, g){
+  const out = { ...g };
+  const vh = labelInLines(lines, VIN_L);
+  if(vh){
+    const eng = await getOcrEng().catch(() => null);
+    const t = vinFromLine(await readBeside(eng || worker, cv, vh, NEXT_VIN, 12.5, VIN_WL));
+    const full = g.vin || '';
+    if(t.length === 17 || (t.length >= 8 && /\d/.test(t) && full.length !== 17)) out.vin = t;   // อ่านซ้ำได้ 17 ตัวพอดี = เชื่ออันนี้
+  }
+  const ph = labelInLines(lines, PLATE_L);
+  if(ph){
+    const m = matchPlate(thDigits(await readBeside(worker, cv, ph, PROV_L, 9, PLATE_WL)));
+    if(m) out.plate = m.plate;
+  }
+  return out;
+}
+
+/* ---- โหลดตัวอ่านภาพ (lazy) ---- */
+function loadOcrLib(){
+  return ocrLibP || (ocrLibP = new Promise((res, rej) => {
+    if(window.Tesseract) return res(window.Tesseract);
+    const s = document.createElement('script');
+    s.src = OCR_JS; s.async = true; s.crossOrigin = 'anonymous';
+    s.onload  = () => window.Tesseract ? res(window.Tesseract) : rej(new Error('load'));
+    s.onerror = () => rej(new Error('load'));
+    document.head.appendChild(s);
+  }).catch(e => { ocrLibP = null; throw e; }));        // เน็ตหลุด → ครั้งหน้าลองใหม่ได้
+}
+function getOcrWorker(){
+  return ocrWorkerP || (ocrWorkerP = loadOcrLib()
+    .then(T => T.createWorker(['tha', 'eng'], 1, { logger: m => { if(ocrLog) ocrLog(m); } }))
+    .catch(e => { ocrWorkerP = null; throw e; }));
+}
+/* ตัวอ่านภาษาอังกฤษล้วน สำหรับอ่านเลขตัวรถซ้ำ (ข้อมูลภาษา eng ดาวน์โหลดมาแล้วตอนสร้างตัวแรก → ใช้ของใน cache) */
+function getOcrEng(){
+  return ocrEngP || (ocrEngP = loadOcrLib()
+    .then(T => T.createWorker(['eng'], 1))
+    .catch(e => { ocrEngP = null; throw e; }));
+}
+/* ปิดตัวอ่านทั้งคู่ คืนหน่วยความจำ (มือถือ) — แนบไฟล์ใหม่ก็เปิดใหม่ได้เร็ว เพราะข้อมูลภาษาอยู่ใน cache แล้ว */
+function ocrFree(){
+  [ocrWorkerP, ocrEngP].forEach(p => { if(p) p.then(w => w.terminate()).catch(() => {}); });
+  ocrWorkerP = ocrEngP = null;
+}
+function loadPdfjs(){
+  return pdfjsP || (pdfjsP = import(PDFJS + 'pdf.min.mjs').then(m => {
+    m.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.mjs';
+    return m;
+  }).catch(e => { pdfjsP = null; throw e; }));
+}
+
+/* ---- เตรียมภาพ ---- */
+function fitCanvas(src, maxPx){
+  const w0 = src.width, h0 = src.height;
+  const k = Math.min(maxPx / Math.max(w0, h0), 2);      // ใหญ่เกินย่อลง · เล็กเกินขยายได้ถึง 2 เท่า
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(w0 * k)); cv.height = Math.max(1, Math.round(h0 * k));
+  const g = cv.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(src, 0, 0, cv.width, cv.height);
+  return cv;
+}
+function rotCanvas(src, deg){
+  if(!deg) return src;
+  const swap = deg === 90 || deg === 270;
+  const cv = document.createElement('canvas');
+  cv.width = swap ? src.height : src.width; cv.height = swap ? src.width : src.height;
+  const g = cv.getContext('2d');
+  g.translate(cv.width / 2, cv.height / 2); g.rotate(deg * Math.PI / 180);
+  g.drawImage(src, -src.width / 2, -src.height / 2);
+  return cv;
+}
+/* ลบเงา/แสงไม่สม่ำเสมอ (รูปถ่ายเล่มทะเบียนมักมีเงามือ/แสงไฟ) — หารด้วยค่าเฉลี่ยรอบ ๆ แล้วยืดคอนทราสต์
+   ยกมาจากตัวอ่านบิลของระบบใบสำคัญจ่ายที่วัดแล้วว่าได้ผลกับภาพจาง */
+function flatCanvas(src){
+  const s = fitCanvas(src, 1800), w = s.width, h = s.height;
+  const g = s.getContext('2d', { willReadFrequently: true });
+  const img = g.getImageData(0, 0, w, h), d = img.data;
+  const gray = new Float32Array(w * h);
+  for(let p = 0, i = 0; p < gray.length; p++, i += 4) gray[p] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+  const S = new Float64Array((w + 1) * (h + 1));
+  for(let y = 0; y < h; y++){
+    let row = 0;
+    for(let x = 0; x < w; x++){ row += gray[y * w + x]; S[(y + 1) * (w + 1) + x + 1] = S[y * (w + 1) + x + 1] + row; }
+  }
+  const rad = Math.max(12, Math.round(Math.min(w, h) / 14));
+  const out = new Float32Array(w * h);
+  let mn = 1e9, mx = -1e9;
+  for(let y = 0; y < h; y++){
+    const y0 = Math.max(0, y - rad), y1 = Math.min(h - 1, y + rad);
+    for(let x = 0; x < w; x++){
+      const x0 = Math.max(0, x - rad), x1 = Math.min(w - 1, x + rad);
+      const sum = S[(y1 + 1) * (w + 1) + x1 + 1] - S[y0 * (w + 1) + x1 + 1] - S[(y1 + 1) * (w + 1) + x0] + S[y0 * (w + 1) + x0];
+      const v = gray[y * w + x] / Math.max(1, sum / ((x1 - x0 + 1) * (y1 - y0 + 1)));
+      out[y * w + x] = v; if(v < mn) mn = v; if(v > mx) mx = v;
+    }
+  }
+  const hi = Math.min(mx, 1.02), sc = 255 / Math.max(0.02, hi - mn);
+  for(let p = 0, i = 0; p < out.length; p++, i += 4){
+    let v = (out[p] - mn) * sc; v = v < 0 ? 0 : v > 255 ? 255 : v;
+    d[i] = d[i + 1] = d[i + 2] = Math.pow(v / 255, 1.25) * 255;
+  }
+  g.putImageData(img, 0, 0);
+  return s;
+}
+/* pdf.js วาดด้วย requestAnimationFrame ซึ่งไม่ยิงเลยตอนแท็บถูกซ่อน → รอให้แท็บกลับมาก่อน + มีเพดานเวลา
+   (บทเรียนจากตัวอ่านบิลของระบบใบสำคัญจ่าย: ไม่มีเพดาน = ค้าง "กำลังอ่าน" ตลอดกาล) */
+function waitVisible(ms){
+  if(!document.hidden) return Promise.resolve();
+  return new Promise(res => {
+    const t = setTimeout(done, ms);
+    function done(){ clearTimeout(t); document.removeEventListener('visibilitychange', onVis); res(); }
+    function onVis(){ if(!document.hidden) done(); }
+    document.addEventListener('visibilitychange', onVis);
+  });
+}
+async function pdfPages(file, maxPx, maxPages){
+  const pdfjs = await loadPdfjs();
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), verbosity: 0 }).promise;
+  const out = [];
+  try{
+    for(let i = 1; i <= Math.min(doc.numPages, maxPages); i++){
+      const page = await doc.getPage(i);
+      const v1 = page.getViewport({ scale: 1 });
+      const vp = page.getViewport({ scale: Math.min(4, Math.max(0.5, maxPx / Math.max(v1.width, v1.height))) });
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+      await waitVisible(20000);
+      const task = page.render({ canvasContext: cv.getContext('2d'), viewport: vp });
+      await Promise.race([task.promise, new Promise((_, rej) => setTimeout(() => {
+        try{ task.cancel(); }catch(e){}
+        rej(new Error('แปลงไฟล์ PDF เป็นภาพไม่สำเร็จ — เปิดหน้านี้ค้างไว้ระหว่างอ่าน'));
+      }, 30000))]);
+      out.push(cv);
+    }
+  } finally { try{ await doc.destroy(); }catch(e){} }
+  return out;
+}
+
+/* ---- อ่าน 1 ไฟล์ ----
+   ลำดับ: อ่านตรง ๆ ก่อน → ไม่เจออะไรเลย = ภาพอาจตะแคง ลองหมุน (ใช้ภาพย่อเทียบความมั่นใจ)
+   → ยังขาดช่องไหน = ลบเงาแล้วอ่านอีกรอบ · ได้ครบ 3 ช่องเมื่อไรหยุดทันที (อ่านรอบละหลายวินาทีบนมือถือ) */
+const carDone = g => !!(g.plate && g.province && g.vin);
+function carMerge(a, b){ return { plate: a.plate || b.plate, province: a.province || b.province, vin: a.vin || b.vin }; }
+async function readCarReg(file, stage, provs){
+  const isPdf = /pdf$/i.test(file.type) || /\.pdf$/i.test(file.name);
+  let pages;
+  if(isPdf){ stage('กำลังเปิดไฟล์ PDF…'); pages = await pdfPages(file, 2200, 2); }
+  else{
+    const bmp = await decodeImage(file);
+    try{ pages = [fitCanvas(bmp, 2200)]; } finally { if(bmp.close) bmp.close(); }
+  }
+  const worker = await getOcrWorker();
+  const read = async (cv, lines) => (await worker.recognize(cv, {}, { text: true, blocks: !!lines })).data;
+  let got = { plate:'', province:'', vin:'' };
+  for(const page of pages){
+    let cv = page;
+    stage('กำลังอ่านข้อความจากรูป…');
+    let r = await read(cv, true);
+    let g = parseCarReg(r.text || '', provs);
+    stage('กำลังอ่านเลขทะเบียน/เลขตัวรถซ้ำให้แม่นขึ้น…');
+    g = await carRefine(worker, cv, r.lines, g);         // ไม่เจอป้ายในรูป = ไม่ได้อ่านซ้ำ (เร็ว)
+    got = carMerge(got, g);
+    if(carDone(got)) break;
+    if(!g.plate && !g.vin && (r.confidence || 0) < 70){
+      stage('รูปอาจตะแคง — กำลังลองหมุนรูป…');
+      const small = fitCanvas(cv, 1000);
+      let best = { deg: 0, conf: -1 };
+      for(const deg of [0, 90, 270, 180]){
+        const c = (await read(rotCanvas(small, deg))).confidence || 0;
+        if(c > best.conf) best = { deg, conf: c };
+      }
+      if(best.deg){
+        cv = rotCanvas(cv, best.deg);
+        stage('กำลังอ่านข้อความจากรูป (หมุนแล้ว)…');
+        const r2 = await read(cv, true);
+        got = carMerge(got, await carRefine(worker, cv, r2.lines, parseCarReg(r2.text || '', provs)));
+        if(carDone(got)) break;
+      }
+    }
+    stage('ปรับรูปให้ชัดขึ้นแล้วอ่านอีกรอบ…');
+    got = carMerge(got, parseCarReg((await read(flatCanvas(cv))).text || '', provs));
+    if(carDone(got)) break;
+  }
+  return got;
+}
+
+/* ---- กล่องบนหน้าจอ ---- */
+const CAR_BOX = '<div class="carocr" id="carOcr" hidden>'
+  + '<div class="co-hd">'
+  +   '<span class="co-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg></span>'
+  +   '<span class="co-tt"><b>ข้อมูลจากสำเนาทะเบียนรถ</b><span class="co-st" id="coSt" role="status" aria-live="polite"></span></span>'
+  +   '<button type="button" class="co-stop" id="coStop" hidden>หยุดอ่าน</button>'
+  + '</div>'
+  + '<div class="co-bar" id="coBar" hidden><i></i></div>'
+  + '<div class="co-grid">'
+  +   '<label class="f">เลขทะเบียน<input id="fPlate" maxlength="20" autocomplete="off" placeholder="เช่น 5ขจ 7692"></label>'
+  +   '<label class="f">จังหวัด<input id="fPlateProv" maxlength="40" autocomplete="off" placeholder="เช่น กรุงเทพมหานคร"></label>'
+  +   '<label class="f co-vin">เลขตัวรถ<input id="fVin" maxlength="25" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น MR2BD8A3900073087"></label>'
+  + '</div>'
+  + '<p class="co-vnote" id="coVinNote" hidden></p>'
+  + '<p class="co-note">ระบบอ่านจากรูปให้อัตโนมัติ · <b>โปรดตรวจทุกตัวอักษรให้ตรงกับเล่มทะเบียน</b> ถ้าไม่ตรงแก้ในช่องได้เลย</p>'
+  + '</div>';
+
+function carStatus(kind, text){
+  const box = $('carOcr'); if(!box) return;
+  box.dataset.st = kind;
+  $('coSt').textContent = text;
+  $('coStop').hidden = kind !== 'busy';
+  $('coBar').hidden = kind !== 'busy';
+}
+function carPct(p){ const b = $('coBar'); if(b) b.style.setProperty('--p', Math.max(0, Math.min(1, p)).toFixed(3)); }
+function syncCarBox(){
+  const box = $('carOcr'); if(!box) return;
+  box.hidden = !(CAR.busy || PENDING.some(p => p.tag === 'carReg') || CAR_FIELDS.some(id => $(id).value.trim()));
+}
+function vinHint(){
+  const v = $('fVin').value, n = v.length, el = $('coVinNote');
+  el.hidden = !n || n === 17;
+  el.textContent = n && n !== 17 ? 'เลขตัวรถตอนนี้มี ' + n + ' ตัว — รถส่วนใหญ่มี 17 ตัว ตรวจกับเล่มอีกครั้ง (รถรุ่นเก่าอาจสั้นกว่านี้ได้)' : '';
+}
+/* เติมเฉพาะช่องที่ว่าง หรือยังเป็นค่าที่ระบบเติมไว้ — คนพิมพ์เองแล้วไม่ทับ */
+function carFill(id, val){
+  const e = $(id);
+  if(!val || !e) return false;
+  if(e.value.trim() && e.value !== e.dataset.auto) return false;
+  e.value = val; e.dataset.auto = val; e.classList.add('ocr');
+  return true;
+}
+/* ถอดไฟล์สำเนาทะเบียนรถออกหมด → ล้างค่าที่ระบบเติมไว้ (ค่าที่ผู้กรอกแก้เองคงไว้) */
+function carClearAuto(){
+  CAR_FIELDS.forEach(id => { const e = $(id); if(e && e.dataset.auto && e.value === e.dataset.auto){ e.value = ''; e.classList.remove('ocr'); delete e.dataset.auto; } });
+  vinHint();
+}
+function carStop(silent){
+  CAR.run++; CAR.again = false;
+  PENDING.forEach(p => { if(p.tag === 'carReg') p.ocrDone = true; });
+  if(CAR.busy) ocrFree();                                  // อ่านค้างอยู่ → ยกเลิกได้ทางเดียวคือปิดตัวอ่าน (เปิดใหม่ได้ ภาษา cache ไว้แล้ว)
+  CAR.busy = false;
+  if(!silent) carStatus('none', 'หยุดอ่านแล้ว · กรอกเองได้ในช่องด้านล่าง');
+  syncCarBox();
+}
+async function runCarOcr(){
+  if(CAR.busy){ CAR.again = true; return; }
+  const items = PENDING.filter(p => p.tag === 'carReg' && !p.ocrDone && !p.busy);
+  if(!items.length) return;
+  const run = ++CAR.run;
+  CAR.busy = true; syncCarBox();
+  carStatus('busy', 'กำลังเตรียมตัวอ่านรูป…'); carPct(0);
+  let stageText = '';
+  const stage = t => { stageText = t; if(run === CAR.run) carStatus('busy', t); };
+  ocrLog = m => {
+    if(run !== CAR.run) return;
+    if(/recogniz/.test(m.status)){ carPct(m.progress || 0); $('coSt').textContent = stageText + ' ' + Math.round((m.progress || 0) * 100) + '%'; }
+    else if(/load|initializ/.test(m.status)){ carPct(m.progress || 0); $('coSt').textContent = 'กำลังโหลดตัวอ่านรูป (ครั้งแรกประมาณ 8 MB)…'; }
+  };
+  let got = { plate:'', province:'', vin:'' }, fail = '';
+  try{
+    const zip = await loadZip();
+    const provs = zip ? Object.keys(zip).filter(Boolean) : [];
+    for(const p of items){
+      if(run !== CAR.run) return;
+      if(!PENDING.includes(p)) continue;                  // ถูกเอาออกระหว่างรอคิว
+      try{ got = carMerge(got, await readCarReg(p.orig || p.file, stage, provs)); }
+      catch(e){ fail = e && e.message === 'load' ? 'load' : 'read'; }
+      p.ocrDone = true; p.orig = null;                    // คืนหน่วยความจำไฟล์ต้นฉบับ
+      if(carDone(got)) break;
+    }
+    if(run !== CAR.run) return;
+    const n = [carFill('fPlate', got.plate), carFill('fPlateProv', got.province), carFill('fVin', got.vin)].filter(Boolean).length;
+    const found = [got.plate, got.province, got.vin].filter(Boolean).length;
+    vinHint();
+    if(fail === 'load' && !found) carStatus('err', 'โหลดตัวอ่านรูปไม่สำเร็จ (อินเทอร์เน็ตไม่เสถียร) · กรอกเองได้ในช่องด้านล่าง');
+    else if(found === 3 && got.vin.length !== 17) carStatus('part', 'อ่านได้ครบ 3 ช่อง · แต่เลขตัวรถยาว ' + got.vin.length + ' ตัว โปรดตรวจช่องเลขตัวรถกับเล่มทะเบียน');
+    else if(found === 3) carStatus('ok', '✓ อ่านได้ครบ 3 ช่อง · โปรดตรวจให้ตรงกับเล่มทะเบียน');
+    else if(found)       carStatus('part', 'อ่านได้ ' + found + ' จาก 3 ช่อง · ช่องที่ว่างกรอกเองได้');
+    else                 carStatus('none', 'อ่านจากรูปไม่ได้ · รูปอาจเบลอหรือไม่ใช่หน้า "รายการจดทะเบียน" กรอกเองได้');
+    if(n && STEP === 3) renderReview();
+  } finally {
+    if(run === CAR.run){
+      CAR.busy = false; ocrLog = null; syncCarBox();
+      if(CAR.again){ CAR.again = false; runCarOcr(); }
+      else ocrFree();                                       // ตัวอ่าน 2 ตัวกินหน่วยความจำหลายสิบ MB — มือถือรุ่นเก่าจะได้ไม่ช้า
+    }
+  }
+}
+function wireCarBox(){
+  if(!$('carOcr')) return;
+  CAR_FIELDS.forEach(id => $(id).addEventListener('input', () => {
+    const e = $(id);
+    if(id === 'fVin'){
+      const v = e.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
+      if(v !== e.value){ const pos = e.selectionStart; e.value = v; try{ e.setSelectionRange(pos, pos); }catch(x){} }
+      vinHint();
+    }
+    e.classList.toggle('ocr', !!e.dataset.auto && e.value === e.dataset.auto);
+    if(STEP === 3) renderReview();
+  }));
+  $('coStop').onclick = () => carStop(false);
 }
 
 /* ---------- แผงตรวจก่อนส่ง (ขั้นที่ 3) ----------
@@ -1197,6 +1698,8 @@ function renderReview(){
         + row('รายได้ต่อเดือน', val('fIncome') && (val('fIncome') + ' บาท')))
     + block(3, 'เอกสาร', 0,
           (docs.length ? docs.map(([k,v])=> row(k, v)).join('') : row('เอกสาร', '', 'ยังไม่มี — ส่งคำขอได้ แนบเพิ่มทีหลังได้'))
+        + ((val('fPlate') || val('fPlateProv')) ? row('ทะเบียนรถ', [val('fPlate'), val('fPlateProv')].filter(Boolean).join(' · ')) : '')
+        + (val('fVin') ? row('เลขตัวรถ', val('fVin')) : '')
         + (val('fNote') ? row('หมายเหตุ', val('fNote')) : ''));
   $('review').querySelectorAll('[data-go]').forEach(b=> b.onclick = ()=> goStep(+b.dataset.go));
 }
@@ -1220,7 +1723,10 @@ function collect(){
     /* ผู้ใช้สั่งถอดแผง "รถที่ทำประกันภัย" ออกจากฟอร์ม (2026-09-12)
        → ข้อมูลรถและประเภทความคุ้มครองให้เจ้าหน้าที่สอบถามตอนโทรกลับแทน
        ส่งค่าว่างไปให้เข้ารูปเดิม ฐานข้อมูลยังมีคอลัมน์พวกนี้อยู่ (เผื่อเอาช่องกลับมาภายหลัง) */
-    carBrand: '', carModel: '', carPlate: '', carYear: '',
+    carBrand: '', carModel: '', carYear: '',
+    /* อ่านจากสำเนาทะเบียนรถ แล้วผู้กรอกตรวจ/แก้ (2026-09-18) — carProvince/carVin ต้องรัน migrate-2026-09-18-car-reg.sql
+       ยังไม่รัน = เซิร์ฟเวอร์ไม่รู้จัก 2 คีย์นี้ แค่ไม่เก็บ ไม่ error */
+    carPlate: $('fPlate').value.trim(), carProvince: $('fPlateProv').value.trim(), carVin: $('fVin').value.trim(),
     covers: [],
     docCarReg:    $('docRows').querySelector('.dck[data-tag=carReg]').checked,
     docIdCard:    $('docRows').querySelector('.dck[data-tag=idCard]').checked,
@@ -1417,6 +1923,7 @@ function resetForm(keepEmp){
   document.querySelectorAll('[aria-invalid]').forEach(e=> e.removeAttribute('aria-invalid'));
   PENDING.forEach(p=>{ if(p.url) URL.revokeObjectURL(p.url); });   // คืนหน่วยความจำรูปตัวอย่าง
   PENDING = [];
+  carStop(true);
   renderDocRows(); renderChips(); syncKind();
   STEP = 1; paintSteps();
 }
@@ -1440,6 +1947,7 @@ $('fTitle').addEventListener('change', ()=>{
 });
 $('fName').addEventListener('blur', pullTitleFromName);
 const hadDraft = restoreDraft();
+syncCarBox(); vinHint();
 cselLabel($('fBranch').closest('.csel'));            // ร่างอาจเปลี่ยนสาขา — ป้ายบนปุ่มต้องตามด้วย
 setBranchByEmp();                                    // ร่างเก่าที่สาขาไม่ตรงกับรหัส → แก้ให้ตรง
 syncKind();

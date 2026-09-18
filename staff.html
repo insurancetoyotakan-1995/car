@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260916-1">
-<script src="config.js?v=20260916-1"></script>
+<link rel="stylesheet" href="style.css?v=20260918-1">
+<script src="config.js?v=20260918-1"></script>
 
 <body class="ops">
 <header class="staffbar">
@@ -556,7 +556,7 @@ function renderList(){
     if(ag && ag !== '__none' && r.assigned_to !== ag) return false;
     if(!q) return true;
     return norm([r.no, r.insured_name, r.phone_mobile, r.phone_mobile && r.phone_mobile.replace(/\D/g,''),
-                 r.car_plate, r.emp_name, agentName(r.assigned_to), r.id_card].join(' ')).includes(q);
+                 r.car_plate, r.car_vin, r.emp_name, agentName(r.assigned_to), r.id_card].join(' ')).includes(q);
   });
   const cnt = { '': base.length };
   STATUS_ORDER.forEach(k=> cnt[k] = base.filter(r=>r.status===k).length);
@@ -648,7 +648,7 @@ function openView(id){
   const dl = rows => '<dl class="dl">' + rows.filter(Boolean).map(([k,v])=>
     '<dt>' + esc(k) + '</dt><dd>' + (v && v.html ? v.html : esc(v || '—')) + '</dd>').join('') + '</dl>';
   const tel = n => n ? { html: '<a class="tel" href="tel:' + esc(String(n).replace(/[^0-9+]/g,'')) + '">' + esc(n) + '</a>' } : '';
-  const hasCar = r.car_brand || r.car_model || r.car_plate || r.car_year || (r.covers||[]).length;
+  const hasCar = r.car_brand || r.car_model || r.car_plate || r.car_year || r.car_province || r.car_vin || (r.covers||[]).length;
   const docs = Object.entries(DOC_LABEL)
     .filter(([k])=> r['doc_' + k.replace(/[A-Z]/g, m=>'_'+m.toLowerCase())])
     .map(([,v])=>v);
@@ -676,9 +676,10 @@ function openView(id){
       ])
     + (!hasCar ? '' : '<div class="sec">รถและความคุ้มครอง</div>'
     + dl([
-        ['รถ', [r.car_brand, r.car_model, r.car_year && ('ปี ' + r.car_year)].filter(Boolean).join(' ')],
-        ['ทะเบียน', r.car_plate],
-        ['ความคุ้มครอง', (r.covers||[]).map(c=>COVERS[c]||c).join(' · ')],
+        (r.car_brand || r.car_model || r.car_year) ? ['รถ', [r.car_brand, r.car_model, r.car_year && ('ปี ' + r.car_year)].filter(Boolean).join(' ')] : null,
+        ['ทะเบียน', [r.car_plate, r.car_province].filter(Boolean).join(' · ')],
+        r.car_vin ? ['เลขตัวรถ', r.car_vin] : null,
+        (r.covers||[]).length ? ['ความคุ้มครอง', (r.covers||[]).map(c=>COVERS[c]||c).join(' · ')] : null,
       ]))
     + '<div class="sec">' + (r.kind==='refer' ? 'ผู้แนะนำ' : 'พนักงานผู้ยื่น') + '</div>'
     + dl([

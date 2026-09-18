@@ -992,3 +992,37 @@ label.f .csel{width:100%}
         ต้องประกาศหลังกฎ .c4{grid-column:span 12} ของกริดรวม */
   .qpr .c4{grid-column:span 6}
 }
+
+/* =====================================================================
+   อ่านสำเนาทะเบียนรถ (ฟอร์มลูกค้า ขั้นที่ 3) — กล่องใต้แถว "สำเนาทะเบียนรถ"
+   ค่าที่ระบบเติมมีพื้นเหลืองจาง = "ยังไม่มีคนตรวจ" · แก้ช่องไหนแล้วพื้นกลับเป็นปกติ
+   ===================================================================== */
+.carocr{grid-column:1 / -1;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel);
+  padding:12px 13px 13px;margin-top:2px}
+.co-hd{display:flex;align-items:center;gap:10px}
+.co-ic{width:34px;height:34px;border-radius:9px;background:var(--accent-soft);color:var(--accent-ink);
+  display:grid;place-items:center;flex:none}
+.co-ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.co-tt{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.co-tt b{font-size:13.5px;color:var(--ink)}
+.co-st{font-size:12.5px;color:var(--muted);line-height:1.6}
+.carocr[data-st="ok"] .co-st{color:var(--good-ink);font-weight:600}
+.carocr[data-st="part"] .co-st,.carocr[data-st="none"] .co-st,.carocr[data-st="err"] .co-st{color:var(--warn-ink);font-weight:600}
+.co-stop{flex:none;border:1px solid #d8d0d1;background:var(--panel);color:var(--ink-soft);border-radius:var(--r-sm);
+  font:inherit;font-size:12.5px;font-weight:700;padding:7px 12px;cursor:pointer;min-height:36px}
+.co-stop:hover{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+.co-bar{height:4px;border-radius:99px;background:var(--line-soft);overflow:hidden;margin:10px 0 0}
+.co-bar i{display:block;height:100%;background:var(--accent);transform-origin:left center;
+  transform:scaleX(var(--p,0));transition:transform .3s var(--ease)}
+.co-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-top:11px}
+.co-grid .co-vin{grid-column:1 / -1}
+.co-vin input{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em}
+/* ⚠️ ต้องมี .cust นำหน้า — กฎ .cust input:not(..):not(..) (0,3,1) ของหน้าลูกค้าชนะ .carocr input.ocr (0,2,1) */
+.carocr input.ocr,.cust .carocr input.ocr{background:var(--warn-soft);border-color:#e3c78f}
+.co-vnote{font-size:12px;color:var(--warn-ink);font-weight:600;margin:7px 0 0;line-height:1.6}
+.co-note{font-size:12px;color:var(--muted);margin:9px 0 0;line-height:1.7}
+.co-note b{color:var(--ink-soft)}
+@media (max-width:640px){
+  .co-grid{grid-template-columns:1fr}
+  .co-stop{min-height:44px}
+}
