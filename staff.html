@@ -62,22 +62,60 @@
   font-size:9.5pt;padding-bottom:4pt}
 #printSheet .pf-foot{margin-top:10pt;font-size:8.5pt;color:#444;display:flex;justify-content:space-between;gap:10pt}
 
-/* ---------- ใบค่าคอมมิชชั่น / ค่าแนะนำ ---------- */
-#printSheet .pf-sub{text-align:center;font-size:10.5pt;margin:-4pt 0 8pt}
-#printSheet .pf-h{font-weight:700;margin:10pt 0 2pt;font-size:12pt}
-#printSheet .pf-tbl{width:100%;border-collapse:collapse;margin-top:5pt;font-size:11pt}
-#printSheet .pf-tbl th,#printSheet .pf-tbl td{border:1pt solid #000;padding:4pt 6pt;vertical-align:top}
-#printSheet .pf-tbl th{font-weight:700;background:#f2f2f2;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-#printSheet .pf-tbl td.n{text-align:right;white-space:nowrap;font-weight:700}
-#printSheet .pf-tbl td.c{text-align:center}
-#printSheet .pf-tbl .sm{display:block;font-size:9.5pt;color:#333;font-weight:400}
-#printSheet .pf-tbl tfoot td{font-weight:700}
-#printSheet .pf-chk{border:1pt solid #000;padding:5pt 8pt;margin-top:8pt;font-size:10.5pt}
-#printSheet .pf-chk.bad{border-width:1.6pt}
-#printSheet .pf-cond{margin-top:8pt;font-size:9.5pt;line-height:1.55;color:#222}
-#printSheet .pf-sign{display:grid;grid-template-columns:repeat(4,1fr);gap:8pt;margin-top:22pt;text-align:center;font-size:10pt}
-#printSheet .pf-sign div{padding-top:26pt}
-#printSheet .pf-sign b{display:block;font-weight:600;margin-top:2pt}
+/* ---------- ใบค่าคอมมิชชั่น / ค่าแนะนำ ----------
+   เอกสารการเงิน: ข้อมูลจากระบบพิมพ์เป็น "ตาราง/กล่อง" (ไม่ใช่เส้นประแบบเขียนมือ) · พิมพ์ขาวดำอ่านง่าย
+   เน้นลำดับ: หัวเอกสาร → ข้อมูลการขาย → ผลตรวจส่วนลด → ยอดจ่าย (ใหญ่สุด) → ลงชื่อ */
+#printSheet .kc{font-size:10.5pt;line-height:1.5}
+#printSheet .kc-head{display:grid;grid-template-columns:1fr 62mm;gap:10pt;align-items:end;
+  border-bottom:2.2pt solid #000;padding-bottom:7pt}
+#printSheet .kc-org{font-size:9.5pt;letter-spacing:.3pt;color:#333}
+#printSheet .kc-head h1{font-size:17pt;line-height:1.25;margin:2pt 0 1pt;font-weight:700}
+#printSheet .kc-case{font-size:10.5pt;color:#222}
+#printSheet .kc-meta{border-collapse:collapse;width:100%;font-size:9.5pt}
+#printSheet .kc-meta th,#printSheet .kc-meta td{border:.8pt solid #000;padding:2.5pt 6pt;text-align:left}
+#printSheet .kc-meta th{font-weight:400;width:24mm;background:#f1f1f1;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printSheet .kc-meta td{font-weight:700}
+#printSheet .kc-sec{display:flex;align-items:center;gap:6pt;font-weight:700;font-size:11.5pt;margin:12pt 0 5pt}
+#printSheet .kc-sec i{font-style:normal;display:inline-grid;place-items:center;width:15pt;height:15pt;border-radius:50%;
+  background:#000;color:#fff;font-size:9pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* 2 ฝั่งกว้างเท่ากัน → เส้นกลางตรงกับเส้นกลางของแถวยอดเงิน (4 ช่องเท่ากัน) ด้านล่าง */
+#printSheet .kc-kv{display:grid;grid-template-columns:25mm 1fr 25mm 1fr;border:.8pt solid #000;border-bottom:0}
+#printSheet .kc-kv > *{padding:3.5pt 6pt;border-bottom:.8pt solid #000;min-width:0;overflow-wrap:anywhere}
+#printSheet .kc-kv dt{background:#f1f1f1;color:#222;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printSheet .kc-kv dd{margin:0;font-weight:600}
+#printSheet .kc-kv dd.w{grid-column:span 3}
+#printSheet .kc-kv dd{border-right:.8pt solid #000}
+#printSheet .kc-kv dd.e,#printSheet .kc-kv dd.w{border-right:0}   /* e = ช่องสุดท้ายของแถว */
+#printSheet .kc-money{display:grid;grid-template-columns:repeat(4,1fr);border:.8pt solid #000;border-top:0}
+#printSheet .kc-money div{padding:4pt 6pt;border-right:.8pt solid #000}
+#printSheet .kc-money div:last-child{border-right:0;background:#f1f1f1;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printSheet .kc-money span{display:block;font-size:9pt;color:#333}
+#printSheet .kc-money b{display:block;text-align:right;font-size:12pt}
+#printSheet .kc-check{display:grid;grid-template-columns:auto 1fr;gap:8pt;align-items:center;margin-top:8pt;
+  border:1pt solid #000;padding:6pt 9pt}
+#printSheet .kc-check.bad{border-width:2pt}
+#printSheet .kc-badge{font-weight:700;font-size:10.5pt;border:1pt solid #000;padding:2pt 8pt;white-space:nowrap}
+#printSheet .kc-check.bad .kc-badge{background:#000;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printSheet .kc-check p{margin:0;font-size:9.8pt;line-height:1.5}
+#printSheet .kc-tbl{width:100%;border-collapse:collapse;font-size:10.5pt}
+#printSheet .kc-tbl th,#printSheet .kc-tbl td{border:.8pt solid #000;padding:5pt 7pt;vertical-align:top;text-align:left}
+#printSheet .kc-tbl thead th{background:#000;color:#fff;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printSheet .kc-tbl .c{text-align:center}
+#printSheet .kc-tbl .n{text-align:right;white-space:nowrap}
+#printSheet .kc-tbl td.n{font-weight:700;font-size:11.5pt}
+#printSheet .kc-tbl .who{font-weight:700}
+#printSheet .kc-tbl .sm{display:block;font-size:9pt;color:#333;font-weight:400}
+#printSheet .kc-tbl .warn{display:block;font-size:9pt;font-weight:700;margin-top:1pt}
+#printSheet .kc-tbl tfoot td{background:#f1f1f1;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printSheet .kc-tbl tfoot .n{font-size:14pt}
+#printSheet .kc-tbl tfoot .words{font-weight:600}
+#printSheet .kc-cond{margin:9pt 0 0;padding:6pt 9pt 6pt 20pt;border-left:2pt solid #000;font-size:9pt;line-height:1.6;color:#222}
+#printSheet .kc-cond b{display:block;margin-left:-11pt;font-size:9.5pt;color:#000}
+#printSheet .kc-cond li{margin:0}
+#printSheet .kc-sign{display:grid;grid-template-columns:repeat(4,1fr);gap:8pt;margin-top:16pt;font-size:9.5pt;text-align:center}
+#printSheet .kc-sign div{border:.8pt solid #000;padding:34pt 6pt 6pt;display:flex;flex-direction:column;gap:1.5pt}
+#printSheet .kc-sign u{text-decoration:none;border-top:.8pt solid #000;padding-top:3pt;margin:0 4pt;font-weight:600}
+#printSheet .kc-sign small{font-size:8.5pt;color:#333}
 </style>
 
 <body class="ops">
@@ -457,51 +495,75 @@ function bahtText(n){
   return (b ? read(String(b)) + 'บาท' : (st ? '' : 'ศูนย์บาท')) + (st ? read(String(st)) + 'สตางค์' : 'ถ้วน');
 }
 function comSheet(r){
-  const L = (v, flex) => '<span class="pl"' + (flex ? ' style="flex-grow:' + flex + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
   const m = v => (v == null || v === '') ? '—' : fmtBaht(v);
   const agentId = r.assigned_to || '', agent = agentName(agentId);
   const total = COM_AGENT + COM_REFERRER;
   const want = refDisc(r.quote_gross), got = Number(r.quote_disc) || 0;
   const discOk = Math.abs(want - got) < .005;
-  const band = want === 800 ? 'เบี้ยรวม ' + m(r.quote_gross) + ' มากกว่า 18,000'
-             : want === 500 ? 'เบี้ยรวม ' + m(r.quote_gross) + ' อยู่ในช่วง 12,000–18,000'
-             : 'เบี้ยรวม ' + m(r.quote_gross) + ' ต่ำกว่า 12,000 (ไม่มีส่วนลดพิเศษ)';
   const now = new Date();
-  return '<div class="pf-no"><span>เลขที่คำขอ</span>' + L(r.no) + '</div>'
-    + '<div class="pf-title">ใบสรุปค่าคอมมิชชั่น / ค่าแนะนำลูกค้า</div>'
-    + '<div class="pf-sub">กรณีลูกค้าแนะนำจากพนักงานบริษัท</div>'
-    + '<div class="pf-h">ข้อมูลการขาย</div>'
-    + '<div class="pf-row"><span>ชื่อลูกค้า</span>' + L([r.insured_title, r.insured_name].filter(Boolean).join(' '), 2)
-    +   '<span>เบอร์มือถือ</span>' + L(r.phone_mobile, 1) + '</div>'
-    + '<div class="pf-row"><span>เลขทะเบียนรถ</span>' + L([r.car_plate, r.car_province].filter(Boolean).join(' '), 1.3)
-    +   '<span>หมายเลขตัวถัง</span>' + L(r.car_vin, 1.2) + '</div>'
-    + '<div class="pf-row"><span>บริษัทประกัน</span>' + L(r.quote_insurer, 2) + '<span>ประเภท</span>' + L(r.quote_type, 1) + '</div>'
-    + '<div class="pf-row"><span>เบี้ยรวม (ภาคสมัครใจ)</span>' + L(m(r.quote_gross), 1) + '<span>ส่วนลด</span>' + L(m(r.quote_disc), 1)
-    +   '<span>รวมทั้งสิ้นที่ลูกค้าชำระ</span>' + L(m(r.quote_total), 1.1) + '<span>บาท</span></div>'
-    + '<div class="pf-row"><span>สถานะ</span>' + L('ปิดการขายแล้ว', 1) + '<span>บันทึกเสนอราคาเมื่อ</span>' + L(r.quote_at ? thDate(r.quote_at) : '', 1) + '</div>'
-    + '<div class="pf-chk' + (discOk ? '' : ' bad') + '"><b>ตรวจส่วนลดพิเศษลูกค้าแนะนำ:</b> ' + esc(band)
-    +   ' → ตามเงื่อนไขลด <b>' + esc(fmtBaht(want)) + '</b> บาท · บันทึกในระบบ <b>' + esc(fmtBaht(got)) + '</b> บาท · '
-    +   (discOk ? '✓ ตรงเงื่อนไข' : '<b>⚠ ไม่ตรงเงื่อนไข — ตรวจสอบก่อนจ่าย</b>') + '</div>'
-    + '<div class="pf-h">รายการค่าคอมมิชชั่น / ค่าแนะนำ</div>'
-    + '<table class="pf-tbl"><thead><tr><th style="width:9%">ลำดับ</th><th>ผู้รับ</th><th style="width:26%">รายการ</th><th style="width:19%">จำนวนเงิน (บาท)</th></tr></thead><tbody>'
-    +   '<tr><td class="c">1</td><td>' + esc(agent) + '<span class="sm">เจ้าหน้าที่ประกัน · รหัส ' + esc(agentId) + '</span></td>'
+  const act = (r.quote_act_gross == null && r.quote_act_disc == null) ? null
+            : (Number(r.quote_act_gross) || 0) - (Number(r.quote_act_disc) || 0);
+  const kv = (k, v, cls) => '<dt>' + esc(k) + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(v || '—') + '</dd>';
+  const sign = (name, role) => '<div><u>(' + (name ? esc(name) : '&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;') + ')</u>'
+    + '<span>' + esc(role) + '</span><small>วันที่ ______ / ______ / ______</small></div>';
+  const bandTxt = want === 800 ? 'มากกว่า 18,000' : want === 500 ? 'ช่วง 12,000–18,000' : 'ต่ำกว่า 12,000 · ไม่มีส่วนลดพิเศษ';
+  return '<div class="kc">'
+    + '<div class="kc-head"><div>'
+    +   '<div class="kc-org">โตโยต้า กาญจนบุรี · งานประกันภัยรถยนต์</div>'
+    +   '<h1>ใบสรุปค่าคอมมิชชั่น / ค่าแนะนำลูกค้า</h1>'
+    +   '<div class="kc-case">กรณีลูกค้าแนะนำจากพนักงานบริษัท</div></div>'
+    +   '<table class="kc-meta"><tr><th>เลขที่คำขอ</th><td>' + esc(r.no) + '</td></tr>'
+    +   '<tr><th>สถานะ</th><td>ปิดการขายแล้ว</td></tr>'
+    +   '<tr><th>วันที่พิมพ์</th><td>' + esc(thDate(now.toISOString())) + '</td></tr></table>'
+    + '</div>'
+
+    + '<div class="kc-sec"><i>1</i>ข้อมูลการขาย</div>'
+    + '<dl class="kc-kv" style="margin:0">'
+    +   kv('ลูกค้า', [r.insured_title, r.insured_name].filter(Boolean).join(' ')) + kv('เบอร์มือถือ', r.phone_mobile, 'e')
+    +   kv('ทะเบียนรถ', [r.car_plate, r.car_province].filter(Boolean).join(' ')) + kv('เลขตัวถัง', r.car_vin, 'e')
+    +   kv('บริษัทประกัน', r.quote_insurer, 'w')
+    +   kv('ประเภท', r.quote_type) + kv('เสนอราคา', r.quote_at ? thDate(r.quote_at) : '', 'e')
+    + '</dl>'
+    + '<div class="kc-money">'
+    +   '<div><span>เบี้ยรวม (ภาคสมัครใจ)</span><b>' + m(r.quote_gross) + '</b></div>'
+    +   '<div><span>ส่วนลด</span><b>' + m(r.quote_disc) + '</b></div>'
+    +   '<div><span>พ.ร.บ. (หลังหักส่วนลด)</span><b>' + m(act) + '</b></div>'
+    +   '<div><span>รวมที่ลูกค้าชำระ (บาท)</span><b>' + m(r.quote_total) + '</b></div>'
+    + '</div>'
+    + '<div class="kc-check' + (discOk ? '' : ' bad') + '">'
+    +   '<span class="kc-badge">' + (discOk ? '✓ ส่วนลดตรงเงื่อนไข' : '⚠ ส่วนลดไม่ตรงเงื่อนไข') + '</span>'
+    +   '<p>ส่วนลดพิเศษลูกค้าแนะนำ: เบี้ยรวม ' + esc(m(r.quote_gross)) + ' บาท (' + esc(bandTxt) + ') → ตามเงื่อนไขต้องลด <b>'
+    +     esc(fmtBaht(want)) + '</b> บาท · บันทึกในระบบ <b>' + esc(fmtBaht(got)) + '</b> บาท'
+    +     (discOk ? '' : ' — <b>ตรวจสอบก่อนจ่าย</b>') + '</p>'
+    + '</div>'
+
+    + '<div class="kc-sec"><i>2</i>รายการจ่ายค่าคอมมิชชั่น / ค่าแนะนำ</div>'
+    + '<table class="kc-tbl"><thead><tr><th class="c" style="width:10mm">ที่</th><th>ผู้รับเงิน</th>'
+    +   '<th style="width:46mm">รายการ</th><th class="n" style="width:34mm">จำนวนเงิน (บาท)</th></tr></thead><tbody>'
+    +   '<tr><td class="c">1</td><td><span class="who">' + esc(agent) + '</span><span class="sm">เจ้าหน้าที่ประกัน (ผู้ดูแลลูกค้า) · รหัส ' + esc(agentId) + '</span></td>'
     +     '<td>ค่าคอมมิชชั่น (เหมาจ่าย)</td><td class="n">' + fmtBaht(COM_AGENT) + '</td></tr>'
-    +   '<tr><td class="c">2</td><td>' + esc(r.emp_name || '') + (r.emp_verified ? '' : ' ⚠')
-    +     '<span class="sm">พนักงานผู้แนะนำ · รหัส ' + esc(r.emp_id || '') + ' · ' + esc([r.emp_dept, r.emp_branch].filter(Boolean).join(' · '))
-    +     (r.emp_verified ? '' : ' · รหัสไม่ตรงทำเนียบ ตรวจสอบก่อนจ่าย') + '</span></td>'
+    +   '<tr><td class="c">2</td><td><span class="who">' + esc(r.emp_name || '') + '</span>'
+    +     '<span class="sm">พนักงานผู้แนะนำ · รหัส ' + esc(r.emp_id || '') + ([r.emp_dept, r.emp_branch].filter(Boolean).length ? ' · ' + esc([r.emp_dept, r.emp_branch].filter(Boolean).join(' · ')) : '') + '</span>'
+    +     (r.emp_verified ? '' : '<span class="warn">⚠ รหัสไม่ตรงทำเนียบพนักงาน — ตรวจสอบก่อนจ่าย</span>') + '</td>'
     +     '<td>ค่าแนะนำลูกค้า</td><td class="n">' + fmtBaht(COM_REFERRER) + '</td></tr>'
-    + '</tbody><tfoot><tr><td colspan="3">รวมทั้งสิ้น (' + esc(bahtText(total)) + ')</td><td class="n">' + fmtBaht(total) + '</td></tr></tfoot></table>'
-    + '<div class="pf-cond"><b>เงื่อนไข</b> · ลูกค้าแนะนำจากพนักงานบริษัท: เจ้าหน้าที่ประกันได้คอมเหมาจ่าย ' + fmtBaht(COM_AGENT)
-    +   ' บาท · พนักงานผู้แนะนำได้ค่าแนะนำ ' + fmtBaht(COM_REFERRER) + ' บาท · ส่วนลดพิเศษลูกค้า: เบี้ย 12,000–18,000 ลด 500 บาท'
-    +   ' · มากกว่า 18,000 ลด 800 บาท · กรณีพนักงานต่อประกันเอง ไม่มีค่าคอมมิชชั่น (NO COM)</div>'
-    + '<div class="pf-sign">'
-    +   '<div>ลงชื่อ ...............................<b>(' + esc(agent) + ')</b>เจ้าหน้าที่ประกัน (ผู้รับเงิน)<br>วันที่ ........./........./.........</div>'
-    +   '<div>ลงชื่อ ...............................<b>(' + esc(r.emp_name || '') + ')</b>พนักงานผู้แนะนำ (ผู้รับเงิน)<br>วันที่ ........./........./.........</div>'
-    +   '<div>ลงชื่อ ...............................<b>(...............................)</b>ผู้ตรวจสอบ<br>วันที่ ........./........./.........</div>'
-    +   '<div>ลงชื่อ ...............................<b>(...............................)</b>ผู้อนุมัติ<br>วันที่ ........./........./.........</div>'
+    + '</tbody><tfoot><tr><td colspan="3">รวมทั้งสิ้น <span class="words">(' + esc(bahtText(total)) + ')</span></td>'
+    +   '<td class="n">' + fmtBaht(total) + '</td></tr></tfoot></table>'
+
+    + '<div class="kc-cond"><b>เงื่อนไข</b><ul style="margin:0;padding:0">'
+    +   '<li>ลูกค้าแนะนำจากพนักงานบริษัท: เจ้าหน้าที่ประกันได้คอมเหมาจ่าย ' + fmtBaht(COM_AGENT) + ' บาท · พนักงานผู้แนะนำได้ค่าแนะนำ ' + fmtBaht(COM_REFERRER) + ' บาท</li>'
+    +   '<li>ส่วนลดพิเศษลูกค้า: เบี้ย 12,000–18,000 ลด 500 บาท · เบี้ยมากกว่า 18,000 ลด 800 บาท</li>'
+    +   '<li>พนักงานบริษัทต่อประกันเอง ไม่มีค่าคอมมิชชั่น (NO COM)</li>'
+    + '</ul></div>'
+
+    + '<div class="kc-sign">'
+    +   sign(agent, 'เจ้าหน้าที่ประกัน · ผู้รับเงิน')
+    +   sign(r.emp_name, 'พนักงานผู้แนะนำ · ผู้รับเงิน')
+    +   sign('', 'ผู้ตรวจสอบ')
+    +   sign('', 'ผู้อนุมัติ')
     + '</div>'
     + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no) + '</span>'
-    +   '<span>พิมพ์เมื่อ ' + esc(thDate(now.toISOString())) + '</span></div>';
+    +   '<span>พิมพ์เมื่อ ' + esc(thDate(now.toISOString())) + '</span></div>'
+    + '</div>';
 }
 function printSheet(r){
   const L  = (v, flex, cls) => '<span class="pl' + (cls ? ' ' + cls : '') + '"' + (flex ? ' style="' + (typeof flex === 'number' ? 'flex-grow:' + flex : 'flex:' + flex) + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
