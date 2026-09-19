@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260918-1">
+<link rel="stylesheet" href="style.css?v=20260918-2">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260918-1"></script>
+<script src="config.js?v=20260918-2"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -1170,7 +1170,8 @@ function renderChips(){
 const OCR_JS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
 const PDFJS  = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/legacy/build/';
 const CAR_FIELDS = ['fPlate', 'fPlateProv', 'fVin'];
-const CAR = { busy:false, again:false, run:0 };
+const CAR = { busy:false, again:false, run:0, sugg:{}, warn:{}, miss:{} };   // sugg = อ่านได้แต่ไม่ได้เติม · warn = เติมแล้วแต่ไม่ชัด · miss = อ่านไม่ได้ ให้กรอกเอง
+const CAR_NOTE = { fPlate:'nPlate', fPlateProv:'nProv', fVin:'nVin' };
 let ocrLibP = null, ocrWorkerP = null, ocrEngP = null, ocrLog = null, pdfjsP = null;
 
 /* ---- ตัวแยกข้อความ (ไม่แตะ DOM — ทดสอบแยกได้) ---- */
@@ -1211,6 +1212,29 @@ function afterLabel(text, labels, from){
   const f = findLabel(sk, labels, s0);
   return f ? map[f.j + f.len - 1] + 1 : -1;
 }
+/* 🔑 รูปถ่ายทั้งหน้ามีคำว่า "เลขทะเบียน"/"จังหวัด" ซ้ำในหมวดเจ้าของรถและรายการเสียภาษี
+      (รูปจริงของผู้ใช้: ป้ายด้านบนอ่านเพี้ยน เลยไปจับ "เลขทะเบียน" ของรายการเสียภาษีท้ายหน้า ได้เลขมั่ว)
+      → ค้นเฉพาะช่วงตั้งแต่หัว "รายการจดทะเบียน" ถึงหัว "เจ้าของรถ" / "รายการเสียภาษี" (ถ้าเจอหัว) */
+const REG_HEAD = ['รยกรจดทบยน'];                  // รายการจดทะเบียน
+const REG_END  = [['จของรถ'], ['รยกรสยภษ']];      // เจ้าของรถ · รายการเสียภาษี
+function regSection(text){
+  const { sk, map } = carSkel(text);
+  const h = findLabel(sk, REG_HEAD, 0);
+  const from = h ? h.j + h.len : 0;
+  let end = sk.length;
+  for(const L of REG_END){ const f = findLabel(sk, L, from); if(f && f.j < end) end = f.j; }
+  if(!h && end === sk.length) return text;
+  return text.slice(h ? map[h.j] : 0, end < sk.length ? map[end] : text.length);
+}
+const lineSkel = ln => carSkel((ln.words || []).map(w => w.text || '').join('')).sk;
+function regLines(lines){
+  const L = lines || [];
+  let a = L.findIndex(ln => findLabel(lineSkel(ln), REG_HEAD, 0));
+  if(a < 0) a = 0;
+  let b = L.findIndex((ln, i) => i > a && REG_END.some(e => findLabel(lineSkel(ln), e, 0)));
+  if(b < 0) b = L.length;
+  return L.slice(a, b);
+}
 const PLATE_L = ['ลขทบยน', 'ขทบยน'];                      // เลขทะเบียน · ⚠️ ห้ามใช้ "ทบยน" เดี่ยว ๆ ชน "วันจดทะเบียน"
 const PROV_L  = ['จงหวด', 'งหวด'];                        // จังหวัด
 const VIN_L   = ['ลขตวรถ', 'ขตวรถ', 'ลขตวถง', 'ขตวถง'];   // เลขตัวรถ / เลขตัวถัง (เล่มรุ่นเก่า)
@@ -1221,20 +1245,50 @@ const PLATE_PATS = [
   /(\d)\s*([ก-ฮ])\s?([ก-ฮ])\s*[-–]?\s*(\d{1,4})(?!\d)/,   // 5ขจ 7692
   /()([ก-ฮ])\s?([ก-ฮ])\s*[-–]?\s*(\d{1,4})(?!\d)/,          // กข 1234
   /(\d)\s*([ก-ฮ])()\s*[-–]?\s*(\d{1,4})(?!\d)/,             // 1ก 234
-  /()([ก-ฮ])()\s*[-–]?\s*(\d{1,4})(?!\d)/,                  // ก 1234 (รุ่นเก่ามาก)
+  /* ⚠️ ไม่รับ "ก 1234" (อักษรตัวเดียวไม่มีเลขนำหน้า) — รูปจริงให้ขยะแบบ "ร 524" จากช่องอื่นในหน้า */
 ];
-function matchPlate(w){
-  for(const re of PLATE_PATS){
-    const m = w.match(re);
-    if(m) return { plate: m[1] + m[2] + m[3] + ' ' + m[4], idx: m.index, len: m[0].length };
+/* 🔑 unsure = ตัวเลขหน้าหมวดอักษรอ่านได้ 2 ตัวติดกัน (รูปจริง: "5ขจ" อ่านเป็น "56ขจ" — ดอตแมทริกซ์เลข 5 แตกเป็น 2 ตัว)
+      เดาไม่ได้ว่าตัวไหนถูก → เลือกตัวที่ติดหมวดอักษร แล้ว "เตือนให้ตรวจ" แทนการเงียบ */
+/* 🔑 แบบ "อักษรล้วน + ตัวเลข" (ไม่มีเลขนำหน้า) ต้องเริ่มที่ต้นคำ — ไม่งั้นท้ายชื่อเดือนกลายเป็นเลขทะเบียน
+      (รูปจริง: OCR แยกบรรทัดป้ายกับบรรทัดค่า ถัดจาก "เลขทะเบียน" จึงเป็น "9 มกราคม 2567" → ได้ "คม 2567")
+      แบบมีเลขนำหน้าไม่ต้องเช็ค (เคยเจอเศษหมึกเป็นอักษรไทยติดหน้าเลข เช่น "ว2ขข 88") */
+function matchPlate(w, last){
+  for(let k = 0; k < PLATE_PATS.length; k++){
+    const g = new RegExp(PLATE_PATS[k].source, 'g');
+    let m = null, x;
+    while((x = g.exec(w))){
+      if(!x[1] && /[ก-๙]$/.test(w.slice(0, x.index))) continue;    // กลางคำ = ไม่ใช่เลขทะเบียน
+      m = x;
+      if(!last) break;                                              // last = เอาตัวที่ใกล้ป้ายจังหวัดที่สุด
+    }
+    if(m){
+      const before = w.slice(0, m.index).replace(/\s+$/, '');
+      return { plate: m[1] + m[2] + m[3] + ' ' + m[4], idx: m.index, len: m[0].length,
+               unsure: !!m[1] && /\d$/.test(before) };
+    }
   }
   return null;
 }
 function findPlate(text){
   const at = afterLabel(text, PLATE_L, 0);
-  if(at < 0) return null;
-  const m = matchPlate(text.slice(at, at + 30));
-  return m ? { plate: m.plate, end: at + m.idx + m.len } : null;
+  if(at >= 0){
+    const m = matchPlate(text.slice(at, at + 30));
+    if(m) return { plate: m.plate, end: at + m.idx + m.len, unsure: m.unsure };
+  }
+  /* ป้าย "เลขทะเบียน" อ่านเพี้ยนเกิน 1 ตัว (รูปจริง: "ไคิปิทะเบียน") → เลขทะเบียนอยู่ "หน้าป้ายจังหวัด" บนบรรทัดเดียวกันเสมอ */
+  const pv = labelStart(text, PROV_L);
+  if(pv > 0){
+    const from = Math.max(0, pv - 32);
+    const m = matchPlate(text.slice(from, pv), true);
+    if(m) return { plate: m.plate, end: from + m.idx + m.len, unsure: m.unsure };
+  }
+  return null;
+}
+/* ตำแหน่ง "ต้นป้าย" ในข้อความเดิม (ไม่เจอ = -1) */
+function labelStart(text, labels){
+  const { sk, map } = carSkel(text);
+  const f = findLabel(sk, labels, 0);
+  return f ? map[f.j] : -1;
 }
 function lev(a, b){
   const d = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -1255,9 +1309,9 @@ function lev(a, b){
 function findProvince(text, from, provs){
   if(!provs || !provs.length) return '';
   let at = afterLabel(text, PROV_L, from);
-  if(at < 0 || at - from > 60) at = from;
+  if(at < 0 || (from > 0 && at - from > 60)) at = from;     // ระยะห่างใช้ตัดสินเฉพาะตอนรู้ตำแหน่งเลขทะเบียนแล้ว
   if(at < 0) return '';
-  const w = thSkel(text.slice(at, at + 45));
+  const w = thSkel(text.slice(at, at + 45).split('\n')[0]);   // จังหวัดอยู่บรรทัดเดียวกับป้ายเสมอ
   if(!w) return '';
   let best = null;
   for(const p of provs){
@@ -1274,11 +1328,70 @@ function findProvince(text, from, provs){
       if(!best || score < best.score) best = { p, score };
     }
   }
-  return best ? best.p : '';
+  if(best) return best.p;
+  /* 🔑 ชื่อจังหวัดอยู่ "ท้ายบรรทัด" บนเล่ม OCR ชอบตัดท้ายคำหาย (รูปจริง: "กรุงเทพมหานคร" → "กรงเทพมหาย")
+        ชื่อยาว ≥ 8 พยัญชนะ: ตรงกัน "ตอนต้น" (ขาดท้ายได้ 4 ตัว ขั้นต่ำ 6) และมีจังหวัดเดียวที่ขึ้นต้นแบบนี้ = ใช้ได้ */
+  const hits = new Set();
+  for(const p of provs){
+    const k = thSkel(p);
+    if(k.length < 8) continue;
+    const pre = k.slice(0, Math.max(6, k.length - 4));
+    for(let off = 0; off <= 2; off++) if(w.substr(off, pre.length) === pre){ hits.add(p); break; }
+  }
+  if(hits.size === 1) return [...hits][0];
+  /* สุดท้าย: เกณฑ์แบบช่องที่ตัดมาอ่าน (พลาดได้ ~1/3 แต่ต้องชนะขาด) — รูปจริง: "ถาญจนบุวี" (พลาด 2 ตัว) */
+  return provFromCrop(text.slice(at, at + 45).split('\n')[0], provs);
+}
+/* 🔑 (เทรนจากสำเนาจริง) จังหวัดจาก "ช่องที่ตัดมาอ่านเฉพาะ" — ค่าเป็นชื่อจังหวัดล้วน แต่ตัวพิมพ์ดอตแมทริกซ์อ่านเพี้ยนหลายตัว
+      (วัดจริง: "กาญจนยุวร" · "กาญจยยรี" · "กรุงเกพมหานคร" · "กรุงเทพมหานศวี") → ยอมพลาดได้ ~1/3 ของความยาว
+      แต่ต้อง "ชนะขาด" จังหวัดอันดับสอง (ห่างกัน ≥ 2) ไม่งั้นไม่เดา */
+function provFromCrop(raw, provs){
+  let best = null, second = 99;
+  for(const ln of String(raw || '').split('\n')){
+    const w = thSkel(ln);
+    if(w.length < 2) continue;
+    for(const p of provs || []){
+      const k = thSkel(p);
+      if(!k) continue;
+      const seg = w.slice(0, k.length + 2);
+      let d = 99;
+      for(const L of [k.length - 1, k.length, k.length + 1, k.length + 2]) if(L > 0 && L <= seg.length) d = Math.min(d, lev(seg.slice(0, L), k));
+      if(d > (k.length <= 3 ? 0 : Math.max(1, Math.floor(k.length / 3)))) continue;   // ชื่อสั้น (ตาก น่าน) ต้องตรงเป๊ะ — กันขยะ "เก โร" → กระบี่
+      if(!best || d < best.d){ if(best && best.p !== p) second = Math.min(second, best.d); best = { p, d }; }
+      else if(best.p !== p) second = Math.min(second, d);
+    }
+  }
+  return best && second - best.d >= 2 ? best.p : '';
 }
 /* เลขตัวรถ (VIN): 17 ตัว ไม่มีตัว I O Q ตามมาตรฐาน → อ่านเป็น I/O/Q ได้แปลว่า OCR พลาด แก้เป็น 1/0/0
    เล่มรุ่นเก่าเลขตัวถังสั้นกว่า 17 ได้ → รับ 8-16 ตัวเฉพาะตอนเจอป้าย "เลขตัวรถ" */
-const vinFix = s => s.toUpperCase().replace(/[OQ]/g, '0').replace(/I/g, '1');
+/* 🔑 (เทรนจากสำเนาจริง 19 ไฟล์) เลขตัวรถ 17 ตัว — 6 ตัวท้ายเป็นเลขลำดับการผลิต "ตัวเลขล้วน" ทุกยี่ห้อที่เจอ
+      (Toyota MR0/MR2/MHF/MHK/JT · Isuzu MP1 · Chevrolet MMM) แต่ OCR อ่านเลขดอตแมทริกซ์เป็นอักษรบ่อย
+      (วัดจริง: "…REH504557800" → "…REHS04557800") → ช่วงนั้นแปลงอักษรหน้าตาคล้ายกลับเป็นเลข
+   🔑 ตัวแรกเป็นรหัสประเทศผู้ผลิต — รถในไทยขึ้นต้น M (ผลิตในไทย/อาเซียน) หรือ J (ญี่ปุ่น) · "H" ไม่ใช่รหัสที่ใช้จริง
+      แต่ดอตแมทริกซ์ M ถูกอ่านเป็น H บ่อย (รูปจริง: "HR2BD8A…") → แก้เป็น M */
+const VIN_DIG = { S:'5', B:'8', E:'8', D:'0', U:'0', N:'0', Z:'2', G:'6', L:'1', A:'4', T:'7' };
+/* 🔑 3 ตัวแรก = รหัสผู้ผลิต (WMI) — รถที่มาทำประกันมีไม่กี่เจ้า ถ้าอ่านได้ไม่ตรงรายการ แต่ "เพี้ยนแบบที่ OCR ชอบเพี้ยน"
+      ไปเป็นรหัสที่รู้จักได้ "ทางเดียว" ก็แก้ให้ (วัดจริง: NP1→MP1 · HR0→MR0 · MRZ→MR2) · ไม่แน่ใจ = ปล่อยตามที่อ่านได้ */
+const VIN_WMI = ['MR0', 'MR1', 'MR2', 'MHF', 'MHK', 'MHR', 'MHY', 'MP1', 'MP2', 'MPA', 'MPB', 'MMM', 'MMA', 'MMB', 'MMC', 'MMT',
+  'MNT', 'MNB', 'MNA', 'MRH', 'MM0', 'MM6', 'MM7', 'MM8', 'MA3', 'MBH', 'MMS', 'MLH', 'MJN', 'MXM',
+  'JTD', 'JTE', 'JTF', 'JTH', 'JTM', 'JTN', 'JHM', 'JMZ', 'JN1', 'JAA', 'JAL', 'JMY', 'JF1', 'JS3',
+  'LGX', 'LSJ', 'LVV', 'LRW', 'LFV', 'LBV', 'WDD', 'WDB', 'WBA', 'WVW', 'WAU', 'WP0', 'SAL', 'YV1', 'KMH', 'KNA', 'VF1'];
+const VIN_LOOK = [['M', 'N', 'H', 'W'], ['2', 'Z'], ['0', 'D', 'U'], ['1', 'T', 'L', 'J'], ['8', 'B', 'E'], ['5', 'S'], ['4', 'A'], ['6', 'G'], ['F', 'E', 'P']];
+const vinLook = (a, b) => a === b || VIN_LOOK.some(g => g.includes(a) && g.includes(b));
+function vinFix(s){
+  let v = s.toUpperCase().replace(/[OQ]/g, '0').replace(/I/g, '1');
+  if(v.length !== 17) return v;
+  const w = v.slice(0, 3);
+  if(!VIN_WMI.includes(w)){
+    const near = VIN_WMI.filter(k => [0, 1, 2].every(i => vinLook(w[i], k[i])));
+    if(near.length === 1) v = near[0] + v.slice(3);
+  }
+  /* โตโยต้าประกอบในไทย (MR0/MR1/MR2): 9 ตัวท้ายเป็นเลขล้วน (ตัวที่ 10 = 0 เสมอ) — ครบทั้ง 11 คันในชุดเทรน
+     (วัดจริง: "MR0S3REHS04557800" ตัวที่ 9 อ่านเป็น S → แก้เป็น 5 ได้ถูก) */
+  const from = /^MR[012]/.test(v) ? 8 : 11;
+  return v.slice(0, from) + v.slice(from).replace(/[A-Z]/g, c => VIN_DIG[c] || c);
+}
 function findVin(text){
   const at = afterLabel(text, VIN_L, 0);
   if(at >= 0){
@@ -1296,10 +1409,11 @@ function findVin(text){
   return uniq.length === 1 ? uniq[0] : '';
 }
 function parseCarReg(raw, provs){
-  const text = thDigits(raw).replace(/[ \t]+/g, ' ');
+  const text = regSection(thDigits(raw).replace(/[ \t]+/g, ' '));
   const pl = findPlate(text);
   return {
     plate: pl ? pl.plate : '',
+    plateUnsure: !!(pl && pl.unsure),
     province: findProvince(text, pl ? pl.end : 0, provs),
     vin: findVin(text),
   };
@@ -1322,25 +1436,131 @@ function labelInLines(lines, labels){
     const ws = ln.words || []; let sk = ''; const map = [];
     ws.forEach((w, i) => { for(const ch of (w.text || '')) if(/[ก-ฮ0-9A-Za-z]/.test(ch)){ sk += ch; map.push(i); } });
     const f = findLabel(sk, labels, 0);
-    if(f) return { ln, ws, sk, map, endWord: map[f.j + f.len - 1], after: f.j + f.len };
+    if(f) return { ln, ws, sk, map, startWord: map[f.j], endWord: map[f.j + f.len - 1], after: f.j + f.len };
   }
   return null;
 }
-async function readBeside(worker, cv, hit, stopLabels, maxH, whitelist){
+/* อ่านช่วง x0..x1 ของบรรทัดนั้นซ้ำ
+   🔑 ใช้โหมด "บล็อก" (psm 6 ค่าเริ่มต้น) ห้ามใช้ "บรรทัดเดียว" (psm 7) — เล่มจริงพิมพ์ค่า (ดอตแมทริกซ์) ต่ำกว่าป้าย
+      OCR เลยรวมเป็นบรรทัดสูงเกินจริง กรอบที่ตัดมาจึงติดเศษบรรทัดบน/ล่าง แล้ว psm 7 คืน "ค่าว่าง" (วัดจริงกับรูปของผู้ใช้)
+   🔑 ขยายให้ตัวอักษรสูง ~50px ก่อนอ่าน — รูปจากมือถือที่ส่งผ่าน LINE เหลือ ~960px ตัวอักษรเล็กมาก
+      (วัดจริง: ขยายไม่พอได้ "MRZBDBA…" · ขยายพอได้ "MR2BD8A3900073087" ตรงเป๊ะ)
+   o.tgt = ความสูงตัวอักษรเป้าหมาย · o.blur = เบลอหลังขยาย (px) ให้จุดดอตแมทริกซ์เชื่อมเป็นเส้น
+   🔑 (เทรนจากสำเนาจริง 18 รูป) ไม่มีวิธีเตรียมภาพแบบไหนชนะขาด — แต่ละแบบผิด "คนละตัว"
+      จึงอ่านหลายแบบแล้วโหวต (ขนาดปกติ / เบลอ 1.5px / ขยายใหญ่ 70px) ได้ผลดีกว่าแบบใดแบบหนึ่ง */
+async function readRegion(worker, cv, hit, x0, x1, whitelist, down, o){
+  o = o || {};
   const lb = hit.ln.bbox, h = Math.max(12, lb.y1 - lb.y0);
-  const x0 = Math.min(cv.width - 1, hit.ws[hit.endWord].bbox.x1 + 2);
+  x0 = Math.max(0, Math.round(x0)); x1 = Math.min(cv.width, Math.round(x1));
+  /* ขยายลงล่างมากกว่าขึ้นบน — ค่าบนเล่มจริงพิมพ์ต่ำกว่าป้าย บางรูป OCR แยกเป็นบรรทัดถัดไปเลย */
+  const y0 = Math.max(0, Math.round(lb.y0 - h * .35)), y1 = Math.min(cv.height, Math.round(lb.y1 + h * (down == null ? .8 : down)));
+  if(x1 - x0 < h * .6) return '';
+  const hs = hit.ws.filter(w => w.bbox.x0 >= x0 - 2 && w.bbox.x1 <= x1 + 2 && /[0-9A-Za-zก-ฮ]/.test(w.text))
+                   .map(w => w.bbox.y1 - w.bbox.y0).sort((a, b) => a - b);
+  const ch = hs.length ? hs[hs.length >> 1] : h * .45;          // ความสูงตัวอักษรจริง (มัธยฐาน)
+  const f = Math.max(1, Math.min(6, (o.tgt || 50) / Math.max(8, ch)));
+  const c = document.createElement('canvas');
+  c.width = Math.round((x1 - x0) * f); c.height = Math.round((y1 - y0) * f);
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  g.imageSmoothingQuality = 'high';
+  if(o.blur) g.filter = 'blur(' + o.blur + 'px)';
+  g.drawImage(cv, x0, y0, x1 - x0, y1 - y0, 0, 0, c.width, c.height);
+  g.filter = 'none';
+  await worker.setParameters({ tessedit_char_whitelist: whitelist });
+  try{ return (await worker.recognize(c)).data.text || ''; }
+  finally{ await worker.setParameters({ tessedit_char_whitelist: '' }); c.width = c.height = 0; }
+}
+/* ช่องถัดจากป้าย → ถึงป้ายตัวถัดไป (ไม่เจอป้ายถัดไป = กว้าง maxH เท่าของความสูงบรรทัด) */
+function readBeside(worker, cv, hit, stopLabels, maxH, whitelist, down, o){
+  const h = Math.max(12, hit.ln.bbox.y1 - hit.ln.bbox.y0);
+  const x0 = hit.ws[hit.endWord].bbox.x1 + 2;
   let x1 = null;
   for(const L of stopLabels){ const j = hit.sk.indexOf(L, hit.after); if(j >= 0){ x1 = hit.ws[hit.map[j]].bbox.x0 - 2; break; } }
   if(x1 == null || x1 < x0 + h) x1 = x0 + maxH * h;
-  x1 = Math.min(cv.width, x1);
-  const y0 = Math.max(0, lb.y0 - Math.round(h * .3)), y1 = Math.min(cv.height, lb.y1 + Math.round(h * .3));
-  if(x1 - x0 < h) return '';
-  await worker.setParameters({ tessedit_char_whitelist: whitelist, tessedit_pageseg_mode: '7' });
-  try{
-    return (await worker.recognize(cv, { rectangle: { left: x0, top: y0, width: x1 - x0, height: y1 - y0 } })).data.text || '';
-  } finally {
-    await worker.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '6' });   // 6 = ค่าเริ่มต้นของ tesseract.js
+  return readRegion(worker, cv, hit, x0, x1, whitelist, down, o);
+}
+/* ช่อง "หน้า" ป้าย (ใช้หาเลขทะเบียนจากป้ายจังหวัด ตอนป้ายเลขทะเบียนอ่านไม่ออก) */
+function readBefore(worker, cv, hit, maxH, whitelist, down){
+  const h = Math.max(12, hit.ln.bbox.y1 - hit.ln.bbox.y0);
+  const x1 = hit.ws[hit.startWord].bbox.x0 - 2;
+  return readRegion(worker, cv, hit, x1 - maxH * h * .6, x1, whitelist, down);
+}
+/* เลือกบรรทัดที่หน้าตาเป็นเลขตัวรถที่สุด (กรอบที่ตัดมาติดบรรทัดอื่นมาด้วย เช่น "YARIS ATIV" / เลขเครื่องยนต์) */
+function bestVin(raw){
+  const c = String(raw || '').split('\n').map(vinFromLine)
+    .filter(v => v.length >= 8 && (v.match(/\d/g) || []).length >= 4);
+  return c.find(v => v.length === 17) || c.sort((a, b) => Math.abs(a.length - 17) - Math.abs(b.length - 17))[0] || '';
+}
+/* 🔑 (เทรนจากสำเนาจริง) โหวตแบบ "จัดแนวก่อน" — ผลอ่านแต่ละรอบยาวไม่เท่ากัน (อ่านเกิน/ขาด 1 ตัวบ่อย: "MR0ZZ269G…")
+      ถ้าโหวตเฉพาะตัวที่ยาว 17 พอดี จะทิ้งข้อมูลดี ๆ ไปครึ่งหนึ่ง → เลือกผลอ่านที่เป็นกลางที่สุดเป็นแม่แบบ
+      จัดแนวผลอื่นเข้ากับแม่แบบ (edit distance) แล้วโหวตทีละตำแหน่ง · ผลที่ต่างจากแม่แบบเกิน 5 ตัว = ขยะ ไม่นับ
+   🔑 คืน "ตำแหน่งที่เสียงแตก" (alt) ด้วย — บอกผู้กรอกได้ว่าต้องเช็กตัวที่เท่าไร แทนที่จะให้ไล่เทียบทั้ง 17 ตัว */
+function alignTo(ref, s){
+  const n = ref.length, m = s.length, D = [];
+  for(let i = 0; i <= n; i++){ D[i] = [i]; }
+  for(let j = 1; j <= m; j++) D[0][j] = j;
+  for(let i = 1; i <= n; i++) for(let j = 1; j <= m; j++)
+    D[i][j] = Math.min(D[i - 1][j] + 1, D[i][j - 1] + 1, D[i - 1][j - 1] + (ref[i - 1] === s[j - 1] ? 0 : 1));
+  const out = new Array(n).fill('');
+  let i = n, j = m;
+  while(i > 0 && j > 0){
+    if(D[i][j] === D[i - 1][j - 1] + (ref[i - 1] === s[j - 1] ? 0 : 1)){ out[i - 1] = s[j - 1]; i--; j--; }
+    else if(D[i][j] === D[i - 1][j] + 1) i--;
+    else j--;
   }
+  return { cols: out, dist: D[n][m] };
+}
+function voteVin(cands){
+  const c = cands.filter(Boolean);
+  if(!c.length) return { vin: '', unsure: false, alt: [] };
+  /* แม่แบบ = ผลที่รวมระยะห่างกับผลอื่นน้อยที่สุด (ยาว 17 ได้เปรียบ) */
+  let ref = null, bs = 1e9;
+  for(const a of c){
+    const s = c.reduce((t, b) => t + Math.min(6, alignTo(a, b).dist), 0) + (a.length === 17 ? 0 : 2 + Math.abs(a.length - 17));
+    if(s < bs){ bs = s; ref = a; }
+  }
+  const al = c.map(b => alignTo(ref, b)).filter(x => x.dist <= 5);
+  const cols = [];
+  for(let i = 0; i < ref.length; i++){
+    const cnt = {};
+    al.forEach((x, k) => { const ch = x.cols[i]; if(ch) cnt[ch] = (cnt[ch] || 0) + 1 + (k === 0 ? .01 : 0); });
+    const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]);
+    if(top.length) cols.push(top);
+  }
+  const vin = vinFix(cols.map(t => t[0][0]).join(''));
+  const alt = [];
+  if(vin.length === 17) cols.forEach((t, i) => {
+    /* ตัวเลือกอันดับสองได้เสียงเกินครึ่งของอันดับหนึ่ง = ไม่ชัด (หลังแก้ตามกติกา เช่น 6 ตัวท้ายต้องเป็นเลข แล้วยังต่างกันอยู่) */
+    const fix = ch => i >= (/^MR[012]/.test(vin) ? 8 : 11) && VIN_DIG[ch] ? VIN_DIG[ch] : ch;
+    const opts = [...new Set(t.filter(x => x[1] >= t[0][1] * .5).map(x => fix(x[0])))];
+    if(opts.length > 1) alt.push({ i, opts: [vin[i], ...opts.filter(x => x !== vin[i])] });
+  });
+  return { vin, unsure: alt.length > 0 || vin.length !== 17, alt };
+}
+function bestPlate(raw){
+  for(const ln of String(raw || '').split('\n')){ const m = matchPlate(thDigits(ln)); if(m) return m; }
+  return null;
+}
+/* 🔑 (เทรนจากสำเนาจริง) เลขทะเบียน: รวมหลายแหล่ง (อ่านทั้งหน้า + อ่านเฉพาะช่องหลายแบบ) แล้วโหวต
+      "ตัวเลข" กับ "หมวดอักษร" แยกกัน — ตัวเลขอ่านแม่นกว่าอักษรไทยมาก (ขยะจากบรรทัดอื่น เช่น "คน 5" แพ้โหวตตัวเลข)
+      หมวดอักษรเสียงแตก (วัดจริง: ข/ซ · ผ/ฝ · พ/ผ · ห/ฬ พิมพ์ดอตแมทริกซ์หน้าตาคล้ายกันมาก) = เติมแต่เตือนให้ตรวจ */
+function votePlate(cands){
+  const c = cands.filter(x => x && x.plate);
+  if(!c.length) return null;
+  const num = {};
+  c.forEach(x => { const n = x.plate.split(' ')[1]; num[n] = (num[n] || 0) + x.w; });
+  const nt = Object.entries(num).sort((a, b) => b[1] - a[1] || b[0].length - a[0].length);
+  const same = c.filter(x => x.plate.split(' ')[1] === nt[0][0]);
+  const let_ = {};
+  same.forEach(x => { const l = x.plate.split(' ')[0]; let_[l] = (let_[l] || 0) + x.w; });
+  const lt = Object.entries(let_).sort((a, b) => b[1] - a[1]);
+  const support = lt[0][1];
+  return {
+    plate: lt[0][0] + ' ' + nt[0][0],
+    unsure: same.some(x => x.unsure) || (nt[1] && nt[1][1] >= nt[0][1] * .5) || (lt[1] && lt[1][1] >= lt[0][1] * .5) || support < 1.5,
+    support,
+  };
 }
 /* ผลอ่านซ้ำเชื่อได้กว่ารอบแรก — แต่ถ้ารอบซ้ำได้เลขตัวรถไม่ครบ 17 ตัว ขณะที่รอบแรกได้ 17 ตัวพอดี ให้ใช้รอบแรก */
 /* 🔑 ได้เกิน 17 ตัว = OCR อ่านตัวอักษรเกินมา (วัดจริง: "B8" → "BS8") — "ไม่ตัดทิ้งเงียบ ๆ"
@@ -1351,20 +1571,49 @@ function vinFromLine(raw){
   for(const t of toks){ v += t; if(v.length >= 17) break; }   // OCR ชอบแบ่ง VIN เป็น 2 ท่อน — ต่อจนครบ 17
   return vinFix(v);
 }
-async function carRefine(worker, cv, lines, g){
-  const out = { ...g };
+/* อ่านซ้ำเฉพาะช่อง แล้วรวมกับผลอ่านทั้งหน้า (g)
+   cvs.raw = ภาพจริง (ตัวพิมพ์ดอตแมทริกซ์ชัดกว่า) · ป้ายหาได้จากบรรทัดของภาพล้างพื้น (lines)
+   🔑 เลขตัวรถ: 4 แบบก่อน ตรงกันหมด 17 ตัว = จบ (รูปชัดจบเร็ว) ไม่งั้นอ่านเพิ่มอีก 2 แบบแล้วโหวต */
+const VIN_READS = [[.2, {}], [.5, {}], [.2, { blur: 1.5 }], [.5, { blur: 1.5 }], [.2, { tgt: 70 }], [.5, { tgt: 70 }]];
+const PLATE_READS = [[.3, {}], [.8, {}], [.3, { tgt: 70 }], [.3, { blur: 1.5 }]];
+async function carRefine(worker, cvs, lines, g, provs){
+  const out = { ...g, plate: '', province: '', vin: g.vin };
+  lines = regLines(lines);
   const vh = labelInLines(lines, VIN_L);
   if(vh){
-    const eng = await getOcrEng().catch(() => null);
-    const t = vinFromLine(await readBeside(eng || worker, cv, vh, NEXT_VIN, 12.5, VIN_WL));
-    const full = g.vin || '';
-    if(t.length === 17 || (t.length >= 8 && /\d/.test(t) && full.length !== 17)) out.vin = t;   // อ่านซ้ำได้ 17 ตัวพอดี = เชื่ออันนี้
+    const w = (await getOcrEng().catch(() => null)) || worker;
+    const reads = [];
+    for(let k = 0; k < VIN_READS.length; k++){
+      if(k === 4 && reads.every(v => v.length === 17 && v === reads[0])) break;
+      reads.push(bestVin(await readBeside(w, cvs.raw, vh, NEXT_VIN, 12.5, VIN_WL, VIN_READS[k][0], VIN_READS[k][1])));
+    }
+    if(g.vin) reads.push(g.vin);
+    const v = voteVin(reads);
+    if(v.vin.length >= 8){ out.vin = v.vin; out.vinUnsure = v.unsure; out.vinAlt = v.alt; }
   }
-  const ph = labelInLines(lines, PLATE_L);
+  const pc = [];
+  if(g.plate) pc.push({ plate: g.plate, unsure: g.plateUnsure, w: 1 });
+  const ph = labelInLines(lines, PLATE_L), pv = labelInLines(lines, PROV_L);
   if(ph){
-    const m = matchPlate(thDigits(await readBeside(worker, cv, ph, PROV_L, 9, PLATE_WL)));
-    if(m) out.plate = m.plate;
+    for(const [d, o] of PLATE_READS){ const m = bestPlate(await readBeside(worker, cvs.raw, ph, PROV_L, 9, PLATE_WL, d, o)); if(m) pc.push({ plate: m.plate, unsure: m.unsure, w: 1 }); }
+  } else if(pv){
+    /* ป้ายเลขทะเบียนอ่านไม่ออก → อ่าน "หน้าป้ายจังหวัด" (มักติดคำอื่นมาด้วย → น้ำหนักครึ่งเดียว) */
+    for(const d of [.3, .8]){ const m = bestPlate(await readBefore(worker, cvs.raw, pv, 11, PLATE_WL, d)); if(m) pc.push({ plate: m.plate, unsure: m.unsure, w: .5 }); }
   }
+  const pl = votePlate(pc);
+  if(pl){
+    if(ph || g.plate){ out.plate = pl.plate; out.plateUnsure = pl.unsure; }
+    else out.plateGuess = pl.plate;                              // ได้จากหน้าป้ายจังหวัดอย่างเดียว = เดา ไม่เติม
+  }
+  /* จังหวัด: ผลอ่านทั้งหน้า + อ่านเฉพาะช่อง 3 แบบ → เสียงข้างมาก (ชื่อต้องอยู่ในรายชื่อ 77 จังหวัดอยู่แล้ว) */
+  const rc = {};
+  if(g.province) rc[g.province] = 1;
+  if(pv) for(const [d, o] of [[.3, {}], [.8, {}], [.3, { tgt: 70 }]]){
+    const p = provFromCrop(await readBeside(worker, cvs.raw, pv, [], 14, '', d, o), provs);
+    if(p) rc[p] = (rc[p] || 0) + 1;
+  }
+  const rt = Object.entries(rc).sort((a, b) => b[1] - a[1]);
+  if(rt.length) out.province = rt[0][0];
   return out;
 }
 
@@ -1424,38 +1673,34 @@ function rotCanvas(src, deg){
   g.drawImage(src, -src.width / 2, -src.height / 2);
   return cv;
 }
-/* ลบเงา/แสงไม่สม่ำเสมอ (รูปถ่ายเล่มทะเบียนมักมีเงามือ/แสงไฟ) — หารด้วยค่าเฉลี่ยรอบ ๆ แล้วยืดคอนทราสต์
-   ยกมาจากตัวอ่านบิลของระบบใบสำคัญจ่ายที่วัดแล้วว่าได้ผลกับภาพจาง */
-function flatCanvas(src){
-  const s = fitCanvas(src, 1800), w = s.width, h = s.height;
-  const g = s.getContext('2d', { willReadFrequently: true });
+/* 🔑 (เทรนจากสำเนาจริง) ล้างลายพื้นหลังก่อนอ่านทั้งหน้า — เล่มทะเบียนมีลายตราครุฑสีฟ้า/เทาเต็มหน้า + ตราแดง "ห้ามทำหาย"
+      + เงามือ/แสงไม่สม่ำเสมอ ทำให้อ่าน "ป้าย" (วันจดทะเบียน/เลขทะเบียน/จังหวัด/เลขตัวรถ) ไม่ออก
+   วิธี: ใช้ "ช่องสีที่สว่างที่สุด" (ลายสีฟ้า/ตราแดงมีอย่างน้อยหนึ่งช่องสีสว่าง → จางหาย · หมึกดำมืดทุกช่อง)
+      แล้วตัดขาว-ดำโดยเทียบกับค่าเฉลี่ยรอบ ๆ (ไม่ใช่ค่าเดียวทั้งหน้า → เงาไม่มีผล)
+   วัดจริง 18 รูป: หาป้ายเลขตัวรถเจอ 13 → 16 รูป · ป้ายเลขทะเบียน 13 → 14
+   ⚠️ ใช้หา "ตำแหน่งป้าย" เท่านั้น — ตัวค่า (ดอตแมทริกซ์) ยังตัดอ่านจากภาพจริง เพราะตัดขาว-ดำแล้วจุดหมึกขาดหาย */
+function cleanCanvas(src){
+  const w = src.width, h = src.height;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(src, 0, 0);
   const img = g.getImageData(0, 0, w, h), d = img.data;
-  const gray = new Float32Array(w * h);
-  for(let p = 0, i = 0; p < gray.length; p++, i += 4) gray[p] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-  const S = new Float64Array((w + 1) * (h + 1));
+  const v = new Float32Array(w * h);
+  for(let p = 0, i = 0; p < v.length; p++, i += 4) v[p] = Math.max(d[i], d[i + 1], d[i + 2]);
+  const W = w + 1, S = new Float64Array(W * (h + 1));
+  for(let y = 0; y < h; y++){ let row = 0; for(let x = 0; x < w; x++){ row += v[y * w + x]; S[(y + 1) * W + x + 1] = S[y * W + x + 1] + row; } }
+  const r = Math.max(8, Math.round(w / 70));
   for(let y = 0; y < h; y++){
-    let row = 0;
-    for(let x = 0; x < w; x++){ row += gray[y * w + x]; S[(y + 1) * (w + 1) + x + 1] = S[y * (w + 1) + x + 1] + row; }
-  }
-  const rad = Math.max(12, Math.round(Math.min(w, h) / 14));
-  const out = new Float32Array(w * h);
-  let mn = 1e9, mx = -1e9;
-  for(let y = 0; y < h; y++){
-    const y0 = Math.max(0, y - rad), y1 = Math.min(h - 1, y + rad);
+    const y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
     for(let x = 0; x < w; x++){
-      const x0 = Math.max(0, x - rad), x1 = Math.min(w - 1, x + rad);
-      const sum = S[(y1 + 1) * (w + 1) + x1 + 1] - S[y0 * (w + 1) + x1 + 1] - S[(y1 + 1) * (w + 1) + x0] + S[y0 * (w + 1) + x0];
-      const v = gray[y * w + x] / Math.max(1, sum / ((x1 - x0 + 1) * (y1 - y0 + 1)));
-      out[y * w + x] = v; if(v < mn) mn = v; if(v > mx) mx = v;
+      const x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
+      const m = (S[(y1 + 1) * W + x1 + 1] - S[y0 * W + x1 + 1] - S[(y1 + 1) * W + x0] + S[y0 * W + x0]) / ((x1 - x0 + 1) * (y1 - y0 + 1));
+      const i = (y * w + x) * 4;
+      d[i] = d[i + 1] = d[i + 2] = v[y * w + x] < m * .82 ? 0 : 255; d[i + 3] = 255;
     }
   }
-  const hi = Math.min(mx, 1.02), sc = 255 / Math.max(0.02, hi - mn);
-  for(let p = 0, i = 0; p < out.length; p++, i += 4){
-    let v = (out[p] - mn) * sc; v = v < 0 ? 0 : v > 255 ? 255 : v;
-    d[i] = d[i + 1] = d[i + 2] = Math.pow(v / 255, 1.25) * 255;
-  }
   g.putImageData(img, 0, 0);
-  return s;
+  return c;
 }
 /* pdf.js วาดด้วย requestAnimationFrame ซึ่งไม่ยิงเลยตอนแท็บถูกซ่อน → รอให้แท็บกลับมาก่อน + มีเพดานเวลา
    (บทเรียนจากตัวอ่านบิลของระบบใบสำคัญจ่าย: ไม่มีเพดาน = ค้าง "กำลังอ่าน" ตลอดกาล) */
@@ -1492,10 +1737,18 @@ async function pdfPages(file, maxPx, maxPages){
 }
 
 /* ---- อ่าน 1 ไฟล์ ----
-   ลำดับ: อ่านตรง ๆ ก่อน → ไม่เจออะไรเลย = ภาพอาจตะแคง ลองหมุน (ใช้ภาพย่อเทียบความมั่นใจ)
-   → ยังขาดช่องไหน = ลบเงาแล้วอ่านอีกรอบ · ได้ครบ 3 ช่องเมื่อไรหยุดทันที (อ่านรอบละหลายวินาทีบนมือถือ) */
+   ลำดับ: ล้างลายพื้นแล้วอ่านทั้งหน้า (หาป้าย) → หาป้ายไม่ครบ = อ่านภาพจริงอีกรอบ เอาแบบที่เจอป้ายมากกว่า
+   → ไม่เจออะไรเลย = ภาพอาจตะแคง ลองหมุน (ใช้ภาพย่อเทียบความมั่นใจ) → อ่านซ้ำเฉพาะช่องค่าหลายแบบแล้วโหวต
+   ได้ครบ 3 ช่องเมื่อไรหยุดทันที (อ่านรอบละหลายวินาทีบนมือถือ) */
 const carDone = g => !!(g.plate && g.province && g.vin);
-function carMerge(a, b){ return { plate: a.plate || b.plate, province: a.province || b.province, vin: a.vin || b.vin }; }
+function carMerge(a, b){
+  return { plate: a.plate || b.plate, province: a.province || b.province, vin: a.vin || b.vin,
+           plateUnsure: a.plate ? !!(a.plateUnsure || (b.plate && b.plate !== a.plate)) : !!b.plateUnsure,
+           vinUnsure: a.vin ? !!a.vinUnsure : !!b.vinUnsure,
+           vinAlt: a.vin ? (a.vinAlt || []) : (b.vinAlt || []),
+           plateGuess: a.plateGuess || b.plateGuess || '' };
+}
+const labelCount = lines => { const L = regLines(lines); return [PLATE_L, PROV_L, VIN_L].filter(x => labelInLines(L, x)).length; };
 async function readCarReg(file, stage, provs){
   const isPdf = /pdf$/i.test(file.type) || /\.pdf$/i.test(file.name);
   let pages;
@@ -1506,17 +1759,25 @@ async function readCarReg(file, stage, provs){
   }
   const worker = await getOcrWorker();
   const read = async (cv, lines) => (await worker.recognize(cv, {}, { text: true, blocks: !!lines })).data;
+  /* อ่านทั้งหน้า: ภาพล้างพื้นก่อน · เจอป้ายไม่ครบ 3 = อ่านภาพจริงเพิ่ม (ข้อความจากทั้งสองแบบใช้แยกค่าได้หมด) */
+  const readPage = async cv => {
+    const r = await read(cleanCanvas(cv), true);
+    let g = parseCarReg(r.text || '', provs), lines = r.lines, n = labelCount(lines), conf = r.confidence || 0;
+    if(n < 3){
+      stage('กำลังอ่านข้อความจากรูปอีกแบบ…');
+      const r2 = await read(cv, true), n2 = labelCount(r2.lines);
+      g = carMerge(g, parseCarReg(r2.text || '', provs));
+      if(n2 > n){ lines = r2.lines; n = n2; }
+      conf = Math.max(conf, r2.confidence || 0);
+    }
+    return { g, lines, n, conf };
+  };
   let got = { plate:'', province:'', vin:'' };
   for(const page of pages){
     let cv = page;
     stage('กำลังอ่านข้อความจากรูป…');
-    let r = await read(cv, true);
-    let g = parseCarReg(r.text || '', provs);
-    stage('กำลังอ่านเลขทะเบียน/เลขตัวรถซ้ำให้แม่นขึ้น…');
-    g = await carRefine(worker, cv, r.lines, g);         // ไม่เจอป้ายในรูป = ไม่ได้อ่านซ้ำ (เร็ว)
-    got = carMerge(got, g);
-    if(carDone(got)) break;
-    if(!g.plate && !g.vin && (r.confidence || 0) < 70){
+    let p = await readPage(cv);
+    if(!p.n && !p.g.plate && !p.g.vin && p.conf < 70){
       stage('รูปอาจตะแคง — กำลังลองหมุนรูป…');
       const small = fitCanvas(cv, 1000);
       let best = { deg: 0, conf: -1 };
@@ -1527,13 +1788,11 @@ async function readCarReg(file, stage, provs){
       if(best.deg){
         cv = rotCanvas(cv, best.deg);
         stage('กำลังอ่านข้อความจากรูป (หมุนแล้ว)…');
-        const r2 = await read(cv, true);
-        got = carMerge(got, await carRefine(worker, cv, r2.lines, parseCarReg(r2.text || '', provs)));
-        if(carDone(got)) break;
+        p = await readPage(cv);
       }
     }
-    stage('ปรับรูปให้ชัดขึ้นแล้วอ่านอีกรอบ…');
-    got = carMerge(got, parseCarReg((await read(flatCanvas(cv))).text || '', provs));
+    stage('กำลังอ่านเลขทะเบียน/จังหวัด/เลขตัวรถซ้ำให้แม่นขึ้น…');
+    got = carMerge(got, await carRefine(worker, { raw: cv }, p.lines, p.g, provs));
     if(carDone(got)) break;
   }
   return got;
@@ -1548,11 +1807,13 @@ const CAR_BOX = '<div class="carocr" id="carOcr" hidden>'
   + '</div>'
   + '<div class="co-bar" id="coBar" hidden><i></i></div>'
   + '<div class="co-grid">'
-  +   '<label class="f">เลขทะเบียน<input id="fPlate" maxlength="20" autocomplete="off" placeholder="เช่น 5ขจ 7692"></label>'
-  +   '<label class="f">จังหวัด<input id="fPlateProv" maxlength="40" autocomplete="off" placeholder="เช่น กรุงเทพมหานคร"></label>'
-  +   '<label class="f co-vin">เลขตัวรถ<input id="fVin" maxlength="25" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น MR2BD8A3900073087"></label>'
+  +   '<div class="co-f"><label class="f">เลขทะเบียน<input id="fPlate" maxlength="20" autocomplete="off" placeholder="เช่น 5ขจ 7692"></label>'
+  +     '<p class="co-fn" id="nPlate" hidden></p></div>'
+  +   '<div class="co-f"><label class="f">จังหวัด<input id="fPlateProv" maxlength="40" autocomplete="off" placeholder="เช่น กรุงเทพมหานคร"></label>'
+  +     '<p class="co-fn" id="nProv" hidden></p></div>'
+  +   '<div class="co-f co-vin"><label class="f">เลขตัวรถ<input id="fVin" maxlength="25" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น MR2BD8A3900073087"></label>'
+  +     '<p class="co-fn" id="nVin" hidden></p></div>'
   + '</div>'
-  + '<p class="co-vnote" id="coVinNote" hidden></p>'
   + '<p class="co-note">ระบบอ่านจากรูปให้อัตโนมัติ · <b>โปรดตรวจทุกตัวอักษรให้ตรงกับเล่มทะเบียน</b> ถ้าไม่ตรงแก้ในช่องได้เลย</p>'
   + '</div>';
 
@@ -1568,29 +1829,74 @@ function syncCarBox(){
   const box = $('carOcr'); if(!box) return;
   box.hidden = !(CAR.busy || PENDING.some(p => p.tag === 'carReg') || CAR_FIELDS.some(id => $(id).value.trim()));
 }
-function vinHint(){
-  const v = $('fVin').value, n = v.length, el = $('coVinNote');
-  el.hidden = !n || n === 17;
-  el.textContent = n && n !== 17 ? 'เลขตัวรถตอนนี้มี ' + n + ' ตัว — รถส่วนใหญ่มี 17 ตัว ตรวจกับเล่มอีกครั้ง (รถรุ่นเก่าอาจสั้นกว่านี้ได้)' : '';
+/* บรรทัดใต้ช่อง: (1) ค่าที่อ่านได้แต่ "ไม่ได้เติม" เพราะช่องมีค่าอยู่แล้ว → เสนอให้กดใช้
+                 (2) คำเตือนว่าอ่านไม่ชัด / เลขตัวรถไม่ใช่ 17 ตัว
+   🔑 ของเดิมเงียบ: ช่องมีค่าจากร่างเก่าอยู่แล้ว ระบบอ่านได้ครบแต่ไม่เติม และสถานะยังบอก "อ่านได้ครบ" = สับสน */
+function paintCarNote(id){
+  const n = $(CAR_NOTE[id]), e = $(id);
+  if(!n || !e) return;
+  const sug = CAR.sugg[id];
+  n.classList.remove('sug');
+  if(sug && sug !== e.value){
+    n.innerHTML = 'อ่านจากรูปได้ <b>' + esc(sug) + '</b> ซึ่งต่างจากในช่อง <button type="button" class="co-use">ใช้ค่านี้</button>';
+    n.classList.add('sug');
+    n.querySelector('.co-use').onclick = () => {
+      e.value = sug; e.dataset.auto = sug; e.classList.add('ocr'); delete CAR.sugg[id];
+      paintCarNotes(); saveDraft(); if(STEP === 3) renderReview();
+    };
+    n.hidden = false;
+    return;
+  }
+  let w = e.value && e.value === e.dataset.auto ? (CAR.warn[id] || '') : '';   // แก้ช่องเองแล้ว = ตรวจแล้ว เลิกเตือน
+  if(!e.value && CAR.miss[id]) w = CAR.miss[id];
+  if(id === 'fVin'){
+    const L = e.value.length;
+    if(L && L !== 17) w = 'เลขตัวรถตอนนี้มี ' + L + ' ตัว — รถส่วนใหญ่มี 17 ตัว ตรวจกับเล่มอีกครั้ง (รถรุ่นเก่าอาจสั้นกว่านี้ได้)';   // ยาวผิดปกติ สำคัญกว่าคำเตือนอื่น
+    /* 🔑 (เทรนจากสำเนาจริง) แม้ทุกรอบอ่านตรงกัน ก็ยังผิดได้แบบ "ผิดเหมือนกันทุกรอบ" (B/8 · S/5 · A/4 บนดอตแมทริกซ์)
+          → ช่องที่ระบบเติมเลขตัวรถ มีบรรทัดเตือนเบา ๆ (สีเทา ไม่ใช่คำเตือน) ให้เทียบกับเล่มเสมอ */
+    else if(!w && e.value && e.value === e.dataset.auto){
+      n.textContent = 'อ่านจากรูป — เทียบกับเล่มอีกครั้ง ตัว 8 กับ B · 5 กับ S · 4 กับ A บนเล่มพิมพ์คล้ายกัน';
+      n.classList.add('sug'); n.hidden = false;
+      return;
+    }
+  }
+  n.textContent = w;
+  n.hidden = !w;
 }
-/* เติมเฉพาะช่องที่ว่าง หรือยังเป็นค่าที่ระบบเติมไว้ — คนพิมพ์เองแล้วไม่ทับ */
-function carFill(id, val){
+function paintCarNotes(){ CAR_FIELDS.forEach(paintCarNote); }
+const vinHint = paintCarNotes;                       // ชื่อเดิมที่ถูกเรียกจากหลายจุด
+/* 🔑 บอก "ตัวที่เท่าไร" ที่อ่านไม่ชัด (จากการโหวต) — ผู้กรอกเช็กแค่ 1-3 ตัว แทนการไล่เทียบทั้ง 17 ตัว
+      (วัดจริง: ส่วนใหญ่ผิดแค่ 1-2 ตัว เช่น B/8 · 5/S · 4/A ตัวพิมพ์ดอตแมทริกซ์หน้าตาคล้ายกัน) */
+function vinWarn(alt){
+  const a = (alt || []).slice().sort((x, y) => x.i - y.i);
+  if(!a.length || a.length > 3) return 'บางตัวอ่านไม่ชัด (เช่น 8 กับ B · 5 กับ S) — ตรวจทั้งเลขกับเล่มทะเบียนอีกครั้ง';
+  return 'ตรวจกับเล่มทะเบียน: ' + a.map(x => 'ตัวที่ ' + (x.i + 1) + ' (' + x.opts.slice(0, 2).join(' หรือ ') + ')').join(' · ') + ' อ่านจากรูปไม่ชัด';
+}
+/* เติมเฉพาะช่องที่ว่าง หรือยังเป็นค่าที่ระบบเติมไว้ — คนพิมพ์เอง/ร่างเก่าไม่ทับ แต่เสนอให้กดใช้ */
+function carFill(id, val, warn){
   const e = $(id);
   if(!val || !e) return false;
-  if(e.value.trim() && e.value !== e.dataset.auto) return false;
+  if(e.value.trim() && e.value !== e.dataset.auto){
+    if(val !== e.value) CAR.sugg[id] = val; else delete CAR.sugg[id];
+    return false;
+  }
   e.value = val; e.dataset.auto = val; e.classList.add('ocr');
+  delete CAR.sugg[id];
+  if(warn) CAR.warn[id] = warn; else delete CAR.warn[id];
   return true;
 }
 /* ถอดไฟล์สำเนาทะเบียนรถออกหมด → ล้างค่าที่ระบบเติมไว้ (ค่าที่ผู้กรอกแก้เองคงไว้) */
 function carClearAuto(){
   CAR_FIELDS.forEach(id => { const e = $(id); if(e && e.dataset.auto && e.value === e.dataset.auto){ e.value = ''; e.classList.remove('ocr'); delete e.dataset.auto; } });
-  vinHint();
+  CAR.sugg = {}; CAR.warn = {}; CAR.miss = {};
+  paintCarNotes();
 }
 function carStop(silent){
   CAR.run++; CAR.again = false;
   PENDING.forEach(p => { if(p.tag === 'carReg') p.ocrDone = true; });
   if(CAR.busy) ocrFree();                                  // อ่านค้างอยู่ → ยกเลิกได้ทางเดียวคือปิดตัวอ่าน (เปิดใหม่ได้ ภาษา cache ไว้แล้ว)
   CAR.busy = false;
+  if(silent){ CAR.sugg = {}; CAR.warn = {}; CAR.miss = {}; }
   if(!silent) carStatus('none', 'หยุดอ่านแล้ว · กรอกเองได้ในช่องด้านล่าง');
   syncCarBox();
 }
@@ -1621,14 +1927,26 @@ async function runCarOcr(){
       if(carDone(got)) break;
     }
     if(run !== CAR.run) return;
-    const n = [carFill('fPlate', got.plate), carFill('fPlateProv', got.province), carFill('fVin', got.vin)].filter(Boolean).length;
+    const n = [carFill('fPlate', got.plate, got.plateUnsure ? 'อ่านจากรูปไม่ชัด — ตรวจหมวดอักษรและตัวเลขกับเล่มทะเบียนอีกครั้ง' : ''),
+               carFill('fPlateProv', got.province),
+               carFill('fVin', got.vin, got.vinUnsure ? vinWarn(got.vinAlt) : '')].filter(Boolean).length;
     const found = [got.plate, got.province, got.vin].filter(Boolean).length;
-    vinHint();
+    CAR.miss = {};
+    if(found){                                                    // อ่านได้บางช่อง → ช่องที่เหลือบอกให้กรอกเอง
+      const MISS = 'อ่านช่องนี้จากรูปไม่ชัด — กรุณากรอกเองจากเล่มทะเบียน';
+      if(!got.plate) CAR.miss.fPlate = MISS;
+      if(!got.province) CAR.miss.fPlateProv = MISS;
+      if(!got.vin) CAR.miss.fVin = MISS;
+    }
+    const sugg = Object.keys(CAR.sugg).length;
+    paintCarNotes();
+    const warned = CAR_FIELDS.some(id => { const x = $(CAR_NOTE[id]); return !x.hidden && !x.classList.contains('sug'); });
     if(fail === 'load' && !found) carStatus('err', 'โหลดตัวอ่านรูปไม่สำเร็จ (อินเทอร์เน็ตไม่เสถียร) · กรอกเองได้ในช่องด้านล่าง');
-    else if(found === 3 && got.vin.length !== 17) carStatus('part', 'อ่านได้ครบ 3 ช่อง · แต่เลขตัวรถยาว ' + got.vin.length + ' ตัว โปรดตรวจช่องเลขตัวรถกับเล่มทะเบียน');
-    else if(found === 3) carStatus('ok', '✓ อ่านได้ครบ 3 ช่อง · โปรดตรวจให้ตรงกับเล่มทะเบียน');
-    else if(found)       carStatus('part', 'อ่านได้ ' + found + ' จาก 3 ช่อง · ช่องที่ว่างกรอกเองได้');
-    else                 carStatus('none', 'อ่านจากรูปไม่ได้ · รูปอาจเบลอหรือไม่ใช่หน้า "รายการจดทะเบียน" กรอกเองได้');
+    else if(!found)       carStatus('none', 'อ่านจากรูปไม่ได้ · รูปอาจเบลอหรือไม่ใช่หน้า "รายการจดทะเบียน" กรอกเองได้');
+    else if(sugg && !n)   carStatus('part', 'อ่านได้ แต่ช่องมีค่าอยู่แล้ว · กด "ใช้ค่านี้" ใต้ช่องถ้าต้องการใช้ค่าที่อ่านได้');
+    else if(warned)       carStatus('part', 'อ่านได้ ' + found + ' จาก 3 ช่อง · มีบางช่องอ่านไม่ชัด โปรดดูคำเตือนใต้ช่อง');
+    else if(found === 3)  carStatus('ok', '✓ อ่านได้ครบ 3 ช่อง · โปรดตรวจให้ตรงกับเล่มทะเบียน');
+    else                  carStatus('part', 'อ่านได้ ' + found + ' จาก 3 ช่อง · ช่องที่ว่างกรอกเองได้');
     if(n && STEP === 3) renderReview();
   } finally {
     if(run === CAR.run){
@@ -1645,9 +1963,9 @@ function wireCarBox(){
     if(id === 'fVin'){
       const v = e.value.toUpperCase().replace(/[^0-9A-Z]/g, '');
       if(v !== e.value){ const pos = e.selectionStart; e.value = v; try{ e.setSelectionRange(pos, pos); }catch(x){} }
-      vinHint();
     }
     e.classList.toggle('ocr', !!e.dataset.auto && e.value === e.dataset.auto);
+    paintCarNote(id);
     if(STEP === 3) renderReview();
   }));
   $('coStop').onclick = () => carStop(false);

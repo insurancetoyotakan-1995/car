@@ -1019,10 +1019,17 @@ label.f .csel{width:100%}
 .co-vin input{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em}
 /* ⚠️ ต้องมี .cust นำหน้า — กฎ .cust input:not(..):not(..) (0,3,1) ของหน้าลูกค้าชนะ .carocr input.ocr (0,2,1) */
 .carocr input.ocr,.cust .carocr input.ocr{background:var(--warn-soft);border-color:#e3c78f}
-.co-vnote{font-size:12px;color:var(--warn-ink);font-weight:600;margin:7px 0 0;line-height:1.6}
+.co-f{min-width:0}
+/* บรรทัดใต้ช่อง: คำเตือน (ส้มเข้ม) · หรือค่าที่อ่านได้แต่ไม่ได้เติม พร้อมปุ่ม "ใช้ค่านี้" */
+.co-fn{font-size:12px;color:var(--warn-ink);font-weight:600;margin:6px 0 0;line-height:1.65}
+.co-fn.sug{color:var(--ink-soft);font-weight:400}
+.co-fn b{color:var(--ink);font-weight:700;word-break:break-all}
+.co-use{border:1px solid #d8d0d1;background:var(--panel);color:var(--accent-ink);border-radius:8px;
+  font:inherit;font-size:12px;font-weight:700;padding:3px 10px;margin-left:4px;cursor:pointer;min-height:30px}
+.co-use:hover{border-color:var(--accent);background:var(--accent-soft)}
 .co-note{font-size:12px;color:var(--muted);margin:9px 0 0;line-height:1.7}
 .co-note b{color:var(--ink-soft)}
 @media (max-width:640px){
   .co-grid{grid-template-columns:1fr}
-  .co-stop{min-height:44px}
+  .co-stop,.co-use{min-height:44px}
 }
