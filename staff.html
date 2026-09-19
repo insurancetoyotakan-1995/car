@@ -28,7 +28,13 @@
 .vstep i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:700;
   font-size:12.5px;background:var(--panel);border:2px solid var(--line);color:var(--muted);
   transition:background .15s,border-color .15s,box-shadow .15s}
-.vstep:hover:not(.cur) i{border-color:var(--accent);color:var(--accent-ink)}
+.vstep:hover:not(.cur):not(:disabled) i{border-color:var(--accent);color:var(--accent-ink)}
+.vstep:disabled{cursor:default}
+/* ดูอย่างเดียว: ช่องกรอกไม่ชวนคลิก */
+.vpane.ro input[readonly]{background:var(--panel-2);cursor:default}
+.vpane.ro select:disabled,.vpane.ro .dp-btn:disabled{opacity:1;color:var(--ink);cursor:default}
+.vpane.ro .dp-btn:disabled{background:var(--panel-2)}
+.vpane.ro .qopt{cursor:default}
 .vstep.past{color:var(--good-ink)}
 .vstep.past i{background:var(--good);border-color:var(--good);color:#fff}
 .vstep.cur{color:var(--accent-ink);font-weight:700;cursor:default}
@@ -778,6 +784,14 @@ function discBlock(r){
     + '<p class="qdisc-chk" id="qDiscChk" hidden></p></div>';
 }
 
+/* บัญชีดูอย่างเดียว: ช่องในแท็บเสนอราคาเป็นอ่านอย่างเดียว · ซ่อนปุ่มบันทึก/ปุ่มช่วยกรอก (ปุ่มพิมพ์อยู่ท้ายการ์ด ไม่โดน) */
+function lockQuote(){
+  const p = $('vp-quote');
+  p.querySelectorAll('input:not([type=hidden])').forEach(x => { if(x.type === 'radio') x.disabled = true; else x.readOnly = true; });
+  p.querySelectorAll('select, .dp-btn').forEach(x => { x.disabled = true; });
+  p.querySelectorAll('#qSave, #qCar2Use, #qRefUse, #qASame').forEach(x => { x.hidden = true; });
+  p.classList.add('ro');
+}
 function quoteBlock(r){
   const insKnown = INSURERS.some(x => x[0] === r.quote_insurer);
   const typKnown = QTYPES.indexOf(r.quote_type) >= 0;
@@ -1310,10 +1324,13 @@ const PAGE_TITLE = document.title;
 function endPrint(){ document.body.classList.remove('printing'); document.title = PAGE_TITLE; }
 
 let LIST = [], FILES = {}, POLICIES = [];
-/* ME = บัญชีที่ล็อกอิน {empId, role:'agent'|'admin', name}
-   agent เห็นเฉพาะใบของตัวเอง (บังคับที่ RLS) · admin (บัญชีกลาง) เห็นทุกใบ + เปลี่ยนผู้ดูแลได้ */
+/* ME = บัญชีที่ล็อกอิน {empId, role:'agent'|'admin'|'viewer', name}
+   agent เห็นเฉพาะใบของตัวเอง (บังคับที่ RLS) · admin (บัญชีกลาง) เห็นทุกใบ + เปลี่ยนผู้ดูแลได้
+   viewer (ฝ่ายบุคคล · ตาราง ins_viewers) เห็นเฉพาะใบปิดการขาย + แก้อะไรไม่ได้ — ด่านจริงอยู่ที่ RLS/RPC (migrate-2026-09-19-viewer.sql)
+   หน้าเว็บแค่ซ่อน/ล็อกปุ่มแก้ไขให้ไม่ชวนกด */
 let ME = null, AGENTS = [], ST = '';
 const isAdmin = () => !!ME && ME.role === 'admin';
+const isViewer = () => !!ME && ME.role === 'viewer';
 const agentName = id => {
   if(!id) return '';
   if(ME && id === ME.empId) return ME.name;
@@ -1496,6 +1513,11 @@ async function loadList(){
 
 /* ---------- ผู้ดูแล (เฉพาะบัญชีกลาง) ---------- */
 async function loadAgents(){
+  if(isViewer()){                                          // ชื่อผู้ดูแลบนใบคำขอ/ใบค่าคอม (อ่านอย่างเดียว)
+    const { data, error } = await sb.rpc('ins_viewer_agents');
+    AGENTS = error ? [] : (data || []);
+    return;
+  }
   if(!isAdmin()) return;
   const { data, error } = await sb.rpc('ins_agents');
   if(error){ toast('โหลดรายชื่อผู้ดูแลไม่สำเร็จ: ' + (error.message||''), 'no'); return; }
@@ -1652,7 +1674,8 @@ function paintHead(r){
     + '<button type="button" class="vstep' + (i < cur ? ' past' : i === cur ? ' cur' : '') + '" data-st="' + k + '"'
     + (i === cur ? ' aria-current="step"' : '') + ' title="' + (i === cur ? 'สถานะปัจจุบัน' : 'เปลี่ยนสถานะเป็น "' + esc(STATUS[k]) + '"') + '">'
     + '<i>' + (i < cur ? '✓' : i + 1) + '</i><span>' + esc(STATUS[k]) + '</span></button></li>').join('');
-  $('vSteps').querySelectorAll('.vstep').forEach(b => b.onclick = () => stepTo(r, b.dataset.st, b));
+  if(isViewer()) $('vSteps').querySelectorAll('.vstep').forEach(b => { b.disabled = true; b.removeAttribute('title'); });
+  else $('vSteps').querySelectorAll('.vstep').forEach(b => b.onclick = () => stepTo(r, b.dataset.st, b));
 }
 /* กดขั้นสถานะ = บันทึกทันที (ใช้บันทึกของเจ้าหน้าที่ที่พิมพ์ค้างในแท็บติดตามงานด้วย) · ปิดการขายถามยืนยันก่อน */
 async function stepTo(r, st, btn){
@@ -1783,6 +1806,14 @@ function openView(id){
     + '</section>'
 
     + '<section class="vpane" id="vp-track" role="tabpanel" aria-labelledby="vt-track" hidden>'
+    + (isViewer()
+        ? '<div class="sec">สถานะการติดตาม</div>'
+          + dl([['สถานะ', STATUS[r.status] || r.status], ['บันทึกของเจ้าหน้าที่', r.status_note],
+                ['ผู้ดูแลลูกค้า', agentName(r.assigned_to)], r.assigned_at ? ['แจกให้เมื่อ', thDate(r.assigned_at)] : null])
+          + '</section>'
+        : trackPane());
+  /* แท็บติดตามงานของเจ้าหน้าที่ (เปลี่ยนสถานะ/ผู้ดูแลได้) — ประกาศแบบ function จึงเรียกใช้ด้านบนได้ */
+  function trackPane(){ return ''
     + '<div class="sec">สถานะการติดตาม</div>'
     + '<div class="grid" style="gap:11px">'
     +   '<label class="f c4">สถานะ<select id="vSt">'
@@ -1806,10 +1837,12 @@ function openView(id){
         : '<p style="font-size:13.5px;margin:0">คุณ (' + esc(ME ? ME.name : '') + ')'
           + (r.assigned_at ? ' <span style="color:var(--muted)">· ได้รับเมื่อ ' + esc(thDate(r.assigned_at)) + '</span>' : '') + '</p>')
     + '</section>';
+  }
 
   renderFiles(r);
-  csel($('vSt'));
+  if(!isViewer()) csel($('vSt'));
   wireQuote(r);
+  if(isViewer()) lockQuote();
   paintPrint(r);
   /* แท็บ: คลิก + ลูกศรซ้าย/ขวา/Home/End (แพตเทิร์น tablist) */
   const tabs = [...document.querySelectorAll('#vBody .vtab')];
@@ -1843,7 +1876,7 @@ function openView(id){
       finally{ const b=$('vSaveAg'); if(b) b.disabled = false; }
     };
   }
-  $('vSaveSt').onclick = async ()=>{
+  if($('vSaveSt')) $('vSaveSt').onclick = async ()=>{
     $('vSaveSt').disabled = true;
     try{
       const { error } = await sb.rpc('ins_set_status', {
@@ -2049,23 +2082,30 @@ async function start(){
   if(!u){ $('loginBox').hidden = false; $('listPanel').hidden = true; return; }
   /* ด่านจริงคือ RLS ฝั่ง Supabase (ไม่มีสิทธิ์ = อ่านได้ 0 แถว) — ตรงนี้แค่บอกให้รู้ตัว ไม่ใช่ขึ้นรายการว่างเงียบ ๆ */
   const chk = await sb.rpc('is_ins_staff');
-  if(chk.error || chk.data !== true){
+  let viewer = null;
+  if(!chk.error && chk.data !== true){
+    const v = await sb.rpc('ins_viewer_me');                 // ฝ่ายบุคคล: ดูอย่างเดียว · ยังไม่ได้ migrate = error = ไม่มีสิทธิ์
+    if(!v.error && v.data && v.data.role === 'viewer') viewer = v.data;
+  }
+  if(chk.error || (chk.data !== true && !viewer)){
     await sb.auth.signOut();
     $('loginBox').hidden = false; $('listPanel').hidden = true;
     $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
     showErr(chk.error ? 'ตรวจสิทธิ์ไม่สำเร็จ: ' + (chk.error.message || '') : 'บัญชีนี้ไม่มีสิทธิ์เข้าหลังบ้าน (เฉพาะเจ้าหน้าที่ประกัน)');
     return;
   }
-  const w = await sb.rpc('ins_whoami');
+  const w = viewer ? { data: viewer } : await sb.rpc('ins_whoami');
   ME = (w.data && w.data.empId) ? w.data
      : { empId: String(u.email||'').replace('@' + STAFF_DOMAIN, ''), role: 'agent', name: u.email || '' };
   $('loginBox').hidden = true; $('listPanel').hidden = false;
-  $('whoChip').hidden = false; $('btnOut').hidden = false; $('btnLine').hidden = false;
-  lineStatus().then(paintLineBtn).catch(()=>{});   // ปุ่มบอกสถานะ ✅ ถ้าผูกแล้ว
-  $('whoChip').textContent = ME.name + (isAdmin() ? ' · ผู้ดูแล' : '');
+  $('whoChip').hidden = false; $('btnOut').hidden = false; $('btnLine').hidden = isViewer();
+  if(!isViewer()) lineStatus().then(paintLineBtn).catch(()=>{});   // ปุ่มบอกสถานะ ✅ ถ้าผูกแล้ว
+  $('whoChip').textContent = ME.name + (isAdmin() ? ' · ผู้ดูแล' : isViewer() ? ' · ดูอย่างเดียว' : '');
   $('whoChip').title = u.email || '';   // จอแคบตัดด้วย ellipsis — ต้องมี title ให้อ่านเต็ม
-  $('listHead').textContent = isAdmin() ? 'รายการคำขอทั้งหมด' : 'ลูกค้าที่คุณดูแล';
-  $('listSub').textContent = isAdmin()
+  $('listHead').textContent = isViewer() ? 'รายการปิดการขาย' : isAdmin() ? 'รายการคำขอทั้งหมด' : 'ลูกค้าที่คุณดูแล';
+  $('listSub').textContent = isViewer()
+    ? 'บัญชีดูอย่างเดียว — เห็นเฉพาะใบที่ปิดการขายแล้ว · ดูรายละเอียดและพิมพ์ได้ แต่แก้ไขข้อมูลไม่ได้'
+    : isAdmin()
     ? 'ใบใหม่ถูกแจกให้เจ้าหน้าที่อัตโนมัติ · กดที่รายการเพื่อดูรายละเอียดหรือเปลี่ยนผู้ดูแล'
     : 'กดที่รายการเพื่อดูรายละเอียด โทรหาลูกค้า และอัปเดตสถานะ';
   await loadAgents();

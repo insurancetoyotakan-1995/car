@@ -10,6 +10,8 @@
  *
  * วิธีใช้ (อ่านอย่างเดียว ไม่แก้ฐานข้อมูลในออฟฟิศ):
  *   node scripts/export-active-policy.cjs "Z:\IT\Botbell\งานประกัน\ข้อมูลพนักงานประกันยังไม่หมดอายุ.xlsx"
+ *   ใส่ได้หลายไฟล์ (รวมกันเป็นชุดเดียว) เช่น ไฟล์หลัก + ไฟล์ "รอกรอกรหัสพนักงาน" ที่ฝ่ายประกันกรอกรหัสให้แถวที่ชื่อไม่ตรง
+ *   → รถคันเดียวกัน (เลขตัวถัง/ทะเบียนเดียวกัน) นับครั้งเดียว · แถวที่ระบุรหัสพนักงานเองชนะแถวที่จับคู่จากชื่อ
  *
  * ผลลัพธ์: supabase/ins-active-policy.sql (อยู่ใน .gitignore) → วางใน SQL Editor แล้ว Run
  *   รันซ้ำ/รันไฟล์ใหม่ได้ — ลบชุดเดิมที่มาจาก Excel แล้วใส่ชุดใหม่แทนทั้งหมด
@@ -21,24 +23,20 @@ const BACKEND = 'C:/Users/dmk-006/.claude/backups/backend';
 const XLSX = require(BACKEND + '/public/xlsx.full.min.js');
 const Database = require(BACKEND + '/node_modules/better-sqlite3');
 
-const SRC = process.argv[2];
+const SRCS = process.argv.slice(2);
 const DB_FILE = process.env.VOUCHER_DB || 'E:/VoucherSystem/data/voucher.db';
 const OUT = path.join(__dirname, '..', 'supabase', 'ins-active-policy.sql');
 const REPORT = process.env.REPORT || '';
-if (!SRC || !fs.existsSync(SRC)) { console.error('ไม่พบไฟล์ Excel: ' + SRC); process.exit(1); }
+if (!SRCS.length) { console.error('ระบุไฟล์ Excel อย่างน้อย 1 ไฟล์'); process.exit(1); }
+for (const f of SRCS) if (!fs.existsSync(f)) { console.error('ไม่พบไฟล์ Excel: ' + f); process.exit(1); }
 
 const norm = (s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
 const key = (s) => norm(s).replace(/[(（][^)）]*[)）]/g, '').replace(/\s/g, '');
 
-const wb = XLSX.read(fs.readFileSync(SRC), { type: 'buffer' });
-const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
-const H = rows[0].map(norm);
-const col = (n) => { const i = H.indexOf(n); if (i < 0) { console.error('ไม่พบคอลัมน์: ' + n); process.exit(1); } return i; };
-const C = { fn: col('ชื่อ'), ln: col('นามสกุล'), plate: col('ทะเบียน'), vin: col('เลขตัวถัง'), exp: col('วันหมดอายุ'),
-            emp: H.indexOf('รหัสพนักงาน') };                  // ไม่บังคับ
 
 /* วันหมดอายุ: ตัวเลขวันที่ของ Excel (ปีเป็น พ.ศ.) หรือข้อความ ด/ว/ปป · ปป = 2 หลักท้ายของ พ.ศ. */
 const pad = (n) => String(n).padStart(2, '0');
+const vinOf = (v) => norm(v).toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 20);
 function expDate(v) {
   let y, m, d;
   if (typeof v === 'number') { const p = XLSX.SSF.parse_date_code(v); if (!p) return ''; y = p.y; m = p.m; d = p.d; }
@@ -63,25 +61,43 @@ for (const u of users) { const k = key(u.name); byName.set(k, byName.has(k) ? nu
 const byId = new Map(users.map((u) => [String(u.empId), u]));
 
 const out = [], unmatched = [], badDate = [];
+let total = 0;
+for (const file of SRCS) {
+const wb = XLSX.read(fs.readFileSync(file), { type: 'buffer' });
+const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '', raw: true });
+const H = rows[0].map(norm);
+const col = (n) => { const i = H.indexOf(n); if (i < 0) { console.error(path.basename(file) + ' ไม่พบคอลัมน์: ' + n); process.exit(1); } return i; };
+const C = { fn: col('ชื่อ'), ln: col('นามสกุล'), plate: col('ทะเบียน'), vin: col('เลขตัวถัง'), exp: col('วันหมดอายุ'),
+            emp: H.indexOf('รหัสพนักงาน') };                  // ไม่บังคับ
+const src = path.basename(file);
 rows.slice(1).forEach((r, i) => {
   const name = norm(r[C.fn] + ' ' + r[C.ln]);
   if (!norm(r[C.fn])) return;
+  total++;
   const exp = expDate(r[C.exp]);
-  if (!exp) { badDate.push({ row: i + 2, name, v: r[C.exp] }); return; }
+  if (!exp) { badDate.push({ src, row: i + 2, name, v: r[C.exp] }); return; }
   const id = C.emp >= 0 ? norm(r[C.emp]).replace(/\D/g, '') : '';
-  if (id && !byId.has(id)) { unmatched.push({ row: i + 2, name, plate: norm(r[C.plate]), exp, badId: id }); return; }
+  if (id && !byId.has(id)) { unmatched.push({ src, row: i + 2, name, plate: norm(r[C.plate]), vin: vinOf(r[C.vin]), exp, badId: id }); return; }
   const u = id ? byId.get(id) : byName.get(key(r[C.fn] + r[C.ln]));
-  if (!u) { unmatched.push({ row: i + 2, name, plate: norm(r[C.plate]), exp }); return; }
-  out.push({ empId: u.empId, name, plate: norm(r[C.plate]).slice(0, 20),
-             vin: norm(r[C.vin]).toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 20), exp });
+  if (!u) { unmatched.push({ src, row: i + 2, name, plate: norm(r[C.plate]), vin: vinOf(r[C.vin]), exp }); return; }
+  out.push({ empId: u.empId, name, plate: norm(r[C.plate]).slice(0, 20), vin: vinOf(r[C.vin]), exp, byId: !!id });
 });
+}
+/* รถคันเดียวกันมาจากหลายไฟล์ → เก็บแถวเดียว (แถวที่ระบุรหัสพนักงานเองชนะ) · แถวที่ไม่ตรงแต่อีกไฟล์จับคู่ได้แล้ว = ไม่ค้าง */
+const carKey = (o) => o.vin || o.plate.replace(/[\s.-]/g, '');
+{ const keep = new Map();
+  for (const o of out) { const k = carKey(o); const c = keep.get(k); if (!c || (o.byId && !c.byId)) keep.set(k, o); }
+  out.length = 0; out.push(...keep.values());
+  const seen = new Set();
+  const left = unmatched.filter((u) => { const k = carKey(u); if (keep.has(k) || seen.has(k)) return false; seen.add(k); return true; });
+  unmatched.length = 0; unmatched.push(...left); }
 out.sort((a, b) => a.empId.localeCompare(b.empId) || a.exp.localeCompare(b.exp));
 
 const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
 const sql = [
   '-- กรมธรรม์ของพนักงานที่ยังไม่หมดอายุ (ใช้ตัดสินสิทธิ์รถคันที่ 2)',
   '-- สร้างโดย scripts/export-active-policy.cjs เมื่อ ' + new Date().toLocaleString('th-TH'),
-  '-- ที่มา: ' + path.basename(SRC) + ' · จับคู่ได้ ' + out.length + ' คัน (' + new Set(out.map((o) => o.empId)).size + ' คน)'
+  '-- ที่มา: ' + SRCS.map((f) => path.basename(f)).join(' + ') + ' · จับคู่ได้ ' + out.length + ' คัน (' + new Set(out.map((o) => o.empId)).size + ' คน)'
     + ' · ไม่พบชื่อในทำเนียบ ' + unmatched.length + ' แถว',
   '-- ⚠️ ต้องรัน migrate-2026-09-19-active-policy.sql ก่อน · รันซ้ำได้ (แทนชุดเดิมที่มาจาก Excel ทั้งหมด)',
   '',
@@ -98,7 +114,7 @@ const sql = [
 ].join('\n');
 fs.writeFileSync(OUT, sql, 'utf8');
 
-console.log('แถวในไฟล์: ' + rows.slice(1).filter((r) => norm(r[C.fn])).length);
+console.log('แถวในไฟล์: ' + total);
 console.log('จับคู่พนักงานได้: ' + out.length + ' คัน · ' + new Set(out.map((o) => o.empId)).size + ' คน');
 console.log('ไม่พบชื่อในทำเนียบ: ' + unmatched.length + ' แถว · วันที่อ่านไม่ได้: ' + badDate.length + ' แถว');
 console.log('เขียนไฟล์: ' + OUT);
