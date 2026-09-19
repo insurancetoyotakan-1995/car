@@ -173,8 +173,8 @@
 .qcar2-t{flex:1;min-width:200px}
 .qcar2-t b{display:block;font-size:13px}
 .qcar2-t span{display:block}
-.qcar2-bad{font-weight:700;margin-top:3px}
-.qcar2.bad{border-color:var(--warn-ink);box-shadow:inset 3px 0 0 var(--warn-ink)}
+.qdisc.forced .qopt:has(input:disabled){opacity:.45;cursor:not-allowed}
+#qDisc[readonly]{background:var(--panel-2);cursor:not-allowed}
 @media (max-width:640px){ .qdisc-opts{grid-template-columns:1fr} }
 
 /* ---------- ดูไฟล์แนบ + พิมพ์ ----------
@@ -766,16 +766,17 @@ function discBlock(r){
       + '<p class="qdisc-note">เบี้ย 12,000–18,000 ลด 500 บาท · เบี้ยมากกว่า 18,000 ลด 800 บาท</p>'
       + '<p class="qdisc-chk" id="qDiscChk" hidden></p></div>';
   }
-  const cur = noteWelfare(r.quote_note), prior = priorCars(r);
-  const opt = (k, label, v) => '<label class="qopt"><input type="radio" name="qW" value="' + k + '"' + ((cur ? cur.k : '') === k ? ' checked' : '') + '>'
+  /* 🔑 รถคันที่ 2 ขึ้นไป (priorCars) = บังคับสิทธิ์ car2 · ส่วนลด 10% ของเบี้ยสุทธิ — ตัวเลือกอื่นกดไม่ได้ ช่องส่วนลดแก้เองไม่ได้ */
+  const cur = noteWelfare(r.quote_note), prior = priorCars(r), forced = prior.length > 0;
+  const curK = forced ? 'car2' : (cur ? cur.k : '');
+  const opt = (k, label, v) => '<label class="qopt"><input type="radio" name="qW" value="' + k + '"' + (curK === k ? ' checked' : '')
+    + (forced && k !== 'car2' ? ' disabled' : '') + '>'
     + '<span class="t">' + esc(label) + '</span>' + (v ? '<span class="v" data-wv="' + k + '">—</span>' : '') + '</label>';
-  return '<div class="qdisc" id="qDiscBox">'
-    + '<div class="qdisc-h"><b>สวัสดิการพนักงาน</b><span>เลือก 1 อย่าง · คิดจากเบี้ยสุทธิภาคสมัครใจ</span></div>'
-    + (prior.length ? '<div class="qcar2" id="qCar2">' + ICON.warn
-      + '<div class="qcar2-t"><b>รถคันที่ ' + (prior.length + 1) + ' ของพนักงานคนนี้</b>'
-      + '<span>ใช้สิทธิ์อยู่แล้ว: ' + esc(priorTxt(prior)) + ' · ใช้ได้แค่สิทธิ์ "รถคันที่ 2 ขึ้นไป" ลด 10% ชำระเงินสด/โอนเท่านั้น</span>'
-      + '<span class="qcar2-bad" id="qCar2Bad" hidden></span></div>'
-      + '<button class="btn sm" id="qCar2Use" type="button">ใช้สิทธิ์คันที่ 2</button></div>' : '')
+  return '<div class="qdisc' + (forced ? ' forced' : '') + '" id="qDiscBox">'
+    + '<div class="qdisc-h"><b>สวัสดิการพนักงาน</b><span>' + (forced ? 'บังคับสิทธิ์รถคันที่ 2 ขึ้นไป' : 'เลือก 1 อย่าง') + ' · คิดจากเบี้ยสุทธิภาคสมัครใจ</span></div>'
+    + (forced ? '<div class="qcar2" id="qCar2">' + ICON.warn
+      + '<div class="qcar2-t"><b>รถคันที่ ' + (prior.length + 1) + ' ของพนักงานคนนี้ — บังคับส่วนลด 10%</b>'
+      + '<span>ใช้สิทธิ์อยู่แล้ว: ' + esc(priorTxt(prior)) + ' · ชำระเงินสด/โอนเท่านั้น · สวัสดิการอื่นเลือกไม่ได้</span></div></div>' : '')
     + '<div class="qdisc-opts" role="radiogroup" aria-label="สวัสดิการพนักงาน">'
     +   WELFARE.map(w => opt(w.k, w.label, true)).join('')
     +   opt('', 'ไม่ใช้สวัสดิการ', false)
@@ -789,7 +790,7 @@ function lockQuote(){
   const p = $('vp-quote');
   p.querySelectorAll('input:not([type=hidden])').forEach(x => { if(x.type === 'radio') x.disabled = true; else x.readOnly = true; });
   p.querySelectorAll('select, .dp-btn').forEach(x => { x.disabled = true; });
-  p.querySelectorAll('#qSave, #qCar2Use, #qRefUse, #qASame').forEach(x => { x.hidden = true; });
+  p.querySelectorAll('#qSave, #qRefUse, #qASame').forEach(x => { x.hidden = true; });
   p.classList.add('ro');
 }
 function quoteBlock(r){
@@ -875,7 +876,7 @@ function wireQuote(r){
   }
   /* ---- ส่วนลดตามเงื่อนไข ----
      ส่วนลดที่ระบบใส่ให้ (dataset.auto) จะ "ตาม" เมื่อแก้เบี้ย · ถ้าเจ้าหน้าที่พิมพ์ส่วนลดเอง ระบบไม่ทับ แต่เตือนว่าไม่ตรงเงื่อนไข */
-  const isRef = r.kind === 'refer', prior = priorCars(r);
+  const isRef = r.kind === 'refer', forced = !isRef && priorCars(r).length > 0;
   const want = () => {
     if(isRef){ const g = num('qGross'); return g == null ? null : refDisc(g); }
     const w = pickedWelfare(), n = num('qNet');
@@ -888,6 +889,7 @@ function wireQuote(r){
   };
   const follow = () => {                                   // เบี้ยเปลี่ยน + ส่วนลดยังเป็นค่าที่ระบบใส่ → คิดใหม่ให้
     const d = $('qDisc'), w = want();
+    if(forced){ setDisc(w || 0); return; }                 // รถคันที่ 2 ขึ้นไป: ส่วนลด = 10% ของเบี้ยสุทธิเสมอ
     if(w != null && d.dataset.auto != null && d.value === d.dataset.auto) setDisc(w);
   };
   function discUpd(){
@@ -913,15 +915,10 @@ function wireQuote(r){
         ? ['ok', '✓ ส่วนลดตรงตามเงื่อนไข · ' + fmtBaht(w) + ' บาท']
         : ['warn', 'ส่วนลดในช่อง ' + fmtBaht(disc || 0) + ' บาท ไม่ตรงตามเงื่อนไข (' + fmtBaht(w) + ' บาท)'];
     }
-    if(!isRef){
-      const pw = pickedWelfare(), bad = $('qCar2Bad');
-      if(prior.length){
-        const wrong = !!pw && pw.k !== 'car2';
-        $('qCar2').classList.toggle('bad', wrong);
-        $('qCar2Use').hidden = !!pw && pw.k === 'car2';
-        bad.hidden = !wrong;
-        if(wrong){ bad.textContent = 'ตอนนี้เลือก "' + pw.label + '" อยู่ — ใช้กับรถคันที่ 2 ไม่ได้'; msg = null; }   // ไม่ขึ้น "✓ ตรงเงื่อนไข" ขัดกับแถบเตือน
-      }else if(pw && pw.k === 'car2' && (!msg || msg[0] !== 'warn')){
+    if(forced && msg && msg[0] === 'ok') msg = ['ok', '✓ บังคับส่วนลด 10% ตามสิทธิ์รถคันที่ 2 · ' + fmtBaht(w) + ' บาท'];
+    if(!isRef && !forced){
+      const pw = pickedWelfare();
+      if(pw && pw.k === 'car2' && (!msg || msg[0] !== 'warn')){
         msg = ['info', (msg ? msg[1] + ' · ' : '') + 'ไม่พบรถคันแรกของพนักงานคนนี้ในรายการ — ตรวจหลักฐานรถคันแรกก่อนใช้สิทธิ์นี้'];
       }
     }
@@ -942,11 +939,12 @@ function wireQuote(r){
     else if(!pickedWelfare() && d.dataset.auto != null && d.value === d.dataset.auto) setDisc(0);   // เลิกใช้สวัสดิการ → เอาส่วนลดที่ระบบใส่ออก
     onMoney();
   }));
-  if($('qCar2Use')) $('qCar2Use').onclick = () => {
-    const x = document.querySelector('input[name="qW"][value="car2"]');
-    x.checked = true; x.dispatchEvent(new Event('change', { bubbles:true })); x.focus();
-  };
-  { const w = want(); if(w != null && Math.abs((num('qDisc') || 0) - w) < .005) $('qDisc').dataset.auto = $('qDisc').value; }   // ค่าที่บันทึกไว้ตรงเงื่อนไข = ให้ตามเบี้ยต่อได้
+  if(forced){                                              // ล็อกช่องส่วนลด + คิดใหม่ทันที (ใบเก่าที่บันทึกสวัสดิการอื่นไว้ → ต้องกดบันทึกใหม่)
+    const d = $('qDisc');
+    d.readOnly = true; d.title = 'รถคันที่ 2 ขึ้นไป — ส่วนลดบังคับ 10% ของเบี้ยสุทธิ';
+    follow();
+  }
+  if(!forced){ const w = want(); if(w != null && Math.abs((num('qDisc') || 0) - w) < .005) $('qDisc').dataset.auto = $('qDisc').value; }   // ค่าที่บันทึกไว้ตรงเงื่อนไข = ให้ตามเบี้ยต่อได้
   /* วันเริ่มคุ้มครอง: แสดงช่วง พ.ศ. ข้างช่อง · ปุ่ม "ใช้วันเดียวกับประกันภัย" ในแถว พ.ร.บ. */
   /* วันสิ้นสุด: เลือกวันเริ่มแล้วเติม "วันเริ่ม + 1 ปี" ให้เอง (dataset.auto) — ถ้าเจ้าหน้าที่เลือกวันสิ้นสุดเอง ไม่ทับ */
   const PAIRS = [['qStart', 'qEnd', 'qStartTh'], ['qAStart', 'qAEnd', 'qAStartTh']];
@@ -1748,7 +1746,7 @@ function openView(id){
     + '</div>'
     + (r.note ? '<p class="vsum-note"><b>หมายเหตุจากผู้ยื่น:</b> ' + esc(r.note) + '</p>' : '')
     + (prior.length ? '<p class="vsum-note"><b>รถคันที่ ' + (prior.length + 1) + ' ของพนักงาน:</b> ใช้สิทธิ์อยู่แล้ว ' + esc(priorTxt(prior))
-      + ' · สวัสดิการใช้ได้แค่ส่วนลด 10% ชำระเงินสด/โอนเท่านั้น</p>' : '')
+      + ' · บังคับส่วนลด 10% ชำระเงินสด/โอนเท่านั้น</p>' : '')
     + '<div class="vtabs" role="tablist" aria-label="ส่วนของคำขอ">'
     +   TABS.map(([k, lb, x]) => '<button type="button" role="tab" class="vtab" id="vt-' + k + '" data-tab="' + k + '"'
           + ' aria-controls="vp-' + k + '" aria-selected="false" tabindex="-1">' + esc(lb) + x + '</button>').join('')
