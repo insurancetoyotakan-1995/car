@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260918-2">
+<link rel="stylesheet" href="style.css?v=20260919-1">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
-<script src="config.js?v=20260918-2"></script>
+<script src="config.js?v=20260919-1"></script>
 
 <body class="cust">
 <!-- แถบหัวแบบ hero สำหรับลูกค้า — ของประดับเป็น SVG/CSS ล้วน ไม่มีรูปภาพให้โหลด
@@ -1807,14 +1807,14 @@ const CAR_BOX = '<div class="carocr" id="carOcr" hidden>'
   + '</div>'
   + '<div class="co-bar" id="coBar" hidden><i></i></div>'
   + '<div class="co-grid">'
-  +   '<div class="co-f"><label class="f">เลขทะเบียน<input id="fPlate" maxlength="20" autocomplete="off" placeholder="เช่น 5ขจ 7692"></label>'
+  +   '<div class="co-f"><label class="f">เลขทะเบียน<span class="co-tag" aria-hidden="true">อ่านจากรูป</span><input id="fPlate" maxlength="20" autocomplete="off" placeholder="เช่น 5ขจ 7692"></label>'
   +     '<p class="co-fn" id="nPlate" hidden></p></div>'
-  +   '<div class="co-f"><label class="f">จังหวัด<input id="fPlateProv" maxlength="40" autocomplete="off" placeholder="เช่น กรุงเทพมหานคร"></label>'
+  +   '<div class="co-f"><label class="f">จังหวัด<span class="co-tag" aria-hidden="true">อ่านจากรูป</span><input id="fPlateProv" maxlength="40" autocomplete="off" placeholder="เช่น กรุงเทพมหานคร"></label>'
   +     '<p class="co-fn" id="nProv" hidden></p></div>'
-  +   '<div class="co-f co-vin"><label class="f">เลขตัวรถ<input id="fVin" maxlength="25" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น MR2BD8A3900073087"></label>'
+  +   '<div class="co-f co-vin"><label class="f">เลขตัวรถ<span class="co-tag" aria-hidden="true">อ่านจากรูป</span><input id="fVin" maxlength="25" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น MR2BD8A3900073087"></label>'
   +     '<p class="co-fn" id="nVin" hidden></p></div>'
   + '</div>'
-  + '<p class="co-note">ระบบอ่านจากรูปให้อัตโนมัติ · <b>โปรดตรวจทุกตัวอักษรให้ตรงกับเล่มทะเบียน</b> ถ้าไม่ตรงแก้ในช่องได้เลย</p>'
+  + '<p class="co-note">ระบบอ่านให้อัตโนมัติ — <b>โปรดเทียบทุกตัวกับเล่มทะเบียน</b> ไม่ตรงแก้ในช่องได้เลย</p>'
   + '</div>';
 
 function carStatus(kind, text){
@@ -1835,9 +1835,13 @@ function syncCarBox(){
 function paintCarNote(id){
   const n = $(CAR_NOTE[id]), e = $(id);
   if(!n || !e) return;
+  /* สถานะของช่อง (ใช้แต่งหน้าตา): is-auto = ค่ามาจากรูปและยังไม่มีใครแก้ · is-warn = ต้องตรวจ */
+  const box = e.closest('.co-f'), auto = !!e.value && e.value === e.dataset.auto;
+  const mark = warn => { if(box){ box.classList.toggle('is-auto', auto); box.classList.toggle('is-warn', !!warn); } };
   const sug = CAR.sugg[id];
   n.classList.remove('sug');
   if(sug && sug !== e.value){
+    mark(false);
     n.innerHTML = 'อ่านจากรูปได้ <b>' + esc(sug) + '</b> ซึ่งต่างจากในช่อง <button type="button" class="co-use">ใช้ค่านี้</button>';
     n.classList.add('sug');
     n.querySelector('.co-use').onclick = () => {
@@ -1855,13 +1859,15 @@ function paintCarNote(id){
     /* 🔑 (เทรนจากสำเนาจริง) แม้ทุกรอบอ่านตรงกัน ก็ยังผิดได้แบบ "ผิดเหมือนกันทุกรอบ" (B/8 · S/5 · A/4 บนดอตแมทริกซ์)
           → ช่องที่ระบบเติมเลขตัวรถ มีบรรทัดเตือนเบา ๆ (สีเทา ไม่ใช่คำเตือน) ให้เทียบกับเล่มเสมอ */
     else if(!w && e.value && e.value === e.dataset.auto){
-      n.textContent = 'อ่านจากรูป — เทียบกับเล่มอีกครั้ง ตัว 8 กับ B · 5 กับ S · 4 กับ A บนเล่มพิมพ์คล้ายกัน';
+      n.textContent = 'บนเล่ม 8 กับ B · 5 กับ S · 4 กับ A พิมพ์คล้ายกัน — เทียบให้ตรงอีกครั้ง';
       n.classList.add('sug'); n.hidden = false;
+      mark(false);
       return;
     }
   }
   n.textContent = w;
   n.hidden = !w;
+  mark(w);
 }
 function paintCarNotes(){ CAR_FIELDS.forEach(paintCarNote); }
 const vinHint = paintCarNotes;                       // ชื่อเดิมที่ถูกเรียกจากหลายจุด
@@ -1869,8 +1875,8 @@ const vinHint = paintCarNotes;                       // ชื่อเดิม
       (วัดจริง: ส่วนใหญ่ผิดแค่ 1-2 ตัว เช่น B/8 · 5/S · 4/A ตัวพิมพ์ดอตแมทริกซ์หน้าตาคล้ายกัน) */
 function vinWarn(alt){
   const a = (alt || []).slice().sort((x, y) => x.i - y.i);
-  if(!a.length || a.length > 3) return 'บางตัวอ่านไม่ชัด (เช่น 8 กับ B · 5 กับ S) — ตรวจทั้งเลขกับเล่มทะเบียนอีกครั้ง';
-  return 'ตรวจกับเล่มทะเบียน: ' + a.map(x => 'ตัวที่ ' + (x.i + 1) + ' (' + x.opts.slice(0, 2).join(' หรือ ') + ')').join(' · ') + ' อ่านจากรูปไม่ชัด';
+  if(!a.length || a.length > 3) return 'หลายตัวอ่านไม่ชัด — เทียบทั้งเลขกับเล่มทะเบียน';
+  return a.map(x => 'ตัวที่ ' + (x.i + 1) + ' อาจเป็น ' + x.opts.slice(0, 2).join(' หรือ ')).join(' · ') + ' — เทียบกับเล่มอีกครั้ง';
 }
 /* เติมเฉพาะช่องที่ว่าง หรือยังเป็นค่าที่ระบบเติมไว้ — คนพิมพ์เอง/ร่างเก่าไม่ทับ แต่เสนอให้กดใช้ */
 function carFill(id, val, warn){
@@ -1927,13 +1933,13 @@ async function runCarOcr(){
       if(carDone(got)) break;
     }
     if(run !== CAR.run) return;
-    const n = [carFill('fPlate', got.plate, got.plateUnsure ? 'อ่านจากรูปไม่ชัด — ตรวจหมวดอักษรและตัวเลขกับเล่มทะเบียนอีกครั้ง' : ''),
+    const n = [carFill('fPlate', got.plate, got.plateUnsure ? 'บางตัวอ่านไม่ชัด — เทียบกับเล่มอีกครั้ง' : ''),
                carFill('fPlateProv', got.province),
                carFill('fVin', got.vin, got.vinUnsure ? vinWarn(got.vinAlt) : '')].filter(Boolean).length;
     const found = [got.plate, got.province, got.vin].filter(Boolean).length;
     CAR.miss = {};
     if(found){                                                    // อ่านได้บางช่อง → ช่องที่เหลือบอกให้กรอกเอง
-      const MISS = 'อ่านช่องนี้จากรูปไม่ชัด — กรุณากรอกเองจากเล่มทะเบียน';
+      const MISS = 'อ่านจากรูปไม่ได้ — กรอกเองจากเล่มทะเบียน';
       if(!got.plate) CAR.miss.fPlate = MISS;
       if(!got.province) CAR.miss.fPlateProv = MISS;
       if(!got.vin) CAR.miss.fVin = MISS;
