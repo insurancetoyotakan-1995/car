@@ -75,14 +75,68 @@
   .vstep{font-size:11px}
 }
 
-/* ---------- วันเริ่มคุ้มครอง (ในแต่ละแถวเบี้ย) ---------- */
-.qdate{display:flex;align-items:flex-end;gap:8px 12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
-.qdate label.f{flex:0 1 210px;min-width:170px}
-.qdate input[type=date]{cursor:pointer}
-.qdate-th{flex:1 1 180px;font-size:12.5px;font-weight:600;color:var(--good-ink);padding-bottom:11px;line-height:1.5}
+/* ---------- วันคุ้มครอง เริ่ม–สิ้นสุด (ในแต่ละแถวเบี้ย) ---------- */
+.qdate{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.qdate-f{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qdate-s{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;margin-top:8px}
+/* ปุ่มช่องวันที่ — หน้าตาเหมือนช่องกรอกอื่น */
+.dp-btn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin-top:6px;
+  min-height:46px;padding:7px 12px;border:1px solid #d8d0d1;border-radius:var(--r-sm);background:var(--panel);
+  font:inherit;font-size:15px;font-weight:600;color:var(--ink);cursor:pointer;text-align:left;
+  transition:border-color .16s var(--ease),box-shadow .16s var(--ease)}
+.dp-btn:hover{border-color:#b8adaf}
+.dp-btn[aria-expanded="true"],.dp-btn:focus-visible{border-color:var(--accent);box-shadow:var(--ring);outline:none}
+.dp-btn.empty{color:#958a8c;font-weight:400}
+.dp-btn svg{width:18px;height:18px;flex:none;fill:none;stroke:var(--accent-ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* ปฏิทิน (ลอยบนสุดของกล่องรายละเอียด · ใต้หน้าต่างดูไฟล์/กล่องยืนยัน) */
+.dp-pop{position:fixed;z-index:125;width:304px;max-width:calc(100vw - 16px);padding:12px;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 18px 44px -12px rgba(34,28,29,.35),0 2px 6px rgba(34,28,29,.08);font-family:inherit}
+.dp-pop[hidden]{display:none}
+.dp-pop:not([hidden]){animation:dpIn .16s var(--ease)}
+@keyframes dpIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.dp-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px}
+.dp-title{display:inline-flex;align-items:center;gap:4px;border:0;background:none;font:inherit;font-size:15px;font-weight:700;
+  color:var(--ink);padding:6px 10px;border-radius:8px;cursor:pointer;min-height:40px}
+.dp-title:hover{background:var(--panel-2);color:var(--accent-ink)}
+.dp-title.static{cursor:default}
+.dp-title svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.dp-nav{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  color:var(--ink-soft);cursor:pointer}
+.dp-nav:hover:not(:disabled){border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+.dp-nav:disabled{opacity:.35;cursor:default}
+.dp-nav svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.dp-wd,.dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dp-wd span{text-align:center;font-size:11.5px;font-weight:700;color:var(--muted);padding:4px 0}
+.dp-wd span.sun{color:var(--accent-ink)}
+.dp-day{height:38px;border:0;border-radius:10px;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink);
+  cursor:pointer;font-variant-numeric:tabular-nums;position:relative;transition:background .12s}
+.dp-day:hover{background:var(--panel-2)}
+.dp-day.out{color:#b3a8aa;font-weight:400}
+.dp-day.today{box-shadow:inset 0 0 0 1.5px var(--accent);color:var(--accent-ink)}
+.dp-day.sel{background:var(--accent);color:#fff;box-shadow:none}
+.dp-day.sel:hover{background:var(--accent-deep)}
+.dp-day:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.dp-months{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.dp-mon{min-height:44px;border:1px solid var(--line-soft);border-radius:10px;background:var(--panel-2);font:inherit;font-size:13.5px;
+  font-weight:600;color:var(--ink-soft);cursor:pointer}
+.dp-mon:hover{border-color:var(--accent);color:var(--accent-ink)}
+.dp-mon.cur{border-color:var(--accent)}
+.dp-mon.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.dp-foot{display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft)}
+.dp-link{border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink-soft);padding:8px 10px;
+  border-radius:8px;cursor:pointer;min-height:40px}
+.dp-link:hover{background:var(--panel-2)}
+.dp-link.strong{color:var(--accent-ink);font-weight:700}
+@media (prefers-reduced-motion:reduce){.dp-pop:not([hidden]){animation:none}}
+@media (max-width:640px){ .dp-pop{width:calc(100vw - 24px)} .dp-day{height:44px} .dp-nav{width:44px;height:44px} }
+/* สรุปช่วงคุ้มครองใต้ช่องวันที่: เขียว = ครบ 1 ปี · อำพัน = ไม่ครบปี/ยังเลือกไม่ครบ · แดง = วันสิ้นสุดก่อนวันเริ่ม */
+.qdate-th{flex:1 1 220px;font-size:12.5px;font-weight:600;line-height:1.5}
+.qdate-th.ok{color:var(--good-ink)}
+.qdate-th.warn{color:var(--warn-ink)}
+.qdate-th.bad{color:var(--bad-ink)}
 .qdate-th.empty{color:var(--muted);font-weight:400}
-.qdate-same{margin-bottom:3px}
-@media (max-width:640px){ .qdate label.f{flex:1 1 100%} .qdate-th{padding-bottom:0} .qdate-same{width:100%} }
+@media (max-width:640px){ .qdate-f{grid-template-columns:1fr} .qdate-same{width:100%} }
 
 /* ---------- เงื่อนไขส่วนลดในบล็อกเสนอราคา ---------- */
 .qdisc{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel);padding:12px 14px;margin:-2px 0 12px}
@@ -493,7 +547,173 @@ function plusYear(iso){
   const y = +m[1] + 1, mo = +m[2], d = Math.min(+m[3], new Date(y, mo, 0).getDate());   // 29 ก.พ. → 28 ก.พ. ปีถัดไป
   return y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
 }
-const coverRange = iso => iso ? thDay(iso) + ' – ' + thDay(plusYear(iso)) : '';
+/* ช่วงคุ้มครอง: ใช้วันสิ้นสุดที่เลือกไว้ · ใบเก่าที่มีแต่วันเริ่ม = วันเริ่ม + 1 ปี */
+const coverRange = (s, e) => s ? thDay(s) + ' – ' + thDay(e || plusYear(s)) : (e ? 'ถึง ' + thDay(e) : '');
+
+/* ---------- ปฏิทินเลือกวัน (ของเราเอง แทนปฏิทินของเบราว์เซอร์) ----------
+   🔑 ปฏิทินของเบราว์เซอร์แสดง ค.ศ. + รูปแบบวันที่ตามเครื่อง (ดด/วว/ปปปป บนเครื่องภาษาอังกฤษ) → สับสนง่าย
+      ของเรา: ชื่อเดือนไทย · ปี พ.ศ. · เริ่มวันอาทิตย์ · สีของระบบ · ค่าจริงยังเป็น YYYY-MM-DD ใน input hidden เหมือนเดิม
+   ใช้: <input type="hidden" id="x"> + <button class="dp-btn" data-for="x"> → dpOpen(ปุ่ม) · เปลี่ยนค่าแล้วยิง 'change' ที่ input
+   คีย์บอร์ด: ลูกศร ±1 วัน/±1 สัปดาห์ · PageUp/PageDown ±1 เดือน · Home/End ต้น/ท้ายสัปดาห์ · Esc ปิด */
+const TH_MON_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const TH_WD = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+const isoOf =dt => dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate());
+const dateOf = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+const DP_MIN = 2000, DP_MAX = 2100;
+let DP = null;                                            // { btn, input, y, m, focus, view }
+function dpSync(id){
+  const inp = $(id), b = document.querySelector('.dp-btn[data-for="' + id + '"]');
+  if(!inp || !b) return;
+  b.querySelector('.dp-txt').textContent = inp.value ? thDay(inp.value) : 'เลือกวันที่';
+  b.classList.toggle('empty', !inp.value);
+  b.setAttribute('aria-expanded', DP && DP.btn === b ? 'true' : 'false');
+}
+function dpPop(){
+  let p = $('dpPop');
+  if(p) return p;
+  p = document.createElement('div');
+  p.id = 'dpPop'; p.className = 'dp-pop'; p.hidden = true;
+  p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', 'เลือกวันที่');
+  document.body.appendChild(p);
+  p.addEventListener('mousedown', e => e.preventDefault());           // คลิกในปฏิทินไม่ให้ปุ่มหลุดโฟกัส/ปิดเอง
+  p.addEventListener('click', dpClick);
+  p.addEventListener('keydown', dpKey);
+  return p;
+}
+function dpOpen(btn){
+  if(DP && DP.btn === btn) return dpClose(true);
+  const input = $(btn.dataset.for), near = btn.dataset.near && $(btn.dataset.near) ? $(btn.dataset.near).value : '';
+  const cur = dateOf(input.value) || (near ? dateOf(plusYear(near)) : null) || new Date();   // วันสิ้นสุดว่าง → เปิดที่ "วันเริ่ม + 1 ปี"
+  DP = { btn, input, y: cur.getFullYear(), m: cur.getMonth(), focus: isoOf(cur), view: 'days' };
+  const p = dpPop();
+  p.hidden = false;
+  dpRender();
+  dpPlace();
+  dpSync(btn.dataset.for);
+  dpFocus();
+}
+function dpClose(refocus){
+  if(!DP) return;
+  const b = DP.btn;
+  $('dpPop').hidden = true;
+  DP = null;
+  dpSync(b.dataset.for);
+  if(refocus) b.focus();
+}
+function dpPlace(){
+  if(!DP) return;
+  const p = $('dpPop'), r = DP.btn.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+  const vw = innerWidth, vh = innerHeight;
+  let top = r.bottom + 6;
+  if(top + h > vh - 8 && r.top - h - 6 >= 8) top = r.top - h - 6;      // ข้างล่างไม่พอ → เปิดขึ้นด้านบน
+  p.style.left = Math.max(8, Math.min(r.left, vw - w - 8)) + 'px';
+  p.style.top = Math.max(8, Math.min(top, vh - h - 8)) + 'px';
+}
+function dpRender(){
+  const p = $('dpPop'), sel = DP.input.value, today = isoOf(new Date());
+  const navBtn = (d, lb, dis) => '<button type="button" class="dp-nav" data-nav="' + d + '" aria-label="' + lb + '"' + (dis ? ' disabled' : '') + '>'
+    + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + (d < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7') + '"/></svg></button>';
+  let body;
+  if(DP.view === 'months'){
+    body = '<div class="dp-head">' + navBtn(-12, 'ปีก่อนหน้า', DP.y <= DP_MIN)
+      + '<span class="dp-title static">พ.ศ. ' + (DP.y + 543) + '</span>' + navBtn(12, 'ปีถัดไป', DP.y >= DP_MAX) + '</div>'
+      + '<div class="dp-months">' + TH_MON_FULL.map((mn, i) => {
+          const on = sel && dateOf(sel).getFullYear() === DP.y && dateOf(sel).getMonth() === i;
+          return '<button type="button" class="dp-mon' + (on ? ' sel' : '') + (i === DP.m ? ' cur' : '') + '" data-mon="' + i + '">' + mn + '</button>';
+        }).join('') + '</div>';
+  } else {
+    const first = new Date(DP.y, DP.m, 1), start = new Date(DP.y, DP.m, 1 - first.getDay());
+    let cells = '';
+    for(let i = 0; i < 42; i++){
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), iso = isoOf(d);
+      const out = d.getMonth() !== DP.m;
+      cells += '<button type="button" class="dp-day' + (out ? ' out' : '') + (iso === sel ? ' sel' : '') + (iso === today ? ' today' : '')
+        + '" data-day="' + iso + '" tabindex="' + (iso === DP.focus ? 0 : -1) + '"'
+        + (iso === sel ? ' aria-pressed="true"' : '') + ' aria-label="' + d.getDate() + ' ' + TH_MON_FULL[d.getMonth()] + ' ' + (d.getFullYear() + 543)
+        + (iso === today ? ' (วันนี้)' : '') + '">' + d.getDate() + '</button>';
+    }
+    body = '<div class="dp-head">' + navBtn(-1, 'เดือนก่อนหน้า', DP.y <= DP_MIN && DP.m === 0)
+      + '<button type="button" class="dp-title" data-view="months" aria-label="เลือกเดือนและปี">' + TH_MON_FULL[DP.m] + ' ' + (DP.y + 543)
+      + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>'
+      + navBtn(1, 'เดือนถัดไป', DP.y >= DP_MAX && DP.m === 11) + '</div>'
+      + '<div class="dp-wd" aria-hidden="true">' + TH_WD.map((w, i) => '<span' + (i === 0 ? ' class="sun"' : '') + '>' + w + '</span>').join('') + '</div>'
+      + '<div class="dp-grid">' + cells + '</div>';
+  }
+  p.innerHTML = body
+    + '<div class="dp-foot"><button type="button" class="dp-link" data-act="clear">ล้าง</button>'
+    + '<button type="button" class="dp-link strong" data-act="today">วันนี้</button></div>';
+}
+function dpFocus(){
+  const p = $('dpPop');
+  const el = p.querySelector('.dp-day[tabindex="0"]') || p.querySelector('.dp-mon.cur') || p.querySelector('button');
+  if(el) el.focus();
+}
+function dpSet(iso){
+  const inp = DP.input;
+  inp.value = iso || '';
+  inp.dispatchEvent(new Event('change'));
+  dpClose(true);
+}
+function dpGo(iso){                                       // เลื่อนโฟกัสไปวันนั้น (ข้ามเดือนได้)
+  const d = dateOf(iso);
+  if(!d || d.getFullYear() < DP_MIN || d.getFullYear() > DP_MAX) return;
+  DP.focus = iso;
+  if(d.getFullYear() !== DP.y || d.getMonth() !== DP.m){ DP.y = d.getFullYear(); DP.m = d.getMonth(); dpRender(); dpPlace(); }
+  else $('dpPop').querySelectorAll('.dp-day').forEach(b => b.tabIndex = b.dataset.day === iso ? 0 : -1);
+  dpFocus();
+}
+function dpShiftMonth(n){
+  const d = new Date(DP.y, DP.m + n, 1);
+  if(d.getFullYear() < DP_MIN || d.getFullYear() > DP_MAX) return;
+  const f = dateOf(DP.focus) || d;
+  const day = Math.min(f.getDate(), new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate());
+  DP.y = d.getFullYear(); DP.m = d.getMonth(); DP.focus = isoOf(new Date(DP.y, DP.m, day));
+  dpRender(); dpPlace();
+}
+function dpClick(e){
+  const b = e.target.closest('button');
+  if(!b || !DP) return;
+  if(b.dataset.day) return dpSet(b.dataset.day);
+  if(b.dataset.nav){
+    const n = +b.dataset.nav;
+    if(DP.view === 'months'){ DP.y = Math.max(DP_MIN, Math.min(DP_MAX, DP.y + n / 12)); dpRender(); }
+    else dpShiftMonth(n);
+    return dpFocusKeep(b);
+  }
+  if(b.dataset.view){ DP.view = 'months'; dpRender(); dpPlace(); return dpFocus(); }
+  if(b.dataset.mon != null){
+    DP.m = +b.dataset.mon; DP.view = 'days';
+    const f = dateOf(DP.focus);
+    DP.focus = isoOf(new Date(DP.y, DP.m, Math.min(f ? f.getDate() : 1, new Date(DP.y, DP.m + 1, 0).getDate())));
+    dpRender(); dpPlace(); return dpFocus();
+  }
+  if(b.dataset.act === 'today') return dpSet(isoOf(new Date()));
+  if(b.dataset.act === 'clear') return dpSet('');
+}
+function dpFocusKeep(b){                                  // หลังวาดใหม่ คงโฟกัสไว้ที่ปุ่มเลื่อนเดือนตัวเดิม
+  const same = $('dpPop').querySelector('.dp-nav[data-nav="' + b.dataset.nav + '"]');
+  if(same && !same.disabled) same.focus(); else dpFocus();
+}
+function dpKey(e){
+  if(!DP) return;
+  if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); return dpClose(true); }
+  if(e.key === 'Tab'){                                     // วนโฟกัสอยู่ในปฏิทิน
+    const f = [...$('dpPop').querySelectorAll('button:not([disabled])')].filter(b => b.tabIndex !== -1);
+    const i = f.indexOf(document.activeElement);
+    if(e.shiftKey && i <= 0){ e.preventDefault(); f[f.length - 1].focus(); }
+    else if(!e.shiftKey && i === f.length - 1){ e.preventDefault(); f[0].focus(); }
+    return;
+  }
+  if(DP.view !== 'days' || !e.target.classList.contains('dp-day')) return;
+  const f = dateOf(DP.focus), mv = { ArrowLeft:-1, ArrowRight:1, ArrowUp:-7, ArrowDown:7 }[e.key];
+  if(mv != null){ e.preventDefault(); return dpGo(isoOf(new Date(f.getFullYear(), f.getMonth(), f.getDate() + mv))); }
+  if(e.key === 'Home' || e.key === 'End'){ e.preventDefault(); return dpGo(isoOf(new Date(f.getFullYear(), f.getMonth(), f.getDate() + (e.key === 'Home' ? -f.getDay() : 6 - f.getDay())))); }
+  if(e.key === 'PageUp' || e.key === 'PageDown'){ e.preventDefault(); dpShiftMonth(e.key === 'PageUp' ? -1 : 1); return dpFocus(); }
+}
+/* ปิดเมื่อคลิกข้างนอก · ตามตำแหน่งปุ่มเมื่อเลื่อน/ย่อขยายหน้าจอ */
+document.addEventListener('mousedown', e => { if(DP && !e.target.closest('#dpPop') && !e.target.closest('.dp-btn')) dpClose(false); }, true);
+addEventListener('scroll', () => { if(DP) dpPlace(); }, true);
+addEventListener('resize', () => { if(DP) dpPlace(); });
 
 function discBlock(r){
   if(r.kind === 'refer'){
@@ -527,7 +747,14 @@ function quoteBlock(r){
   const money = (id, lb, v) => '<label class="f c4">' + lb
     + '<input id="' + id + '" class="baht" inputmode="decimal" autocomplete="off" placeholder="0.00"'
     + ' value="' + esc(v == null || v === '' ? '' : fmtBaht(v)) + '"></label>';
-  const row = (k, title, ids, vals, dId, dVal) =>
+  /* ช่องวันที่ = input hidden (ค่าจริง YYYY-MM-DD) + ปุ่มเปิดปฏิทินของเรา · near = เปิดปฏิทินใกล้ "วันเริ่ม + 1 ปี" ตอนยังว่าง */
+  const dateField = (id, lb, val, near) => '<label class="f">' + lb
+    + '<input type="hidden" id="' + id + '" value="' + esc(val || '') + '">'
+    + '<button type="button" class="dp-btn" data-for="' + id + '"' + (near ? ' data-near="' + near + '"' : '') + ' aria-haspopup="dialog">'
+    +   '<span class="dp-txt">เลือกวันที่</span>'
+    +   '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>'
+    + '</button></label>';
+  const row = (k, title, ids, vals, dId, dVal, eId, eVal) =>
       '<div class="qpr">'
     +   '<div class="qpr-h"><b>' + esc(title) + '</b>'
     +     '<span>สุทธิที่ต้องชำระ <i id="qs' + k + '">—</i></span></div>'
@@ -536,11 +763,13 @@ function quoteBlock(r){
     +     money(ids[1], 'เบี้ยรวม',  vals[1])
     +     money(ids[2], 'ส่วนลด',    vals[2])
     +   '</div>'
-    /* วันเริ่มคุ้มครอง — ปฏิทินของเครื่อง · ข้าง ๆ แสดงช่วงคุ้มครองเป็น พ.ศ. (ครบ 1 ปี) */
+    /* วันเริ่มคุ้มครอง — ปฏิทินของเราเอง (dpOpen) · ค่าจริงอยู่ใน input hidden รูปแบบ YYYY-MM-DD
+       ข้าง ๆ แสดงช่วงคุ้มครองเป็น พ.ศ. (ครบ 1 ปี) */
     +   '<div class="qdate">'
-    +     '<label class="f">วันเริ่มคุ้มครอง<input type="date" id="' + dId + '" min="2000-01-01" max="2100-12-31" value="' + esc(dVal || '') + '"></label>'
-    +     '<span class="qdate-th" id="' + dId + 'Th"></span>'
-    +     (k === '2' ? '<button type="button" class="btn sm qdate-same" id="qASame">ใช้วันเดียวกับประกันภัย</button>' : '')
+    +     '<div class="qdate-f">' + dateField(dId, 'วันเริ่มคุ้มครอง', dVal) + dateField(eId, 'วันสิ้นสุดความคุ้มครอง', eVal, dId) + '</div>'
+    +     '<div class="qdate-s"><span class="qdate-th" id="' + dId + 'Th"></span>'
+    +       (k === '2' ? '<button type="button" class="btn sm qdate-same" id="qASame">ใช้วันเดียวกับประกันภัย</button>' : '')
+    +     '</div>'
     +   '</div>'
     + '</div>';
   return '<div class="sec">ข้อมูลเสนอราคา <span class="secx">เจ้าหน้าที่กรอก</span></div>'
@@ -561,9 +790,9 @@ function quoteBlock(r){
     +     '<input id="qTypOther" maxlength="120" autocomplete="off" value="' + esc(typOther ? r.quote_type : '') + '"></label>'
     + '</div>'
     + '<p class="qhint">เบี้ยสุทธิ = ก่อนอากรแสตมป์และภาษี · เบี้ยรวม = ยอดก่อนหักส่วนลด · ช่องที่ไม่มีเว้นว่างได้</p>'
-    + row('1', 'ประกันภัย (ภาคสมัครใจ)', ['qNet','qGross','qDisc'],    [r.quote_net, r.quote_gross, r.quote_disc], 'qStart', r.quote_start)
+    + row('1', 'ประกันภัย (ภาคสมัครใจ)', ['qNet','qGross','qDisc'],    [r.quote_net, r.quote_gross, r.quote_disc], 'qStart', r.quote_start, 'qEnd', r.quote_end)
     + discBlock(r)
-    + row('2', 'พ.ร.บ. (ภาคบังคับ)',     ['qANet','qAGross','qADisc'], [r.quote_act_net, r.quote_act_gross, r.quote_act_disc], 'qAStart', r.quote_act_start)
+    + row('2', 'พ.ร.บ. (ภาคบังคับ)',     ['qANet','qAGross','qADisc'], [r.quote_act_net, r.quote_act_gross, r.quote_act_disc], 'qAStart', r.quote_act_start, 'qAEnd', r.quote_act_end)
     + '<div class="qpr-tot"><span>รวมทั้งสิ้นที่ต้องชำระ</span><b id="qTotal">—</b></div>'
     + '<div class="grid" style="gap:11px;margin-top:11px">'
     +   '<label class="f c12">หมายเหตุการเสนอราคา<input id="qNote" maxlength="230" autocomplete="off"'
@@ -647,16 +876,43 @@ function wireQuote(r){
   }));
   { const w = want(); if(w != null && Math.abs((num('qDisc') || 0) - w) < .005) $('qDisc').dataset.auto = $('qDisc').value; }   // ค่าที่บันทึกไว้ตรงเงื่อนไข = ให้ตามเบี้ยต่อได้
   /* วันเริ่มคุ้มครอง: แสดงช่วง พ.ศ. ข้างช่อง · ปุ่ม "ใช้วันเดียวกับประกันภัย" ในแถว พ.ร.บ. */
-  const dateUpd = () => {
-    [['qStart', 'qStartTh'], ['qAStart', 'qAStartTh']].forEach(([id, th]) => {
-      const v = $(id).value;
-      $(th).textContent = v ? 'คุ้มครอง ' + coverRange(v) : 'ยังไม่ได้เลือกวัน';
-      $(th).classList.toggle('empty', !v);
-    });
-    $('qASame').disabled = !$('qStart').value || $('qStart').value === $('qAStart').value;
+  /* วันสิ้นสุด: เลือกวันเริ่มแล้วเติม "วันเริ่ม + 1 ปี" ให้เอง (dataset.auto) — ถ้าเจ้าหน้าที่เลือกวันสิ้นสุดเอง ไม่ทับ */
+  const PAIRS = [['qStart', 'qEnd', 'qStartTh'], ['qAStart', 'qAEnd', 'qAStartTh']];
+  const period = (s, e) => {
+    if(!s && !e) return ['empty', 'ยังไม่ได้เลือกวัน'];
+    if(!s) return ['warn', 'ยังไม่ได้เลือกวันเริ่มคุ้มครอง'];
+    if(!e) return ['warn', 'ยังไม่ได้เลือกวันสิ้นสุด'];
+    if(e <= s) return ['bad', 'วันสิ้นสุดต้องหลังวันเริ่มคุ้มครอง'];
+    if(e === plusYear(s)) return ['ok', 'คุ้มครอง 1 ปี · ' + coverRange(s, e)];
+    return ['warn', 'คุ้มครอง ' + Math.round((dateOf(e) - dateOf(s)) / 864e5) + ' วัน (ไม่ครบ 1 ปีพอดี) · ' + coverRange(s, e)];
   };
-  ['qStart', 'qAStart'].forEach(id => ['input', 'change'].forEach(ev => $(id).addEventListener(ev, () => { dateUpd(); paintPrint(r); })));
-  $('qASame').onclick = () => { $('qAStart').value = $('qStart').value; dateUpd(); paintPrint(r); };
+  const dateUpd = () => {
+    PAIRS.forEach(([s, e, th]) => {
+      dpSync(s); dpSync(e);
+      const [k, txt] = period($(s).value, $(e).value);
+      $(th).textContent = txt;
+      $(th).className = 'qdate-th ' + k;
+    });
+    $('qASame').disabled = !$('qStart').value
+      || ($('qStart').value === $('qAStart').value && $('qEnd').value === $('qAEnd').value);
+  };
+  PAIRS.forEach(([s, e]) => {
+    const inE = $(e);
+    if(inE.value && inE.value === plusYear($(s).value)) inE.dataset.auto = inE.value;   // ค่าที่บันทึกไว้ = 1 ปีพอดี → ให้ตามวันเริ่มต่อได้
+    $(s).addEventListener('change', () => {
+      const v = $(s).value, isAuto = !inE.value || inE.value === inE.dataset.auto;
+      if(isAuto){ inE.value = v ? plusYear(v) : ''; inE.dataset.auto = inE.value; }
+      dateUpd(); paintPrint(r);
+    });
+    inE.addEventListener('change', () => { dateUpd(); paintPrint(r); });
+  });
+  document.querySelectorAll('#vp-quote .dp-btn').forEach(b => b.onclick = () => dpOpen(b));
+  $('qASame').onclick = () => {
+    $('qAStart').value = $('qStart').value;
+    $('qAEnd').value = $('qEnd').value;
+    $('qAEnd').dataset.auto = $('qAEnd').value === plusYear($('qAStart').value) ? $('qAEnd').value : '';
+    dateUpd(); paintPrint(r);
+  };
   dateUpd();
   discUpd();
   recalc();
@@ -674,6 +930,12 @@ function wireQuote(r){
     const type    = $('qTyp').value === OTHER_VAL ? $('qTypOther').value.trim() : $('qTyp').value;
     if($('qIns').value === OTHER_VAL && !insurer){ toast('กรอกชื่อบริษัทประกันด้วย', 'no'); $('qInsOther').focus(); return; }
     if($('qTyp').value === OTHER_VAL && !type){ toast('กรอกประเภทประกันด้วย', 'no'); $('qTypOther').focus(); return; }
+    for(const [s, e, lb] of [['qStart', 'qEnd', 'ประกันภัย'], ['qAStart', 'qAEnd', 'พ.ร.บ.']]){
+      if($(s).value && $(e).value && $(e).value <= $(s).value){
+        toast('วันสิ้นสุดความคุ้มครอง ' + lb + ' ต้องหลังวันเริ่ม', 'no');
+        document.querySelector('.dp-btn[data-for="' + e + '"]').focus(); return;
+      }
+    }
     const b = $('qSave'); b.disabled = true; b.classList.add('is-loading');
     try{
       const args = {
@@ -681,13 +943,16 @@ function wireQuote(r){
         p_net: num('qNet'), p_gross: num('qGross'), p_disc: num('qDisc'),
         p_act_net: num('qANet'), p_act_gross: num('qAGross'), p_act_disc: num('qADisc'),
         p_note: composeNote() };
-      let res0 = await sb.rpc('ins_set_quote', Object.assign({ p_start: $('qStart').value || null, p_act_start: $('qAStart').value || null }, args));
-      /* 🔑 ยังไม่ได้รัน migrate-2026-09-19-quote-dates.sql (ฐานข้อมูลยังไม่รู้จักวันคุ้มครอง)
-            → บันทึกเบี้ยแบบเดิมไปก่อน ไม่ให้งานเสนอราคาสะดุด แล้วบอกว่าวันยังไม่ถูกเก็บ */
-      let noDates = false;
+      const starts = { p_start: $('qStart').value || null, p_act_start: $('qAStart').value || null };
+      const ends   = { p_end: $('qEnd').value || null, p_act_end: $('qAEnd').value || null };
+      let res0 = await sb.rpc('ins_set_quote', Object.assign({}, args, starts, ends));
+      /* 🔑 ฐานข้อมูลยังไม่รู้จักวันคุ้มครอง (ยังไม่ได้รัน SQL ล่าสุด) → ถอยทีละขั้น ไม่ให้งานเสนอราคาสะดุด
+            มีแค่วันเริ่ม (migrate-2026-09-19-quote-dates) → ส่งวันเริ่มอย่างเดียว · ไม่มีทั้งคู่ → ส่งเบี้ยแบบเดิม */
+      let noDates = false, noEnds = false;
       if(res0.error && res0.error.code === 'PGRST202'){
-        noDates = true;
-        res0 = await sb.rpc('ins_set_quote', args);
+        noEnds = true;
+        res0 = await sb.rpc('ins_set_quote', Object.assign({}, args, starts));
+        if(res0.error && res0.error.code === 'PGRST202'){ noDates = true; res0 = await sb.rpc('ins_set_quote', args); }
       }
       if(res0.error) throw res0.error;
       const res = res0.data || {};
@@ -697,7 +962,8 @@ function wireQuote(r){
       r.quote_total = res.total == null ? null : +res.total;
       r.quote_note  = composeNote();
       if(!noDates){ r.quote_start = $('qStart').value || null; r.quote_act_start = $('qAStart').value || null; }
-      if(res.cleared){ r.quote_start = r.quote_act_start = null; }
+      if(!noEnds){ r.quote_end = $('qEnd').value || null; r.quote_act_end = $('qAEnd').value || null; }
+      if(res.cleared){ r.quote_start = r.quote_act_start = null; if(!noEnds) r.quote_end = r.quote_act_end = null; }
       r.quote_at = res.cleared ? null : new Date().toISOString();
       r.quote_by = res.cleared ? null : (res.quoteBy || (ME && ME.empId) || null);
       if(res.statusChanged){
@@ -712,8 +978,8 @@ function wireQuote(r){
       toast(res.cleared ? 'ล้างข้อมูลเสนอราคาแล้ว'
         : 'บันทึกเบี้ยแล้ว · รวม ' + fmtBaht(res.total) + ' บาท'
           + (res.statusChanged ? ' · เปลี่ยนสถานะเป็น "เสนอราคาแล้ว"' : ''), 'ok');
-      if(noDates && ($('qStart').value || $('qAStart').value))
-        toast('บันทึกเบี้ยแล้ว แต่วันคุ้มครองยังไม่ถูกเก็บ — ผู้ดูแลต้องรัน migrate-2026-09-19-quote-dates.sql ใน Supabase ก่อน', 'no');
+      if(noEnds && ($('qStart').value || $('qAStart').value || $('qEnd').value || $('qAEnd').value))
+        toast('บันทึกเบี้ยแล้ว แต่' + (noDates ? 'วันคุ้มครอง' : 'วันสิ้นสุดความคุ้มครอง') + 'ยังไม่ถูกเก็บ — ผู้ดูแลต้องรัน migrate-2026-09-19-quote-end.sql ใน Supabase ก่อน', 'no');
     }catch(e){ toast(e.message || 'บันทึกไม่สำเร็จ', 'no'); }
     finally{ const x = $('qSave'); if(x){ x.disabled = false; x.classList.remove('is-loading'); } }
   };
@@ -739,6 +1005,8 @@ function quoteDirty(r){
       /* วันคุ้มครอง: เทียบเฉพาะเมื่อฐานข้อมูลมีคอลัมน์แล้ว (ยังไม่รัน SQL = ไม่มีคีย์ → ไม่ให้ค้าง "ยังไม่บันทึก" จนพิมพ์ไม่ได้) */
       || ('quote_start' in r && ($('qStart').value || '') !== (r.quote_start || ''))
       || ('quote_act_start' in r && ($('qAStart').value || '') !== (r.quote_act_start || ''))
+      || ('quote_end' in r && ($('qEnd').value || '') !== (r.quote_end || ''))
+      || ('quote_act_end' in r && ($('qAEnd').value || '') !== (r.quote_act_end || ''))
       || [['qNet','quote_net'], ['qGross','quote_gross'], ['qDisc','quote_disc'],
           ['qANet','quote_act_net'], ['qAGross','quote_act_gross'], ['qADisc','quote_act_disc']]
           .some(([id, k]) => !same(bahtVal($(id)), r[k]));
@@ -908,8 +1176,8 @@ function printSheet(r){
     + '<hr class="pf-hr">'
     + '<div class="pf-big"><b>เลขทะเบียนรถ</b>' + L([r.car_plate, r.car_province].filter(Boolean).join(' '), 1)
     +   '<b>หมายเลขตัวถัง</b>' + L(r.car_vin, 1.2) + '</div>'
-    + '<div class="pf-row"><span>วันคุ้มครอง ประกันภัย</span>' + L(coverRange(r.quote_start), 1)
-    +   '<span>พ.ร.บ.</span>' + L(coverRange(r.quote_act_start), 1) + '</div>'
+    + '<div class="pf-row"><span>วันคุ้มครอง ประกันภัย</span>' + L(coverRange(r.quote_start, r.quote_end), 1)
+    +   '<span>พ.ร.บ.</span>' + L(coverRange(r.quote_act_start, r.quote_act_end), 1) + '</div>'
     + '<div class="pf-prem">'
     +   TYPES.map(v => premRow(v, typ === v ? [r.quote_net, r.quote_gross, r.quote_disc] : [])).join('')
     +   (otherTyp ? premRow(typ, [r.quote_net, r.quote_gross, r.quote_disc]) : '')
@@ -1527,11 +1795,12 @@ function openView(id){
   $('ovView').setAttribute('open','');
   $('ovView').querySelector('.card').scrollTop = 0;
 }
-$('vClose').onclick = ()=>{ $('ovView').removeAttribute('open'); endPrint(); };
+$('vClose').onclick = ()=>{ dpClose(false); $('ovView').removeAttribute('open'); endPrint(); };
 $('ovView').addEventListener('mousedown', e=>{ if(e.target === $('ovView')) $('ovView').removeAttribute('open'); });
 addEventListener('keydown', e=>{
   if(e.key !== 'Escape') return;
   if(askResolve) return askDone(null);
+  if(DP) return dpClose(true);                                // ปฏิทินเปิดอยู่ = ปิดปฏิทินก่อน
   if($('ovFile').hasAttribute('open')) return closeFile();   // ดูไฟล์ซ้อนอยู่ = ปิดตัวบนก่อน
   $('ovView').removeAttribute('open');
 });
