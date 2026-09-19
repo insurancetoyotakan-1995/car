@@ -15,3 +15,6 @@ supabase/line-bind-secret.sql
 
 # พ mapping (scripts/export-emp-owner.cjs)
 supabase/ins-emp-owner.sql
+
+# กรมธรรม์พนักงานที่ยังไม่หมดอายุ (scripts/export-active-policy.cjs)
+supabase/ins-active-policy.sql
