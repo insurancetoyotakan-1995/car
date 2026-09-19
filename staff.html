@@ -12,14 +12,14 @@
 <script src="config.js?v=20260918-2"></script>
 <style>
 /* ---------- ปุ่มพิมพ์ใบคำขอ (เฉพาะหน้าเจ้าหน้าที่) ---------- */
-#vPrint svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-#vPrint[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
+#vPrint svg,#vCom svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#vPrint[aria-disabled="true"],#vCom[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
 .pr-hint{font-size:12px;color:var(--muted);align-self:center;line-height:1.5}
 .pr-hint:empty{display:none}
 /* มือถือ: ปุ่มพิมพ์ + ปิด อยู่แถวเดียว · คำอธิบายว่าทำไมยังพิมพ์ไม่ได้ ลงบรรทัดล่าง */
 @media (max-width:640px){
   #ovView .ft .grow{display:none}
-  #vPrint{flex:1 1 auto}
+  #vPrint,#vCom{flex:1 1 auto;padding-left:10px;padding-right:10px}
   .pr-hint{order:3;flex-basis:100%;text-align:center}
 }
 
@@ -61,6 +61,23 @@
 #printSheet .pf-box{border:1pt solid #000;min-height:34mm;display:flex;align-items:flex-end;justify-content:center;
   font-size:9.5pt;padding-bottom:4pt}
 #printSheet .pf-foot{margin-top:10pt;font-size:8.5pt;color:#444;display:flex;justify-content:space-between;gap:10pt}
+
+/* ---------- ใบค่าคอมมิชชั่น / ค่าแนะนำ ---------- */
+#printSheet .pf-sub{text-align:center;font-size:10.5pt;margin:-4pt 0 8pt}
+#printSheet .pf-h{font-weight:700;margin:10pt 0 2pt;font-size:12pt}
+#printSheet .pf-tbl{width:100%;border-collapse:collapse;margin-top:5pt;font-size:11pt}
+#printSheet .pf-tbl th,#printSheet .pf-tbl td{border:1pt solid #000;padding:4pt 6pt;vertical-align:top}
+#printSheet .pf-tbl th{font-weight:700;background:#f2f2f2;text-align:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printSheet .pf-tbl td.n{text-align:right;white-space:nowrap;font-weight:700}
+#printSheet .pf-tbl td.c{text-align:center}
+#printSheet .pf-tbl .sm{display:block;font-size:9.5pt;color:#333;font-weight:400}
+#printSheet .pf-tbl tfoot td{font-weight:700}
+#printSheet .pf-chk{border:1pt solid #000;padding:5pt 8pt;margin-top:8pt;font-size:10.5pt}
+#printSheet .pf-chk.bad{border-width:1.6pt}
+#printSheet .pf-cond{margin-top:8pt;font-size:9.5pt;line-height:1.55;color:#222}
+#printSheet .pf-sign{display:grid;grid-template-columns:repeat(4,1fr);gap:8pt;margin-top:22pt;text-align:center;font-size:10pt}
+#printSheet .pf-sign div{padding-top:26pt}
+#printSheet .pf-sign b{display:block;font-weight:600;margin-top:2pt}
 </style>
 
 <body class="ops">
@@ -138,6 +155,9 @@
       <button class="btn" id="vPrint" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>
         <span>พิมพ์ใบคำขอ</span></button>
+      <button class="btn" id="vCom" type="button" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6.5 9.5v5M17.5 9.5v5"/></svg>
+        <span>พิมพ์ใบค่าคอม</span></button>
       <span class="pr-hint" id="vPrintHint"></span>
       <span class="grow"></span><button class="btn" id="vClose">ปิด</button></div>
   </div>
@@ -391,7 +411,97 @@ function paintPrint(r){
   const why = printBlock(r) || (quoteDirty(r) ? 'มีข้อมูลเสนอราคาที่ยังไม่บันทึก — กดบันทึกก่อนพิมพ์' : '');
   $('vPrint').setAttribute('aria-disabled', why ? 'true' : 'false');
   $('vPrint').title = why;
-  $('vPrintHint').textContent = why;
+  /* ใบค่าคอม: เฉพาะลูกค้าแนะนำ (พนักงานต่อประกันเอง = NO COM → ไม่มีปุ่ม) */
+  const isRef = r.kind === 'refer';
+  const comWhy = why || (isRef ? comBlock(r) : '');
+  $('vCom').hidden = !isRef;
+  $('vCom').setAttribute('aria-disabled', comWhy ? 'true' : 'false');
+  $('vCom').title = comWhy;
+  $('vPrintHint').textContent = why || (isRef && comWhy ? 'ใบค่าคอม: ' + comWhy : '');
+}
+
+/* ---------- ใบค่าคอมมิชชั่น / ค่าแนะนำ (ตามเงื่อนไขฝ่ายประกัน) ----------
+   ลูกค้าแนะนำจากพนักงานบริษัท:  เจ้าหน้าที่ประกัน คอมเหมาจ่าย 300 · พนักงานผู้แนะนำ ค่าแนะนำ 300
+   พนักงานต่อประกันเอง:           NO COM (ไม่มีใบนี้)
+   ส่วนลดพิเศษลูกค้าแนะนำ:         เบี้ย 12,000–18,000 ลด 500 · มากกว่า 18,000 ลด 800
+   🔑 เปลี่ยนอัตราเมื่อไร แก้ตัวเลขชุดนี้ที่เดียว */
+const COM_AGENT = 300, COM_REFERRER = 300;
+const refDisc = gross => {                                 // เบี้ยรวมภาคสมัครใจ → ส่วนลดพิเศษลูกค้าแนะนำ
+  const g = Number(gross) || 0;
+  if(g > 18000) return 800;
+  if(g >= 12000) return 500;
+  return 0;
+};
+/* 🔑 จ่ายค่าคอมเมื่อ "ปิดการขาย" แล้วเท่านั้น + ต้องมีเจ้าหน้าที่ผู้ดูแล (คนรับคอม) */
+function comBlock(r){
+  if(r.status !== 'done') return 'พิมพ์ได้เมื่อสถานะเป็น "ปิดการขาย" แล้ว';
+  if(!r.assigned_to) return 'ใบนี้ยังไม่มีเจ้าหน้าที่ผู้ดูแล (ผู้รับคอม)';
+  return '';
+}
+/* จำนวนเงินเป็นตัวอักษรไทย เช่น 600 → หกร้อยบาทถ้วน */
+function bahtText(n){
+  const D = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'], U = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
+  const six = x => {
+    let s = '';
+    for(let i = 0; i < x.length; i++){
+      const k = +x[i], p = x.length - i - 1;
+      if(!k) continue;
+      if(p === 1) s += k === 1 ? 'สิบ' : k === 2 ? 'ยี่สิบ' : D[k] + 'สิบ';
+      else if(p === 0 && k === 1 && x.length > 1 && /[1-9]/.test(x.slice(0, -1))) s += 'เอ็ด';
+      else s += D[k] + U[p];
+    }
+    return s;
+  };
+  const read = t => { t = t.replace(/^0+/, ''); return !t ? '' : t.length > 6 ? read(t.slice(0, -6)) + 'ล้าน' + six(t.slice(-6)) : six(t); };
+  const v = Math.round(Math.abs(Number(n) || 0) * 100), b = Math.floor(v / 100), st = v % 100;
+  return (b ? read(String(b)) + 'บาท' : (st ? '' : 'ศูนย์บาท')) + (st ? read(String(st)) + 'สตางค์' : 'ถ้วน');
+}
+function comSheet(r){
+  const L = (v, flex) => '<span class="pl"' + (flex ? ' style="flex-grow:' + flex + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
+  const m = v => (v == null || v === '') ? '—' : fmtBaht(v);
+  const agentId = r.assigned_to || '', agent = agentName(agentId);
+  const total = COM_AGENT + COM_REFERRER;
+  const want = refDisc(r.quote_gross), got = Number(r.quote_disc) || 0;
+  const discOk = Math.abs(want - got) < .005;
+  const band = want === 800 ? 'เบี้ยรวม ' + m(r.quote_gross) + ' มากกว่า 18,000'
+             : want === 500 ? 'เบี้ยรวม ' + m(r.quote_gross) + ' อยู่ในช่วง 12,000–18,000'
+             : 'เบี้ยรวม ' + m(r.quote_gross) + ' ต่ำกว่า 12,000 (ไม่มีส่วนลดพิเศษ)';
+  const now = new Date();
+  return '<div class="pf-no"><span>เลขที่คำขอ</span>' + L(r.no) + '</div>'
+    + '<div class="pf-title">ใบสรุปค่าคอมมิชชั่น / ค่าแนะนำลูกค้า</div>'
+    + '<div class="pf-sub">กรณีลูกค้าแนะนำจากพนักงานบริษัท</div>'
+    + '<div class="pf-h">ข้อมูลการขาย</div>'
+    + '<div class="pf-row"><span>ชื่อลูกค้า</span>' + L([r.insured_title, r.insured_name].filter(Boolean).join(' '), 2)
+    +   '<span>เบอร์มือถือ</span>' + L(r.phone_mobile, 1) + '</div>'
+    + '<div class="pf-row"><span>เลขทะเบียนรถ</span>' + L([r.car_plate, r.car_province].filter(Boolean).join(' '), 1.3)
+    +   '<span>หมายเลขตัวถัง</span>' + L(r.car_vin, 1.2) + '</div>'
+    + '<div class="pf-row"><span>บริษัทประกัน</span>' + L(r.quote_insurer, 2) + '<span>ประเภท</span>' + L(r.quote_type, 1) + '</div>'
+    + '<div class="pf-row"><span>เบี้ยรวม (ภาคสมัครใจ)</span>' + L(m(r.quote_gross), 1) + '<span>ส่วนลด</span>' + L(m(r.quote_disc), 1)
+    +   '<span>รวมทั้งสิ้นที่ลูกค้าชำระ</span>' + L(m(r.quote_total), 1.1) + '<span>บาท</span></div>'
+    + '<div class="pf-row"><span>สถานะ</span>' + L('ปิดการขายแล้ว', 1) + '<span>บันทึกเสนอราคาเมื่อ</span>' + L(r.quote_at ? thDate(r.quote_at) : '', 1) + '</div>'
+    + '<div class="pf-chk' + (discOk ? '' : ' bad') + '"><b>ตรวจส่วนลดพิเศษลูกค้าแนะนำ:</b> ' + esc(band)
+    +   ' → ตามเงื่อนไขลด <b>' + esc(fmtBaht(want)) + '</b> บาท · บันทึกในระบบ <b>' + esc(fmtBaht(got)) + '</b> บาท · '
+    +   (discOk ? '✓ ตรงเงื่อนไข' : '<b>⚠ ไม่ตรงเงื่อนไข — ตรวจสอบก่อนจ่าย</b>') + '</div>'
+    + '<div class="pf-h">รายการค่าคอมมิชชั่น / ค่าแนะนำ</div>'
+    + '<table class="pf-tbl"><thead><tr><th style="width:9%">ลำดับ</th><th>ผู้รับ</th><th style="width:26%">รายการ</th><th style="width:19%">จำนวนเงิน (บาท)</th></tr></thead><tbody>'
+    +   '<tr><td class="c">1</td><td>' + esc(agent) + '<span class="sm">เจ้าหน้าที่ประกัน · รหัส ' + esc(agentId) + '</span></td>'
+    +     '<td>ค่าคอมมิชชั่น (เหมาจ่าย)</td><td class="n">' + fmtBaht(COM_AGENT) + '</td></tr>'
+    +   '<tr><td class="c">2</td><td>' + esc(r.emp_name || '') + (r.emp_verified ? '' : ' ⚠')
+    +     '<span class="sm">พนักงานผู้แนะนำ · รหัส ' + esc(r.emp_id || '') + ' · ' + esc([r.emp_dept, r.emp_branch].filter(Boolean).join(' · '))
+    +     (r.emp_verified ? '' : ' · รหัสไม่ตรงทำเนียบ ตรวจสอบก่อนจ่าย') + '</span></td>'
+    +     '<td>ค่าแนะนำลูกค้า</td><td class="n">' + fmtBaht(COM_REFERRER) + '</td></tr>'
+    + '</tbody><tfoot><tr><td colspan="3">รวมทั้งสิ้น (' + esc(bahtText(total)) + ')</td><td class="n">' + fmtBaht(total) + '</td></tr></tfoot></table>'
+    + '<div class="pf-cond"><b>เงื่อนไข</b> · ลูกค้าแนะนำจากพนักงานบริษัท: เจ้าหน้าที่ประกันได้คอมเหมาจ่าย ' + fmtBaht(COM_AGENT)
+    +   ' บาท · พนักงานผู้แนะนำได้ค่าแนะนำ ' + fmtBaht(COM_REFERRER) + ' บาท · ส่วนลดพิเศษลูกค้า: เบี้ย 12,000–18,000 ลด 500 บาท'
+    +   ' · มากกว่า 18,000 ลด 800 บาท · กรณีพนักงานต่อประกันเอง ไม่มีค่าคอมมิชชั่น (NO COM)</div>'
+    + '<div class="pf-sign">'
+    +   '<div>ลงชื่อ ...............................<b>(' + esc(agent) + ')</b>เจ้าหน้าที่ประกัน (ผู้รับเงิน)<br>วันที่ ........./........./.........</div>'
+    +   '<div>ลงชื่อ ...............................<b>(' + esc(r.emp_name || '') + ')</b>พนักงานผู้แนะนำ (ผู้รับเงิน)<br>วันที่ ........./........./.........</div>'
+    +   '<div>ลงชื่อ ...............................<b>(...............................)</b>ผู้ตรวจสอบ<br>วันที่ ........./........./.........</div>'
+    +   '<div>ลงชื่อ ...............................<b>(...............................)</b>ผู้อนุมัติ<br>วันที่ ........./........./.........</div>'
+    + '</div>'
+    + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no) + '</span>'
+    +   '<span>พิมพ์เมื่อ ' + esc(thDate(now.toISOString())) + '</span></div>';
 }
 function printSheet(r){
   const L  = (v, flex, cls) => '<span class="pl' + (cls ? ' ' + cls : '') + '"' + (flex ? ' style="' + (typeof flex === 'number' ? 'flex-grow:' + flex : 'flex:' + flex) + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
@@ -454,16 +564,23 @@ function printSheet(r){
     +   (r.assigned_to ? ' · ผู้ดูแล ' + esc(agentName(r.assigned_to)) : '') + '</span>'
     +   '<span>พิมพ์เมื่อ ' + esc(thDate(now.toISOString())) + '</span></div>';
 }
-function doPrint(r){
+function doPrint(r, which){
+  const com = which === 'com';
   const why = printBlock(r) || (quoteDirty(r) ? 'มีข้อมูลเสนอราคาที่ยังไม่บันทึก — กด "บันทึกข้อมูลเสนอราคา" ก่อนพิมพ์' : '');
   if(why){
     toast(why, 'no');
     const q = $('qIns'); if(q) q.closest('.grid').scrollIntoView({ behavior:'smooth', block:'center' });
     return;
   }
-  $('printSheet').innerHTML = printSheet(r);
+  const cwhy = com ? comBlock(r) : '';
+  if(cwhy){
+    toast('ใบค่าคอม: ' + cwhy, 'no');
+    const s = $('vSt'); if(s) s.closest('.grid').scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+  $('printSheet').innerHTML = com ? comSheet(r) : printSheet(r);
   fitSheet($('printSheet'));
-  document.title = r.no;                                   // ชื่อไฟล์ตอน "บันทึกเป็น PDF"
+  document.title = r.no + (com ? ' ค่าคอมมิชชั่น' : '');   // ชื่อไฟล์ตอน "บันทึกเป็น PDF"
   document.body.classList.add('printing');
   /* ⚠️ ไม่ถอดคลาสด้วยตัวจับเวลา — iOS Safari สั่งพิมพ์แบบไม่รอ ถอดเร็วไปจะพิมพ์ได้ทั้งหน้าจอแทนใบคำขอ
         คลาสนี้มีผลเฉพาะตอนพิมพ์ ค้างไว้ก็ไม่กระทบหน้าจอ */
@@ -925,6 +1042,7 @@ function openView(id){
   wireQuote(r);
   paintPrint(r);
   $('vPrint').onclick = () => doPrint(r);
+  $('vCom').onclick = () => doPrint(r, 'com');
   if(isAdmin()){
     csel($('vAg'));
     $('vSaveAg').onclick = async ()=>{
@@ -950,6 +1068,7 @@ function openView(id){
         p_req: r.id, p_status: $('vSt').value, p_note: $('vNote').value });
       if(error) throw error;
       r.status = $('vSt').value; r.status_note = $('vNote').value;
+      paintPrint(r);                                      // ปิดการขายแล้ว → ปุ่มใบค่าคอมกดได้ทันที
       renderList(); toast('บันทึกสถานะแล้ว', 'ok');
     }catch(e){ toast(e.message || 'บันทึกไม่สำเร็จ', 'no'); }
     finally{ const b=$('vSaveSt'); if(b) b.disabled = false; }
