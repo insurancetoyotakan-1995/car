@@ -1582,7 +1582,9 @@ const STATUS_ORDER = ['new','contacted','quoted','done','cancelled'];
 function renderList(){
   const q = norm($('find').value), ag = isAdmin() ? $('fltAgent').value : '';
   // ใบที่ผ่านตัวกรองอื่นทั้งหมด ยกเว้นสถานะ → ใช้นับตัวเลขบนแท็บ
+  if(isViewer()) ST = 'done';                               // ฝ่ายบุคคล: มีแท็บเดียว (RLS ส่งมาแค่ใบปิดการขายอยู่แล้ว — กรองซ้ำกันพลาด)
   const base = LIST.filter(r=>{
+    if(isViewer() && r.status !== 'done') return false;
     if(ag === '__none' && r.assigned_to) return false;
     if(ag && ag !== '__none' && r.assigned_to !== ag) return false;
     if(!q) return true;
@@ -1591,7 +1593,8 @@ function renderList(){
   });
   const cnt = { '': base.length };
   STATUS_ORDER.forEach(k=> cnt[k] = base.filter(r=>r.status===k).length);
-  $('stTabs').innerHTML = [['', 'ทั้งหมด'], ...STATUS_ORDER.map(k=>[k, STATUS[k]])].map(([k, lb])=>
+  const tabs = isViewer() ? [['done', STATUS.done]] : [['', 'ทั้งหมด'], ...STATUS_ORDER.map(k=>[k, STATUS[k]])];
+  $('stTabs').innerHTML = tabs.map(([k, lb])=>
     '<button type="button" role="tab" class="stab st-' + (k||'all') + '" data-st="' + k + '" aria-selected="' + (ST === k) + '">'
     + '<span>' + esc(lb) + '</span><b>' + cnt[k] + '</b></button>').join('');
   $('stTabs').querySelectorAll('.stab').forEach(b=> b.onclick = ()=>{ ST = b.dataset.st; renderList(); });
@@ -1599,9 +1602,10 @@ function renderList(){
 
   const rows = base.filter(r=> !ST || r.status === ST);
   if(!rows.length){
-    const filtered = LIST.length && (q || ag || ST);
-    $('listBody').innerHTML = '<div class="empty"><b>' + (filtered ? 'ไม่พบคำขอที่ตรงกับตัวกรอง' : 'ยังไม่มีคำขอ') + '</b>'
-      + (filtered ? 'ลองล้างคำค้นหรือเลือกแท็บ "ทั้งหมด"'
+    const filtered = LIST.length && (q || ag || (ST && !isViewer()));
+    $('listBody').innerHTML = '<div class="empty"><b>' + (filtered ? 'ไม่พบคำขอที่ตรงกับตัวกรอง' : isViewer() ? 'ยังไม่มีใบที่ปิดการขาย' : 'ยังไม่มีคำขอ') + '</b>'
+      + (filtered ? (isViewer() ? 'ลองล้างคำค้น' : 'ลองล้างคำค้นหรือเลือกแท็บ "ทั้งหมด"')
+         : isViewer() ? 'ใบที่เจ้าหน้าที่ปิดการขายแล้วจะแสดงที่นี่'
          : (isAdmin() ? 'คำขอที่ลูกค้าส่งเข้ามาจะแสดงที่นี่' : 'ลูกค้าที่ระบบแจกให้คุณดูแลจะแสดงที่นี่'))
       + (filtered ? '<div style="margin-top:12px"><button class="btn sm" type="button" id="btnClearF">ล้างตัวกรอง</button></div>' : '')
       + '</div>';
