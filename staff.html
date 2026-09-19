@@ -75,6 +75,15 @@
   .vstep{font-size:11px}
 }
 
+/* ---------- วันเริ่มคุ้มครอง (ในแต่ละแถวเบี้ย) ---------- */
+.qdate{display:flex;align-items:flex-end;gap:8px 12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.qdate label.f{flex:0 1 210px;min-width:170px}
+.qdate input[type=date]{cursor:pointer}
+.qdate-th{flex:1 1 180px;font-size:12.5px;font-weight:600;color:var(--good-ink);padding-bottom:11px;line-height:1.5}
+.qdate-th.empty{color:var(--muted);font-weight:400}
+.qdate-same{margin-bottom:3px}
+@media (max-width:640px){ .qdate label.f{flex:1 1 100%} .qdate-th{padding-bottom:0} .qdate-same{width:100%} }
+
 /* ---------- เงื่อนไขส่วนลดในบล็อกเสนอราคา ---------- */
 .qdisc{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel);padding:12px 14px;margin:-2px 0 12px}
 .qdisc-h{display:flex;align-items:baseline;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;margin-bottom:9px}
@@ -472,6 +481,20 @@ function composeNote(){
   const w = pickedWelfare(), t = $('qNote').value.trim();
   return ((w ? '[สวัสดิการ: ' + w.label + '] ' : '') + t).trim() || null;
 }
+/* ---------- วันคุ้มครอง ----------
+   ค่าในฐานข้อมูล/ช่องปฏิทิน = 'YYYY-MM-DD' (ค.ศ.) · แสดงผลเป็น พ.ศ. · สิ้นสุด = วันเดียวกันของปีถัดไป (ประกันรถ 1 ปี) */
+function thDay(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  return m ? (+m[3]) + ' ' + TH_MON[+m[2] - 1] + ' ' + (+m[1] + 543) : '';
+}
+function plusYear(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  if(!m) return '';
+  const y = +m[1] + 1, mo = +m[2], d = Math.min(+m[3], new Date(y, mo, 0).getDate());   // 29 ก.พ. → 28 ก.พ. ปีถัดไป
+  return y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+const coverRange = iso => iso ? thDay(iso) + ' – ' + thDay(plusYear(iso)) : '';
+
 function discBlock(r){
   if(r.kind === 'refer'){
     return '<div class="qdisc" id="qDiscBox">'
@@ -504,7 +527,7 @@ function quoteBlock(r){
   const money = (id, lb, v) => '<label class="f c4">' + lb
     + '<input id="' + id + '" class="baht" inputmode="decimal" autocomplete="off" placeholder="0.00"'
     + ' value="' + esc(v == null || v === '' ? '' : fmtBaht(v)) + '"></label>';
-  const row = (k, title, ids, vals) =>
+  const row = (k, title, ids, vals, dId, dVal) =>
       '<div class="qpr">'
     +   '<div class="qpr-h"><b>' + esc(title) + '</b>'
     +     '<span>สุทธิที่ต้องชำระ <i id="qs' + k + '">—</i></span></div>'
@@ -512,6 +535,12 @@ function quoteBlock(r){
     +     money(ids[0], 'เบี้ยสุทธิ', vals[0])
     +     money(ids[1], 'เบี้ยรวม',  vals[1])
     +     money(ids[2], 'ส่วนลด',    vals[2])
+    +   '</div>'
+    /* วันเริ่มคุ้มครอง — ปฏิทินของเครื่อง · ข้าง ๆ แสดงช่วงคุ้มครองเป็น พ.ศ. (ครบ 1 ปี) */
+    +   '<div class="qdate">'
+    +     '<label class="f">วันเริ่มคุ้มครอง<input type="date" id="' + dId + '" min="2000-01-01" max="2100-12-31" value="' + esc(dVal || '') + '"></label>'
+    +     '<span class="qdate-th" id="' + dId + 'Th"></span>'
+    +     (k === '2' ? '<button type="button" class="btn sm qdate-same" id="qASame">ใช้วันเดียวกับประกันภัย</button>' : '')
     +   '</div>'
     + '</div>';
   return '<div class="sec">ข้อมูลเสนอราคา <span class="secx">เจ้าหน้าที่กรอก</span></div>'
@@ -532,9 +561,9 @@ function quoteBlock(r){
     +     '<input id="qTypOther" maxlength="120" autocomplete="off" value="' + esc(typOther ? r.quote_type : '') + '"></label>'
     + '</div>'
     + '<p class="qhint">เบี้ยสุทธิ = ก่อนอากรแสตมป์และภาษี · เบี้ยรวม = ยอดก่อนหักส่วนลด · ช่องที่ไม่มีเว้นว่างได้</p>'
-    + row('1', 'ประกันภัย (ภาคสมัครใจ)', ['qNet','qGross','qDisc'],    [r.quote_net, r.quote_gross, r.quote_disc])
+    + row('1', 'ประกันภัย (ภาคสมัครใจ)', ['qNet','qGross','qDisc'],    [r.quote_net, r.quote_gross, r.quote_disc], 'qStart', r.quote_start)
     + discBlock(r)
-    + row('2', 'พ.ร.บ. (ภาคบังคับ)',     ['qANet','qAGross','qADisc'], [r.quote_act_net, r.quote_act_gross, r.quote_act_disc])
+    + row('2', 'พ.ร.บ. (ภาคบังคับ)',     ['qANet','qAGross','qADisc'], [r.quote_act_net, r.quote_act_gross, r.quote_act_disc], 'qAStart', r.quote_act_start)
     + '<div class="qpr-tot"><span>รวมทั้งสิ้นที่ต้องชำระ</span><b id="qTotal">—</b></div>'
     + '<div class="grid" style="gap:11px;margin-top:11px">'
     +   '<label class="f c12">หมายเหตุการเสนอราคา<input id="qNote" maxlength="230" autocomplete="off"'
@@ -617,6 +646,18 @@ function wireQuote(r){
     onMoney();
   }));
   { const w = want(); if(w != null && Math.abs((num('qDisc') || 0) - w) < .005) $('qDisc').dataset.auto = $('qDisc').value; }   // ค่าที่บันทึกไว้ตรงเงื่อนไข = ให้ตามเบี้ยต่อได้
+  /* วันเริ่มคุ้มครอง: แสดงช่วง พ.ศ. ข้างช่อง · ปุ่ม "ใช้วันเดียวกับประกันภัย" ในแถว พ.ร.บ. */
+  const dateUpd = () => {
+    [['qStart', 'qStartTh'], ['qAStart', 'qAStartTh']].forEach(([id, th]) => {
+      const v = $(id).value;
+      $(th).textContent = v ? 'คุ้มครอง ' + coverRange(v) : 'ยังไม่ได้เลือกวัน';
+      $(th).classList.toggle('empty', !v);
+    });
+    $('qASame').disabled = !$('qStart').value || $('qStart').value === $('qAStart').value;
+  };
+  ['qStart', 'qAStart'].forEach(id => ['input', 'change'].forEach(ev => $(id).addEventListener(ev, () => { dateUpd(); paintPrint(r); })));
+  $('qASame').onclick = () => { $('qAStart').value = $('qStart').value; dateUpd(); paintPrint(r); };
+  dateUpd();
   discUpd();
   recalc();
   csel($('qIns')); csel($('qTyp'));
@@ -635,11 +676,19 @@ function wireQuote(r){
     if($('qTyp').value === OTHER_VAL && !type){ toast('กรอกประเภทประกันด้วย', 'no'); $('qTypOther').focus(); return; }
     const b = $('qSave'); b.disabled = true; b.classList.add('is-loading');
     try{
-      const res0 = await sb.rpc('ins_set_quote', {
+      const args = {
         p_req: r.id, p_insurer: insurer || null, p_type: type || null,
         p_net: num('qNet'), p_gross: num('qGross'), p_disc: num('qDisc'),
         p_act_net: num('qANet'), p_act_gross: num('qAGross'), p_act_disc: num('qADisc'),
-        p_note: composeNote() });
+        p_note: composeNote() };
+      let res0 = await sb.rpc('ins_set_quote', Object.assign({ p_start: $('qStart').value || null, p_act_start: $('qAStart').value || null }, args));
+      /* 🔑 ยังไม่ได้รัน migrate-2026-09-19-quote-dates.sql (ฐานข้อมูลยังไม่รู้จักวันคุ้มครอง)
+            → บันทึกเบี้ยแบบเดิมไปก่อน ไม่ให้งานเสนอราคาสะดุด แล้วบอกว่าวันยังไม่ถูกเก็บ */
+      let noDates = false;
+      if(res0.error && res0.error.code === 'PGRST202'){
+        noDates = true;
+        res0 = await sb.rpc('ins_set_quote', args);
+      }
       if(res0.error) throw res0.error;
       const res = res0.data || {};
       r.quote_insurer = insurer || null;  r.quote_type = type || null;
@@ -647,6 +696,8 @@ function wireQuote(r){
       r.quote_act_net = num('qANet'); r.quote_act_gross = num('qAGross'); r.quote_act_disc = num('qADisc');
       r.quote_total = res.total == null ? null : +res.total;
       r.quote_note  = composeNote();
+      if(!noDates){ r.quote_start = $('qStart').value || null; r.quote_act_start = $('qAStart').value || null; }
+      if(res.cleared){ r.quote_start = r.quote_act_start = null; }
       r.quote_at = res.cleared ? null : new Date().toISOString();
       r.quote_by = res.cleared ? null : (res.quoteBy || (ME && ME.empId) || null);
       if(res.statusChanged){
@@ -661,6 +712,8 @@ function wireQuote(r){
       toast(res.cleared ? 'ล้างข้อมูลเสนอราคาแล้ว'
         : 'บันทึกเบี้ยแล้ว · รวม ' + fmtBaht(res.total) + ' บาท'
           + (res.statusChanged ? ' · เปลี่ยนสถานะเป็น "เสนอราคาแล้ว"' : ''), 'ok');
+      if(noDates && ($('qStart').value || $('qAStart').value))
+        toast('บันทึกเบี้ยแล้ว แต่วันคุ้มครองยังไม่ถูกเก็บ — ผู้ดูแลต้องรัน migrate-2026-09-19-quote-dates.sql ใน Supabase ก่อน', 'no');
     }catch(e){ toast(e.message || 'บันทึกไม่สำเร็จ', 'no'); }
     finally{ const x = $('qSave'); if(x){ x.disabled = false; x.classList.remove('is-loading'); } }
   };
@@ -683,6 +736,9 @@ function quoteDirty(r){
   return pick('qIns', 'qInsOther') !== (r.quote_insurer || '')
       || pick('qTyp', 'qTypOther') !== (r.quote_type || '')
       || (composeNote() || '') !== (r.quote_note || '')
+      /* วันคุ้มครอง: เทียบเฉพาะเมื่อฐานข้อมูลมีคอลัมน์แล้ว (ยังไม่รัน SQL = ไม่มีคีย์ → ไม่ให้ค้าง "ยังไม่บันทึก" จนพิมพ์ไม่ได้) */
+      || ('quote_start' in r && ($('qStart').value || '') !== (r.quote_start || ''))
+      || ('quote_act_start' in r && ($('qAStart').value || '') !== (r.quote_act_start || ''))
       || [['qNet','quote_net'], ['qGross','quote_gross'], ['qDisc','quote_disc'],
           ['qANet','quote_act_net'], ['qAGross','quote_act_gross'], ['qADisc','quote_act_disc']]
           .some(([id, k]) => !same(bahtVal($(id)), r[k]));
@@ -852,6 +908,8 @@ function printSheet(r){
     + '<hr class="pf-hr">'
     + '<div class="pf-big"><b>เลขทะเบียนรถ</b>' + L([r.car_plate, r.car_province].filter(Boolean).join(' '), 1)
     +   '<b>หมายเลขตัวถัง</b>' + L(r.car_vin, 1.2) + '</div>'
+    + '<div class="pf-row"><span>วันคุ้มครอง ประกันภัย</span>' + L(coverRange(r.quote_start), 1)
+    +   '<span>พ.ร.บ.</span>' + L(coverRange(r.quote_act_start), 1) + '</div>'
     + '<div class="pf-prem">'
     +   TYPES.map(v => premRow(v, typ === v ? [r.quote_net, r.quote_gross, r.quote_disc] : [])).join('')
     +   (otherTyp ? premRow(typ, [r.quote_net, r.quote_gross, r.quote_disc]) : '')
