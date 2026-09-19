@@ -1208,7 +1208,7 @@ function printSheet(r){
   return '<div class="pf-no"><span>เลขที่</span>' + L(r.no) + '</div>'
     + '<div class="pf-title">แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงานโตโยต้า</div>'
     + '<div class="pf-cap">&gt;&gt; ส่วนสำหรับพนักงานกรอกข้อมูล</div>'
-    + '<div class="pf-row pf-ind">' + cb(self, 'ชื่อพนักงาน') + L(r.emp_name, 2) + '<span>แผนก</span>' + L(r.emp_dept, 1.4) + '<span>สาขา</span>' + L(r.emp_branch, 1.2) + '</div>'
+    + '<div class="pf-row"><span>ชื่อพนักงาน</span>' + L(r.emp_name, 2) + '<span>แผนก</span>' + L(r.emp_dept, 1.4) + '<span>สาขา</span>' + L(r.emp_branch, 1.2) + '</div>'
     + '<div class="pf-row pf-ind">' + cb(!self, 'ผู้ทำประกันภัย') + '</div>'
     + '<div class="pf-row"><span>ชื่อ</span>' + L([r.insured_title, r.insured_name].filter(Boolean).join(' '), 2.4)
     +   '<span>ที่อยู่</span>' + L(r.addr, 1.2) + '<span>หมู่</span>' + L(r.moo, .5) + '<span>ถนน</span>' + L(r.road, 1.3) + '</div>'
