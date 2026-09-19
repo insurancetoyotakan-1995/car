@@ -75,6 +75,33 @@
   .vstep{font-size:11px}
 }
 
+/* ---------- ดูไฟล์แนบ + พิมพ์ ----------
+   ซ้อนบนกล่องรายละเอียด (100) · ใต้กล่องยืนยัน (150) และ toast (200) */
+#ovFile{z-index:130}
+.fv{max-width:980px;height:92vh}
+.fv-hd h3{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fv-body{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#2b2627;position:relative}
+.fv-body img{max-width:100%;max-height:100%;object-fit:contain;display:block;background:#fff}
+.fv-body iframe{width:100%;height:100%;border:0;background:#fff}
+.fv-msg{color:#f1ecec;font-size:13.5px;display:flex;align-items:center;gap:10px;padding:0 20px;text-align:center}
+.fv-msg i{flex:none;width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;animation:fvspin .8s linear infinite}
+@keyframes fvspin{to{transform:rotate(360deg)}}
+.fv-ft svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.fv .ft{position:static}
+.frow .fbtns{display:flex;gap:6px;flex:0 0 auto}
+.frow .fbtns .btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* พิมพ์รูป: เต็มหน้า A4 · บรรทัดอ้างอิงเล็ก ๆ ท้ายหน้า */
+#printSheet .fp{display:flex;flex-direction:column;align-items:center;justify-content:center;height:268mm}
+#printSheet .fp img{max-width:100%;max-height:260mm;object-fit:contain;display:block}
+#printSheet .fp-ref{margin-top:3mm;font-size:7.5pt;color:#666;align-self:flex-end}
+@media (prefers-reduced-motion:reduce){.fv-msg i{animation:none}}
+@media (max-width:640px){
+  .fv{height:94vh}
+  .fv-ft #fvOpen span,.fv-ft #fvPrev span,.fv-ft #fvNext span{display:none}
+  .fv-ft .btn{padding-left:12px;padding-right:12px}
+  .frow .fbtns [data-print] span{display:none}       /* จอแคบ: ปุ่มพิมพ์เหลือไอคอน (มี aria-label) */
+}
+
 /* ---------- ปุ่มพิมพ์ใบคำขอ (เฉพาะหน้าเจ้าหน้าที่) ---------- */
 #vPrint svg,#vCom svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #vPrint[aria-disabled="true"],#vCom[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
@@ -267,6 +294,28 @@
         <span>พิมพ์ใบค่าคอม</span></button>
       <span class="pr-hint" id="vPrintHint"></span>
       <span class="grow"></span><button class="btn" id="vClose">ปิด</button></div>
+  </div>
+</div>
+<!-- ดูไฟล์แนบในหน้า (รูป/PDF) + พิมพ์ + เลื่อนไฟล์ก่อนหน้า/ถัดไป -->
+<div class="ov" id="ovFile">
+  <div class="card fv" role="dialog" aria-modal="true" aria-labelledby="fvName">
+    <div class="hd fv-hd">
+      <h3 id="fvName">ไฟล์แนบ</h3>
+      <p id="fvSub"></p>
+    </div>
+    <div class="fv-body" id="fvBody"></div>
+    <div class="ft fv-ft">
+      <button class="btn" id="fvPrev" type="button" aria-label="ไฟล์ก่อนหน้า">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>ก่อนหน้า</span></button>
+      <button class="btn" id="fvNext" type="button" aria-label="ไฟล์ถัดไป">
+        <span>ถัดไป</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+      <span class="grow"></span>
+      <button class="btn" id="fvOpen" type="button" aria-label="เปิดในแท็บใหม่">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>เปิดในแท็บใหม่</span></button>
+      <button class="btn primary" id="fvPrint" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg><span>พิมพ์</span></button>
+      <button class="btn" id="fvClose" type="button">ปิด</button>
+    </div>
   </div>
 </div>
 <!-- ใบคำขอสำหรับพิมพ์ — เลย์เอาต์ตามฟอร์มกระดาษของฝ่ายประกัน (แสดงเฉพาะตอนสั่งพิมพ์) -->
@@ -1301,32 +1350,102 @@ $('ovView').addEventListener('mousedown', e=>{ if(e.target === $('ovView')) $('o
 addEventListener('keydown', e=>{
   if(e.key !== 'Escape') return;
   if(askResolve) return askDone(null);
+  if($('ovFile').hasAttribute('open')) return closeFile();   // ดูไฟล์ซ้อนอยู่ = ปิดตัวบนก่อน
   $('ovView').removeAttribute('open');
 });
 
 function renderFiles(r){
   const box = $('vFiles'), list = FILES[r.id] || [];
   if(!list.length){ box.innerHTML = '<p style="font-size:12.5px;color:var(--muted);margin:0">ยังไม่มีไฟล์แนบ</p>'; return; }
-  box.innerHTML = list.map(f=>{
+  const PR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>';
+  box.innerHTML = list.map((f, i)=>{
     const img = /^image\//.test(f.mime||'');
     return '<div class="frow">'
       + '<span class="ft2' + (img?' img':'') + '">' + (img?'IMG':'PDF') + '</span>'
       + '<span class="nm" title="' + esc(f.name) + '">' + esc(f.name)
       +   (f.tag && DOC_LABEL[f.tag] ? ' <span style="font-weight:400;color:var(--muted)">· ' + esc(DOC_LABEL[f.tag]) + '</span>' : '') + '</span>'
       + '<span class="sz">' + fileSize(f.size||0) + '</span>'
-      + '<button class="btn sm" data-path="' + esc(f.path) + '">เปิดดู</button>'
+      + '<span class="fbtns"><button class="btn sm" type="button" data-view="' + i + '">เปิดดู</button>'
+      + '<button class="btn sm" type="button" data-print="' + i + '" aria-label="พิมพ์ ' + esc(f.name) + '">' + PR + '<span>พิมพ์</span></button></span>'
       + '</div>';
   }).join('');
-  box.querySelectorAll('[data-path]').forEach(b=> b.onclick = ()=> openFile(b.dataset.path));
+  box.querySelectorAll('[data-view]').forEach(b=> b.onclick = ()=> openFile(r, +b.dataset.view));
+  box.querySelectorAll('[data-print]').forEach(b=> b.onclick = ()=> openFile(r, +b.dataset.print, true));
 }
-/* bucket ไม่ public → ต้องขอ signed URL อายุสั้น ไม่ใช่ลิงก์ถาวร */
-async function openFile(path){
+
+/* ---------- ดูไฟล์แนบในหน้า + พิมพ์ ----------
+   🔑 bucket ไม่ public → โหลดไฟล์ผ่าน storage.download (ต้องล็อกอิน + RLS) แล้วแสดงจาก blob ในเครื่อง
+      ไม่ต้องใช้ลิงก์ signed URL ที่หมดอายุใน 2 นาที · เปิดในแท็บใหม่ก็ใช้ blob เดียวกัน
+   รูป → พิมพ์เต็มหน้า A4 ผ่าน #printSheet (กลไกเดียวกับใบคำขอ) · PDF → ใช้ตัวพิมพ์ของตัวดู PDF ในเบราว์เซอร์ */
+const FV = { r: null, i: 0, url: '', isImg: false, seq: 0 };
+async function openFile(r, i, autoPrint){
+  const list = FILES[r.id] || [], f = list[i];
+  if(!f) return;
+  const seq = ++FV.seq;
+  if(FV.url){ URL.revokeObjectURL(FV.url); FV.url = ''; }
+  Object.assign(FV, { r, i, isImg: /^image\//.test(f.mime || '') });
+  $('fvName').textContent = f.name;
+  $('fvName').title = f.name;
+  $('fvSub').textContent = [r.no, f.tag && DOC_LABEL[f.tag], fileSize(f.size || 0), (i + 1) + ' / ' + list.length].filter(Boolean).join(' · ');
+  $('fvPrev').disabled = i <= 0;
+  $('fvNext').disabled = i >= list.length - 1;
+  $('fvPrint').disabled = $('fvOpen').disabled = true;
+  $('fvBody').innerHTML = '<p class="fv-msg"><i></i>กำลังโหลดไฟล์…</p>';
+  $('ovFile').setAttribute('open', '');
   try{
-    const { data, error } = await sb.storage.from('ins-files').createSignedUrl(path, 120);
+    const { data, error } = await sb.storage.from('ins-files').download(f.path);
     if(error) throw error;
-    window.open(data.signedUrl, '_blank', 'noopener');
-  }catch(e){ toast(e.message || 'เปิดไฟล์ไม่สำเร็จ', 'no'); }
+    if(seq !== FV.seq) return;                               // กดไฟล์อื่นไปแล้วระหว่างรอ
+    const blob = f.mime && data.type !== f.mime ? new Blob([data], { type: f.mime }) : data;
+    FV.url = URL.createObjectURL(blob);
+    $('fvBody').innerHTML = FV.isImg
+      ? '<img id="fvImg" alt="' + esc(f.name) + '" src="' + FV.url + '">'
+      : '<iframe id="fvPdf" title="' + esc(f.name) + '" src="' + FV.url + '"></iframe>';
+    $('fvPrint').disabled = $('fvOpen').disabled = false;
+    if(autoPrint){
+      if(FV.isImg) await $('fvImg').decode().catch(() => {});
+      else await new Promise(res => { $('fvPdf').onload = res; setTimeout(res, 2500); });
+      if(seq === FV.seq) printFile();
+    }
+  }catch(e){
+    if(seq !== FV.seq) return;
+    $('fvBody').innerHTML = '<p class="fv-msg">เปิดไฟล์ไม่สำเร็จ — ' + esc(e.message || 'ลองอีกครั้ง') + '</p>';
+  }
 }
+function closeFile(){
+  FV.seq++;
+  $('ovFile').removeAttribute('open');
+  $('fvBody').innerHTML = '';
+  if(FV.url){ URL.revokeObjectURL(FV.url); FV.url = ''; }
+}
+async function printFile(){
+  if(!FV.url) return;
+  const f = (FILES[FV.r.id] || [])[FV.i];
+  if(!FV.isImg){
+    /* PDF: สั่งพิมพ์จากตัวดู PDF ในกรอบ · เบราว์เซอร์ที่ไม่ยอม (เช่น iPhone) → เปิดแท็บใหม่แล้วกดพิมพ์จากตรงนั้น */
+    try{ const w = $('fvPdf').contentWindow; w.focus(); w.print(); }
+    catch(e){ window.open(FV.url, '_blank'); toast('เปิดไฟล์ในแท็บใหม่แล้ว — กดพิมพ์จากหน้านั้น'); }
+    return;
+  }
+  $('printSheet').innerHTML = '<div class="fp"><img alt="" src="' + FV.url + '">'
+    + '<div class="fp-ref">' + esc([FV.r.no, f && f.tag && DOC_LABEL[f.tag], f && f.name].filter(Boolean).join(' · ')) + '</div></div>';
+  await $('printSheet').querySelector('img').decode().catch(() => {});
+  document.title = FV.r.no + (f && f.tag && DOC_LABEL[f.tag] ? ' ' + DOC_LABEL[f.tag] : '');
+  document.body.classList.add('printing');
+  addEventListener('afterprint', endPrint, { once:true });
+  window.print();
+}
+$('fvClose').onclick = closeFile;
+$('fvPrev').onclick = () => { if(FV.r && FV.i > 0) openFile(FV.r, FV.i - 1); };
+$('fvNext').onclick = () => { if(FV.r) openFile(FV.r, FV.i + 1); };
+$('fvPrint').onclick = printFile;
+$('fvOpen').onclick = () => { if(FV.url) window.open(FV.url, '_blank'); };
+$('ovFile').addEventListener('mousedown', e => { if(e.target === $('ovFile')) closeFile(); });
+addEventListener('keydown', e => {
+  if(!$('ovFile').hasAttribute('open') || askResolve) return;
+  if(e.key === 'ArrowLeft' && !$('fvPrev').disabled) $('fvPrev').click();
+  if(e.key === 'ArrowRight' && !$('fvNext').disabled) $('fvNext').click();
+});
 
 /* ---------- ผูก LINE ----------
    ขอรหัส 6 หลัก (ins_line_code) → เจ้าหน้าที่ส่งรหัสในแชท OA → Edge Function line-webhook เรียก ins_line_bind_srv
