@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260919-1">
+<link rel="stylesheet" href="style.css?v=20260919-2">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
 <script src="config.js?v=20260919-1"></script>
 
@@ -90,6 +90,7 @@
         </label>
       </div>
       <div class="empchk" id="empChk" hidden></div>
+      <div class="car2" id="car2Note" role="status" hidden></div>
     </section>
 
     <!-- ---------- ขั้นที่ 2 ---------- -->
@@ -543,6 +544,45 @@ async function lookupEmp(){
     }
   }catch(e){ /* ค้นไม่ได้ไม่ควรขวางการกรอก */ }
 }
+/* =======================================================================
+   สิทธิ์รถคันที่ 2 — สวัสดิการ 1 คน 1 คัน · คันที่ 2 ขึ้นไป ลด 10% เงินสด/โอนเท่านั้น
+   RPC ins_car2_check คืน "ตัวเลขตัวเดียว" = รถคันอื่นที่รหัสนี้ยื่นทำประกันเองใน 12 เดือน
+   (ทะเบียนเดียวกับที่กำลังกรอก = ต่ออายุคันเดิม ไม่นับ) · ถามใหม่เฉพาะตอนรหัส/ทะเบียนเปลี่ยน
+   ยังไม่ได้รัน migrate-2026-09-19-car2.sql → RPC error → เงียบ ไม่แจ้ง ไม่ขวางการกรอก
+   ======================================================================= */
+let CAR2 = 0, car2Key = '', car2Timer = null;
+function queueCar2(){ clearTimeout(car2Timer); car2Timer = setTimeout(checkCar2, 400); }
+async function checkCar2(){
+  const id = $('fEmpId').value.replace(/\D/g,'');
+  const plate = $('fPlate') ? $('fPlate').value.trim() : '';
+  const key = kindNow() === 'refer' || id.length < 4 || !sb ? '' : id + '|' + plate;
+  if(key === car2Key) return;
+  car2Key = key;
+  let n = 0;
+  if(key){
+    try{
+      const { data, error } = await sb.rpc('ins_car2_check', { p_emp_id: id, p_plate: plate });
+      if(error) throw error;
+      if(car2Key !== key) return;                                // รหัส/ทะเบียนเปลี่ยนระหว่างรอ ทิ้งผลเก่า
+      n = Math.max(0, +data || 0);
+    }catch(e){ n = 0; }
+  }
+  if(n === CAR2) return;
+  CAR2 = n;
+  paintCar2();
+  if(STEP === 3) renderReview();
+}
+function paintCar2(){
+  const box = $('car2Note'), on = CAR2 > 0 && kindNow() !== 'refer';
+  box.hidden = !on;
+  if(!on){ box.innerHTML = ''; return; }
+  box.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.2M12 17.2v.1"/></svg>'
+    + '<div><b>คันนี้จะใช้สิทธิ์ "รถคันที่ ' + (CAR2 + 1) + '"</b>'
+    + '<p>ระบบพบว่ารหัสนี้ยื่นทำประกันเองไว้แล้ว ' + CAR2 + ' คันในรอบ 12 เดือน · สวัสดิการพนักงานได้ 1 คน 1 คัน '
+    + 'คันที่ 2 ขึ้นไปได้ส่วนลด 10% และ<strong>ชำระด้วยเงินสดหรือโอนเท่านั้น</strong> (ผ่อนหักเงินเดือน/รูดบัตรไม่ได้)</p>'
+    + '<p class="sm">รถต้องเป็นชื่อของพนักงานเอง หรือแนบเอกสารยืนยันความสัมพันธ์ครอบครัว · '
+    + 'ถ้าเป็นการต่ออายุรถคันเดิม กรอกทะเบียนรถให้ตรงแล้วข้อความนี้จะหายไปเอง</p></div>';
+}
 /* สาขาตามหลักแรกของรหัสพนักงาน: 1 สำนักงานใหญ่ · 2 ท่ามะกา · 3 พนมทวน
    (กติกาเดียวกับเลขเอกสาร/ที่อยู่สาขาของระบบใบสำคัญจ่าย) · หลักอื่น = ไม่แตะ เลือกเองได้ */
 const BRANCH_BY_DIGIT = { '1':'สำนักงานใหญ่', '2':'ท่ามะกา', '3':'พนมทวน' };
@@ -559,6 +599,7 @@ $('fEmpId').addEventListener('input', ()=>{
   setBranchByEmp();
   clearTimeout(empTimer);
   empTimer = setTimeout(lookupEmp, 350);
+  queueCar2();
 });
 
 /* ---------- แผนก ----------
@@ -810,6 +851,7 @@ function syncKind(){
   $('empHead').textContent = refer ? 'พนักงานผู้แนะนำ' : 'ส่วนของพนักงาน';
   document.querySelector('.step[data-s="2"] .t').textContent = refer ? 'ลูกค้า' : 'ผู้เอาประกัน';
   syncRel();
+  paintCar2(); queueCar2();
 }
 const CONSENT_VER = 'pdpa-2026-09-15';
 const CONSENT_CO = 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด';
@@ -1982,6 +2024,7 @@ function wireCarBox(){
 const REL_LABEL = { self:'ตัวพนักงานเอง', father:'บิดา', mother:'มารดา',
   husband:'สามี', wife:'ภรรยา', child:'บุตร', other:'อื่น ๆ' };
 function renderReview(){
+  queueCar2();                                        // ทะเบียนเปลี่ยน (พิมพ์เอง/อ่านจากรูป) → ถามสิทธิ์คันที่ 2 ใหม่
   const refer = kindNow() === 'refer';
   const val = id => ($(id).value || '').trim();
   const addr = [
@@ -2009,7 +2052,8 @@ function renderReview(){
       block(1, refer ? 'พนักงานผู้แนะนำ' : 'ผู้ยื่นคำขอ', 1,
           row('แบบคำขอ', refer ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง')
         + row('ชื่อ', [val('fEmpName'), val('fEmpId') && ('รหัส ' + val('fEmpId'))].filter(Boolean).join(' · '))
-        + row('แผนก / สาขา', [val('fDept'), $('fBranch').value].filter(Boolean).join(' · ')))
+        + row('แผนก / สาขา', [val('fDept'), $('fBranch').value].filter(Boolean).join(' · '))
+        + (!refer && CAR2 > 0 ? row('สวัสดิการ', 'รถคันที่ ' + (CAR2 + 1) + ' · ส่วนลด 10% ชำระเงินสด/โอนเท่านั้น') : ''))
     + block(2, refer ? 'ลูกค้าที่แนะนำ' : 'ผู้ทำประกัน', 2,
           row('ชื่อ', [titleNow(), val('fName')].filter(Boolean).join(' '))
         + row('เลขบัตรประชาชน', val('fIdCard'))
@@ -2190,6 +2234,7 @@ function showDone(d, v){
     ['ผู้ทำประกัน', d.insuredName],
     ['เบอร์ติดต่อ', d.phoneMobile],
     [d.kind==='refer' ? 'ผู้แนะนำ' : 'พนักงาน', d.empName + (d.empVerified ? '' : ' (ยังไม่ยืนยันรหัส)')],
+    d.kind !== 'refer' && CAR2 > 0 && ['สวัสดิการ', 'รถคันที่ ' + (CAR2 + 1) + ' · ส่วนลด 10% ชำระเงินสด/โอนเท่านั้น'],
   ].filter(Boolean).map(([k,val])=>'<dt>'+esc(k)+'</dt><dd>'+esc(val||'—')+'</dd>').join('');
   renderDoneFiles();
   $('tabForm').hidden = true; $('tabDone').hidden = false;
@@ -2248,6 +2293,7 @@ function resetForm(keepEmp){
   PENDING.forEach(p=>{ if(p.url) URL.revokeObjectURL(p.url); });   // คืนหน่วยความจำรูปตัวอย่าง
   PENDING = [];
   carStop(true);
+  car2Key = null;                                    // เพิ่งส่งไป 1 คัน → นับใหม่
   renderDocRows(); renderChips(); syncKind();
   STEP = 1; paintSteps();
 }
