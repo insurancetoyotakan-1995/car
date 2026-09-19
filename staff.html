@@ -38,7 +38,8 @@
 #printSheet .pf-cap{font-weight:700;margin:3pt 0 2pt}
 #printSheet .pf-row{display:flex;align-items:flex-end;gap:5pt;margin:6.5pt 0}
 #printSheet .pf-row > span:not(.pl):not(.pc){white-space:nowrap}
-#printSheet .pl{flex:1 1 0;min-width:0;border-bottom:1pt dotted #000;min-height:1.35em;padding:0 3pt;
+/* เส้นเติมค่า: กว้างตามค่าก่อน (ค่ายาวได้ที่มากขึ้น) แล้วแบ่งที่เหลือตามน้ำหนัก · เส้นว่างสั้นสุด 9 มม. ให้ยังเขียนมือได้ */
+#printSheet .pl{flex:1 1 auto;min-width:9mm;border-bottom:1pt dotted #000;min-height:1.35em;padding:0 3pt;
   font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #printSheet .pl.r{text-align:right}
 #printSheet .pc{display:inline-block;flex:0 0 auto;width:11pt;height:11pt;border:1pt solid #000;margin-right:4pt;
@@ -393,7 +394,7 @@ function paintPrint(r){
   $('vPrintHint').textContent = why;
 }
 function printSheet(r){
-  const L  = (v, flex, cls) => '<span class="pl' + (cls ? ' ' + cls : '') + '"' + (flex ? ' style="flex:' + flex + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
+  const L  = (v, flex, cls) => '<span class="pl' + (cls ? ' ' + cls : '') + '"' + (flex ? ' style="' + (typeof flex === 'number' ? 'flex-grow:' + flex : 'flex:' + flex) + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
   const cb = (on, label) => '<span><span class="pc' + (on ? ' on' : '') + '"></span>' + esc(label) + '</span>';
   const m  = v => (v == null || v === '') ? '' : fmtBaht(v);
   const self = r.kind !== 'refer' && r.relation === 'self';
@@ -446,8 +447,7 @@ function printSheet(r){
     + '<div class="pf-pay"><div>'
     +   '<div class="pf-row"><span>การชำระเงิน วันที่</span>' + L('') + '<span>เลขที่ใบเสร็จรับเงิน</span>' + L('', 1.3) + '</div>'
     +   '<div class="pf-row pf-ind">' + cb(false, 'เงินสด จำนวน') + L('') + '<span>บาท</span></div>'
-    +   '<div class="pf-row pf-ind"><span style="white-space:normal;flex:1 1 auto"><span class="pc"></span>'
-    +     'โอนเงินเข้าบัญชีธนาคาร กรุงศรีอยุธยา/กจ. <span style="white-space:nowrap">#152-1-13543-6</span> จำนวนเงิน</span>' + L('', '0 0 26mm') + '<span>บาท</span></div>'
+    +   '<div class="pf-row pf-ind">' + cb(false, 'โอนเงินเข้าบัญชีธนาคาร กรุงศรีอยุธยา/กจ. #152-1-13543-6 จำนวนเงิน') + L('', '0 0 22mm') + '<span>บาท</span></div>'
     +   '<div class="pf-row pf-ind">' + cb(false, 'บัตรเครดิต') + L('') + '</div>'
     + '</div><div class="pf-box">ลงชื่อผู้รับเงิน</div></div>'
     + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no)
@@ -462,12 +462,39 @@ function doPrint(r){
     return;
   }
   $('printSheet').innerHTML = printSheet(r);
+  fitSheet($('printSheet'));
   document.title = r.no;                                   // ชื่อไฟล์ตอน "บันทึกเป็น PDF"
   document.body.classList.add('printing');
   /* ⚠️ ไม่ถอดคลาสด้วยตัวจับเวลา — iOS Safari สั่งพิมพ์แบบไม่รอ ถอดเร็วไปจะพิมพ์ได้ทั้งหน้าจอแทนใบคำขอ
         คลาสนี้มีผลเฉพาะตอนพิมพ์ ค้างไว้ก็ไม่กระทบหน้าจอ */
   addEventListener('afterprint', endPrint, { once:true });
   window.print();
+}
+/* 🔑 ข้อมูลต้อง "ไม่ตก" — ทุกแถวอยู่บรรทัดเดียวเหมือนฟอร์มกระดาษ และค่าต้องแสดงครบ ไม่ถูกตัดเป็น "…"
+      (เจอจริง: แผนก "Digital Marketing" ถูกตัด · แถวโอนเงินตกลงบรรทัดสอง)
+   วิธี: วางใบไว้นอกจอที่ความกว้างเท่าหน้า A4 จริง (184 มม. หลังหักขอบ) แล้ววัดทีละแถว
+     1) ให้ทุกเส้นเติมค่ากว้าง "เท่าค่าจริง" ชั่วคราว → แถวยาวเกินบรรทัด = ย่อทั้งแถว (ป้าย+ค่า) ทีละนิด จนพอดี (ไม่ต่ำกว่า 72%)
+        ⚠️ ห้ามย่อทีละช่อง — flex ย่อกล่องตามตัวอักษรไปด้วย ช่องแรกจะเล็กสุด ๆ ขณะช่องอื่นยังล้น (เจอจริงตอนทดสอบ)
+     2) คืนความกว้างปกติ (ค่าได้ที่ตามจริง + แบ่งที่เหลือ) · ยังล้นอยู่ช่องไหน ค่อยย่อเฉพาะช่องนั้น แล้ว "…" เป็นทางสุดท้าย
+   ขนาดที่ได้ติดไปกับองค์ประกอบ (inline style) → ตอนพิมพ์ใช้ขนาดเดียวกัน เพราะความกว้างหน้าเท่ากัน */
+function fitSheet(ps){
+  ps.style.cssText = 'display:block;position:absolute;left:-10000px;top:0;width:184mm;visibility:hidden';
+  const over = el => el.scrollWidth > el.clientWidth + 1;
+  ps.querySelectorAll('.pf-row, .pf-big, .pf-no').forEach(row => {
+    const free = [...row.querySelectorAll('.pl')].filter(p => !p.style.flexBasis || p.style.flexBasis === 'auto');
+    const keep = free.map(p => p.style.cssText);                // ⚠️ เก็บทั้งก้อน — style.flex อ่าน flex-grow อย่างเดียวไม่ออก
+    free.forEach(p => { p.style.flex = '0 0 auto'; });
+    let fs = parseFloat(getComputedStyle(row).fontSize);
+    const min = fs * .72;
+    while(over(row) && fs > min){ fs -= .25; row.style.fontSize = fs + 'px'; }
+    free.forEach((p, i) => { p.style.cssText = keep[i]; });
+  });
+  ps.querySelectorAll('.pl').forEach(pl => {
+    let fs = parseFloat(getComputedStyle(pl).fontSize);
+    const min = fs * .8;
+    while(over(pl) && fs > min){ fs -= .25; pl.style.fontSize = fs + 'px'; }
+  });
+  ps.style.cssText = '';
 }
 const PAGE_TITLE = document.title;
 function endPrint(){ document.body.classList.remove('printing'); document.title = PAGE_TITLE; }
