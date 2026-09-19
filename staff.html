@@ -246,8 +246,11 @@
 #printSheet .pf-big b{font-size:13pt;white-space:nowrap}
 #printSheet .pf-prem{border-top:1.2pt solid #000;border-bottom:1.2pt solid #000;padding:2pt 0}
 /* แถวเบี้ยจัดเป็นตาราง — เส้นเติมตัวเลขตรงกันทุกแถวเหมือนฟอร์มกระดาษ */
-#printSheet .pf-prem .pf-row{display:grid;grid-template-columns:37mm 1fr auto 39mm 1fr auto auto .85fr auto;
-  gap:5pt;align-items:end}
+#printSheet .pf-prem .pf-row{display:grid;grid-template-columns:40mm 1fr auto 39mm 1fr auto auto .85fr auto;
+  gap:4pt;align-items:end}
+/* หัวแถวกว้างคงที่ — ข้อความยาวเกินให้ตัด … แทนการทับตัวเลข */
+#printSheet .pf-prem .pf-row>span:not(.pl){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#printSheet .pf-oth{margin:6pt 0 -2pt;font-size:10pt}
 #printSheet .pf-sum{border-bottom:1.2pt solid #000;padding:2pt 0 4pt}
 #printSheet{max-width:184mm}
 #printSheet .pf-pay{display:grid;grid-template-columns:minmax(0,1fr) 40mm;gap:10pt;margin-top:7pt}
@@ -1250,7 +1253,8 @@ function printSheet(r){
     +   '<span>พ.ร.บ.</span>' + L(coverRange(r.quote_act_start, r.quote_act_end), 1) + '</div>'
     + '<div class="pf-prem">'
     +   TYPES.map(v => premRow(v, typ === v ? [r.quote_net, r.quote_gross, r.quote_disc] : [])).join('')
-    +   (otherTyp ? premRow(typ, [r.quote_net, r.quote_gross, r.quote_disc]) : '')
+    /* ประเภทนอกรายการ (เช่น "ประกันภัยประเภท 1 T-CARE (เบี้ยปกติ)") ชื่อยาวเกินช่องหัวแถว → ชื่อเต็มขึ้นบรรทัดของตัวเอง · แถวเบี้ยใช้ "อื่น ๆ" */
+    +   (otherTyp ? '<div class="pf-oth">ประเภทอื่น: <b>' + esc(typ) + '</b></div>' + premRow('อื่น ๆ', [r.quote_net, r.quote_gross, r.quote_disc]) : '')
     +   premRow('พรบ.', act)
     + '</div>'
     + '<div class="pf-row pf-sum"><span>รวมเงินที่ต้องการชำระหลังหักส่วนลด ประเภท</span>' + L(m(sumMain), 1, 'r')
