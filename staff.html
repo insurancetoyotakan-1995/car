@@ -10,6 +10,57 @@
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
 <link rel="stylesheet" href="style.css?v=20260918-2">
 <script src="config.js?v=20260918-2"></script>
+<style>
+/* ---------- ปุ่มพิมพ์ใบคำขอ (เฉพาะหน้าเจ้าหน้าที่) ---------- */
+#vPrint svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#vPrint[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
+.pr-hint{font-size:12px;color:var(--muted);align-self:center;line-height:1.5}
+.pr-hint:empty{display:none}
+/* มือถือ: ปุ่มพิมพ์ + ปิด อยู่แถวเดียว · คำอธิบายว่าทำไมยังพิมพ์ไม่ได้ ลงบรรทัดล่าง */
+@media (max-width:640px){
+  #ovView .ft .grow{display:none}
+  #vPrint{flex:1 1 auto}
+  .pr-hint{order:3;flex-basis:100%;text-align:center}
+}
+
+/* ---------- ใบคำขอสำหรับพิมพ์ — A4 ตามฟอร์มกระดาษ "แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงานโตโยต้า" ---------- */
+#printSheet{display:none}
+@media print{
+  @page{size:A4 portrait;margin:11mm 13mm}
+  body.printing > *:not(#printSheet){display:none !important}
+  body.printing{background:#fff !important;padding:0 !important;margin:0 !important}
+  body.printing #printSheet{display:block}
+}
+#printSheet{font-family:'Sarabun',sans-serif;color:#000;font-size:11.5pt;line-height:1.45}
+#printSheet .pf-no{display:flex;justify-content:flex-end;gap:5pt;align-items:flex-end;margin-bottom:5pt}
+#printSheet .pf-no .pl{flex:0 0 38mm}
+#printSheet .pf-title{border:1.2pt solid #000;text-align:center;font-weight:700;font-size:13.5pt;padding:4pt 0;margin-bottom:7pt}
+#printSheet .pf-cap{font-weight:700;margin:3pt 0 2pt}
+#printSheet .pf-row{display:flex;align-items:flex-end;gap:5pt;margin:6.5pt 0}
+#printSheet .pf-row > span:not(.pl):not(.pc){white-space:nowrap}
+#printSheet .pl{flex:1 1 0;min-width:0;border-bottom:1pt dotted #000;min-height:1.35em;padding:0 3pt;
+  font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#printSheet .pl.r{text-align:right}
+#printSheet .pc{display:inline-block;flex:0 0 auto;width:11pt;height:11pt;border:1pt solid #000;margin-right:4pt;
+  vertical-align:-1.5pt;position:relative}
+#printSheet .pc.on::after{content:'';position:absolute;left:3.3pt;top:.3pt;width:3.2pt;height:6.8pt;
+  border:solid #000;border-width:0 1.6pt 1.6pt 0;transform:rotate(45deg)}
+#printSheet .pf-opts{display:flex;flex-wrap:wrap;gap:4pt 16pt;align-items:center}
+#printSheet .pf-ind{padding-left:17pt}
+#printSheet .pf-hr{border:0;border-top:1.2pt solid #000;margin:9pt 0 6pt}
+#printSheet .pf-big{display:flex;align-items:flex-end;gap:6pt;margin:8pt 0}
+#printSheet .pf-big b{font-size:13pt;white-space:nowrap}
+#printSheet .pf-prem{border-top:1.2pt solid #000;border-bottom:1.2pt solid #000;padding:2pt 0}
+/* แถวเบี้ยจัดเป็นตาราง — เส้นเติมตัวเลขตรงกันทุกแถวเหมือนฟอร์มกระดาษ */
+#printSheet .pf-prem .pf-row{display:grid;grid-template-columns:37mm 1fr auto 39mm 1fr auto auto .85fr auto;
+  gap:5pt;align-items:end}
+#printSheet .pf-sum{border-bottom:1.2pt solid #000;padding:2pt 0 4pt}
+#printSheet{max-width:184mm}
+#printSheet .pf-pay{display:grid;grid-template-columns:minmax(0,1fr) 40mm;gap:10pt;margin-top:7pt}
+#printSheet .pf-box{border:1pt solid #000;min-height:34mm;display:flex;align-items:flex-end;justify-content:center;
+  font-size:9.5pt;padding-bottom:4pt}
+#printSheet .pf-foot{margin-top:10pt;font-size:8.5pt;color:#444;display:flex;justify-content:space-between;gap:10pt}
+</style>
 
 <body class="ops">
 <header class="staffbar">
@@ -82,9 +133,16 @@
   <div class="card">
     <div class="hd"><h3 id="vTitle">รายละเอียดคำขอ</h3><p id="vSub"></p></div>
     <div class="bd" id="vBody"></div>
-    <div class="ft"><span class="grow"></span><button class="btn" id="vClose">ปิด</button></div>
+    <div class="ft">
+      <button class="btn" id="vPrint" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>
+        <span>พิมพ์ใบคำขอ</span></button>
+      <span class="pr-hint" id="vPrintHint"></span>
+      <span class="grow"></span><button class="btn" id="vClose">ปิด</button></div>
   </div>
 </div>
+<!-- ใบคำขอสำหรับพิมพ์ — เลย์เอาต์ตามฟอร์มกระดาษของฝ่ายประกัน (แสดงเฉพาะตอนสั่งพิมพ์) -->
+<div id="printSheet" aria-hidden="true"></div>
 
 <div class="ov" id="ovAsk">
   <div class="card" style="max-width:430px">
@@ -255,7 +313,11 @@ function wireQuote(r){
     $('qs2').classList.toggle('bad', s2 < 0);
     $('qTotal').classList.toggle('bad', t < 0);
   }
-  ['qNet','qGross','qDisc','qANet','qAGross','qADisc'].forEach(id => bindBaht($(id), recalc));
+  ['qNet','qGross','qDisc','qANet','qAGross','qADisc'].forEach(id => bindBaht($(id), () => { recalc(); paintPrint(r); }));
+  ['qIns','qTyp','qInsOther','qTypOther','qNote'].forEach(id => {
+    $(id).addEventListener('input', () => paintPrint(r));
+    $(id).addEventListener('change', () => paintPrint(r));
+  });
   recalc();
   csel($('qIns')); csel($('qTyp'));
   const syncOther = ()=>{
@@ -294,6 +356,7 @@ function wireQuote(r){
       }
       renderList();
       $('qMeta').textContent = quoteMeta(r);
+      paintPrint(r);
       toast(res.cleared ? 'ล้างข้อมูลเสนอราคาแล้ว'
         : 'บันทึกเบี้ยแล้ว · รวม ' + fmtBaht(res.total) + ' บาท'
           + (res.statusChanged ? ' · เปลี่ยนสถานะเป็น "เสนอราคาแล้ว"' : ''), 'ok');
@@ -301,6 +364,113 @@ function wireQuote(r){
     finally{ const x = $('qSave'); if(x){ x.disabled = false; x.classList.remove('is-loading'); } }
   };
 }
+
+/* ---------- พิมพ์ใบคำขอ (ตามฟอร์มกระดาษของฝ่ายประกัน) ----------
+   🔑 พิมพ์ได้เมื่อ "บันทึก" ข้อมูลเสนอราคาแล้วเท่านั้น (บริษัท + ประเภท + เบี้ย) — ใบที่พิมพ์ต้องตรงกับที่อยู่ในระบบ
+      มีค่าในช่องที่ยังไม่กดบันทึก = ไม่ให้พิมพ์ (กันพิมพ์ตัวเลขที่ระบบไม่มี) */
+function printBlock(r){
+  if(!r.quote_at) return 'กรอกและบันทึกข้อมูลเสนอราคาก่อน จึงพิมพ์ได้';
+  if(!r.quote_insurer) return 'ยังไม่ได้ระบุบริษัทประกัน — กรอกแล้วกดบันทึกก่อนพิมพ์';
+  if(!r.quote_type) return 'ยังไม่ได้ระบุประเภทประกัน — กรอกแล้วกดบันทึกก่อนพิมพ์';
+  if(!(Number(r.quote_total) > 0)) return 'ยังไม่ได้กรอกเบี้ย — กรอกแล้วกดบันทึกก่อนพิมพ์';
+  return '';
+}
+function quoteDirty(r){
+  if(!$('qSave')) return false;
+  const pick = (sel, other) => $(sel).value === OTHER_VAL ? $(other).value.trim() : $(sel).value;
+  const same = (a, b) => (a == null || a === '') ? (b == null || b === '') : (b != null && b !== '' && Math.abs(+a - +b) < .005);
+  return pick('qIns', 'qInsOther') !== (r.quote_insurer || '')
+      || pick('qTyp', 'qTypOther') !== (r.quote_type || '')
+      || $('qNote').value.trim() !== (r.quote_note || '')
+      || [['qNet','quote_net'], ['qGross','quote_gross'], ['qDisc','quote_disc'],
+          ['qANet','quote_act_net'], ['qAGross','quote_act_gross'], ['qADisc','quote_act_disc']]
+          .some(([id, k]) => !same(bahtVal($(id)), r[k]));
+}
+function paintPrint(r){
+  const why = printBlock(r) || (quoteDirty(r) ? 'มีข้อมูลเสนอราคาที่ยังไม่บันทึก — กดบันทึกก่อนพิมพ์' : '');
+  $('vPrint').setAttribute('aria-disabled', why ? 'true' : 'false');
+  $('vPrint').title = why;
+  $('vPrintHint').textContent = why;
+}
+function printSheet(r){
+  const L  = (v, flex, cls) => '<span class="pl' + (cls ? ' ' + cls : '') + '"' + (flex ? ' style="flex:' + flex + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
+  const cb = (on, label) => '<span><span class="pc' + (on ? ' on' : '') + '"></span>' + esc(label) + '</span>';
+  const m  = v => (v == null || v === '') ? '' : fmtBaht(v);
+  const self = r.kind !== 'refer' && r.relation === 'self';
+  const typ = r.quote_type || '';
+  const TYPES = Object.entries(COVERS).filter(([k]) => k !== 'act').map(([, v]) => v);
+  const ACT = COVERS.act;
+  const hasMain = [r.quote_net, r.quote_gross, r.quote_disc].some(v => v != null);
+  const hasAct  = [r.quote_act_net, r.quote_act_gross, r.quote_act_disc].some(v => v != null);
+  /* เลือก พ.ร.บ. อย่างเดียวแต่กรอกเบี้ยไว้ในแถวภาคสมัครใจ → ย้ายไปแถว พ.ร.บ. ให้ตรงฟอร์ม */
+  const actOnly = typ === ACT && !hasAct && hasMain;
+  const act = actOnly ? [r.quote_net, r.quote_gross, r.quote_disc] : [r.quote_act_net, r.quote_act_gross, r.quote_act_disc];
+  const sumMain = actOnly || !hasMain ? null : (r.quote_gross || 0) - (r.quote_disc || 0);
+  const sumAct  = (actOnly || hasAct) ? (act[1] || 0) - (act[2] || 0) : null;
+  const otherTyp = typ && typ !== ACT && TYPES.indexOf(typ) < 0;
+  const premRow = (label, vals) =>
+      '<div class="pf-row"><span>เบี้ยสุทธิ ' + esc(label) + '</span>' + L(m(vals[0]), 1.1, 'r') + '<span>บาท</span>'
+    + '<span>เบี้ยรวม ' + esc(label) + '</span>' + L(m(vals[1]), 1.1, 'r') + '<span>บาท</span>'
+    + '<span>ส่วนลด</span>' + L(m(vals[2]), 1, 'r') + '<span>บาท</span></div>';
+  const rels = [['father','บิดา'], ['mother','มารดา'], ['husband','สามี'], ['wife','ภรรยา'], ['child','บุตร']];
+  const now = new Date();
+  return '<div class="pf-no"><span>เลขที่</span>' + L(r.no) + '</div>'
+    + '<div class="pf-title">แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงานโตโยต้า</div>'
+    + '<div class="pf-cap">&gt;&gt; ส่วนสำหรับพนักงานกรอกข้อมูล</div>'
+    + '<div class="pf-row pf-ind">' + cb(self, 'ชื่อพนักงาน') + L(r.emp_name, 2) + '<span>แผนก</span>' + L(r.emp_dept, 1.4) + '<span>สาขา</span>' + L(r.emp_branch, 1.2) + '</div>'
+    + '<div class="pf-row pf-ind">' + cb(!self, 'ผู้ทำประกันภัย') + '</div>'
+    + '<div class="pf-row"><span>ชื่อ</span>' + L([r.insured_title, r.insured_name].filter(Boolean).join(' '), 2.4)
+    +   '<span>ที่อยู่</span>' + L(r.addr, 1.2) + '<span>หมู่</span>' + L(r.moo, .5) + '<span>ถนน</span>' + L(r.road, 1.3) + '</div>'
+    + '<div class="pf-row"><span>ตำบล</span>' + L(r.tambon) + '<span>อำเภอ</span>' + L(r.amphoe) + '<span>จังหวัด</span>' + L([r.province, r.zipcode].filter(Boolean).join(' ')) + '</div>'
+    + '<div class="pf-row"><span>เบอร์โทรศัพท์บ้าน</span>' + L(r.phone_home) + '<span>เบอร์โทรศัพท์ มือถือ</span>' + L(r.phone_mobile) + '</div>'
+    + '<div class="pf-row pf-ind"><span style="margin-right:8pt">ความสัมพันธ์</span><span class="pf-opts">'
+    +   rels.map(([k, lb]) => cb(r.kind !== 'refer' && r.relation === k, lb)).join('')
+    +   (r.kind !== 'refer' && r.relation === 'other' ? cb(true, 'อื่น ๆ ' + (r.relation_note || '')) : '')
+    + '</span></div>'
+    + '<div class="pf-row pf-ind">' + cb(!!r.quote_insurer, 'ประเภทที่ทำประกันภัย ซื้อบริษัท') + L(r.quote_insurer, 2) + '</div>'
+    + '<div class="pf-row pf-ind"><span class="pf-opts" style="padding-left:15pt">'
+    +   TYPES.map(v => cb(typ === v, v)).join('') + cb(typ === ACT || hasAct, 'พรบ.')
+    +   (otherTyp ? cb(true, typ) : '')
+    + '</span></div>'
+    + '<hr class="pf-hr">'
+    + '<div class="pf-big"><b>เลขทะเบียนรถ</b>' + L([r.car_plate, r.car_province].filter(Boolean).join(' '), 1)
+    +   '<b>หมายเลขตัวถัง</b>' + L(r.car_vin, 1.2) + '</div>'
+    + '<div class="pf-prem">'
+    +   TYPES.map(v => premRow(v, typ === v ? [r.quote_net, r.quote_gross, r.quote_disc] : [])).join('')
+    +   (otherTyp ? premRow(typ, [r.quote_net, r.quote_gross, r.quote_disc]) : '')
+    +   premRow('พรบ.', act)
+    + '</div>'
+    + '<div class="pf-row pf-sum"><span>รวมเงินที่ต้องการชำระหลังหักส่วนลด ประเภท</span>' + L(m(sumMain), 1, 'r')
+    +   '<span>พรบ</span>' + L(m(sumAct), 1, 'r') + '<span>รวมทั้งสิ้น</span>' + L(m(r.quote_total), 1.2, 'r') + '<span>บาท</span></div>'
+    + (r.quote_note ? '<div class="pf-row"><span>หมายเหตุ</span>' + L(r.quote_note) + '</div>' : '')
+    + '<div class="pf-pay"><div>'
+    +   '<div class="pf-row"><span>การชำระเงิน วันที่</span>' + L('') + '<span>เลขที่ใบเสร็จรับเงิน</span>' + L('', 1.3) + '</div>'
+    +   '<div class="pf-row pf-ind">' + cb(false, 'เงินสด จำนวน') + L('') + '<span>บาท</span></div>'
+    +   '<div class="pf-row pf-ind"><span style="white-space:normal;flex:1 1 auto"><span class="pc"></span>'
+    +     'โอนเงินเข้าบัญชีธนาคาร กรุงศรีอยุธยา/กจ. <span style="white-space:nowrap">#152-1-13543-6</span> จำนวนเงิน</span>' + L('', '0 0 26mm') + '<span>บาท</span></div>'
+    +   '<div class="pf-row pf-ind">' + cb(false, 'บัตรเครดิต') + L('') + '</div>'
+    + '</div><div class="pf-box">ลงชื่อผู้รับเงิน</div></div>'
+    + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no)
+    +   (r.assigned_to ? ' · ผู้ดูแล ' + esc(agentName(r.assigned_to)) : '') + '</span>'
+    +   '<span>พิมพ์เมื่อ ' + esc(thDate(now.toISOString())) + '</span></div>';
+}
+function doPrint(r){
+  const why = printBlock(r) || (quoteDirty(r) ? 'มีข้อมูลเสนอราคาที่ยังไม่บันทึก — กด "บันทึกข้อมูลเสนอราคา" ก่อนพิมพ์' : '');
+  if(why){
+    toast(why, 'no');
+    const q = $('qIns'); if(q) q.closest('.grid').scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+  $('printSheet').innerHTML = printSheet(r);
+  document.title = r.no;                                   // ชื่อไฟล์ตอน "บันทึกเป็น PDF"
+  document.body.classList.add('printing');
+  /* ⚠️ ไม่ถอดคลาสด้วยตัวจับเวลา — iOS Safari สั่งพิมพ์แบบไม่รอ ถอดเร็วไปจะพิมพ์ได้ทั้งหน้าจอแทนใบคำขอ
+        คลาสนี้มีผลเฉพาะตอนพิมพ์ ค้างไว้ก็ไม่กระทบหน้าจอ */
+  addEventListener('afterprint', endPrint, { once:true });
+  window.print();
+}
+const PAGE_TITLE = document.title;
+function endPrint(){ document.body.classList.remove('printing'); document.title = PAGE_TITLE; }
 
 let LIST = [], FILES = {};
 /* ME = บัญชีที่ล็อกอิน {empId, role:'agent'|'admin', name}
@@ -726,6 +896,8 @@ function openView(id){
   renderFiles(r);
   csel($('vSt'));
   wireQuote(r);
+  paintPrint(r);
+  $('vPrint').onclick = () => doPrint(r);
   if(isAdmin()){
     csel($('vAg'));
     $('vSaveAg').onclick = async ()=>{
@@ -758,7 +930,7 @@ function openView(id){
   $('ovView').setAttribute('open','');
   $('vBody').scrollTop = 0;
 }
-$('vClose').onclick = ()=> $('ovView').removeAttribute('open');
+$('vClose').onclick = ()=>{ $('ovView').removeAttribute('open'); endPrint(); };
 $('ovView').addEventListener('mousedown', e=>{ if(e.target === $('ovView')) $('ovView').removeAttribute('open'); });
 addEventListener('keydown', e=>{
   if(e.key !== 'Escape') return;
