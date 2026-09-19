@@ -11,6 +11,70 @@
 <link rel="stylesheet" href="style.css?v=20260918-2">
 <script src="config.js?v=20260918-2"></script>
 <style>
+/* ---------- กล่องรายละเอียดคำขอ ----------
+   🔑 จัดตามลำดับงานเจ้าหน้าที่: ใคร/รถอะไร → โทร → ตรวจเอกสาร → เสนอราคา → อัปเดตสถานะ → พิมพ์
+      หัว = เลขที่ + สถานะ + ขั้นสถานะ (กดเปลี่ยนได้) · เนื้อหาแยกแท็บ ไม่ต้องเลื่อนยาวหาช่องกรอก */
+#ovView .card{max-width:700px}
+.vh-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.vh-top .pill{font-size:12px;padding:3px 11px}
+.vsteps{list-style:none;display:grid;grid-template-columns:repeat(4,1fr);margin:14px 0 0;padding:0}
+.vsteps li{position:relative}
+/* เส้นเชื่อมระหว่างวงกลม — จากกลางขั้นก่อนหน้าถึงกลางขั้นนี้ */
+.vsteps li + li::before{content:'';position:absolute;top:13px;left:-50%;right:50%;height:2px;background:var(--line)}
+.vsteps li.lit::before{background:var(--good)}
+.vstep{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;
+  min-height:44px;padding:0 2px;background:none;border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:600;
+  color:var(--muted);line-height:1.35;text-align:center;transition:color .15s}
+.vstep i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:700;
+  font-size:12.5px;background:var(--panel);border:2px solid var(--line);color:var(--muted);
+  transition:background .15s,border-color .15s,box-shadow .15s}
+.vstep:hover:not(.cur) i{border-color:var(--accent);color:var(--accent-ink)}
+.vstep.past{color:var(--good-ink)}
+.vstep.past i{background:var(--good);border-color:var(--good);color:#fff}
+.vstep.cur{color:var(--accent-ink);font-weight:700;cursor:default}
+.vstep.cur i{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 4px var(--accent-soft)}
+.vstep:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+.vstep[aria-busy="true"] i{animation:vpulse 1s ease-in-out infinite}
+@keyframes vpulse{50%{opacity:.45}}
+.vsteps.off .vstep i{border-style:dashed}
+/* สรุปบนสุด: ลูกค้า + รถ + ปุ่มโทร */
+.vsum{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:6px;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel-2)}
+.vsum-who{flex:1;min-width:0}
+.vsum-who b{display:block;font-size:16.5px;font-weight:700;color:var(--ink);line-height:1.4}
+.vsum-who span{display:block;font-size:12.5px;color:var(--ink-soft);margin-top:2px;line-height:1.55}
+.vsum-note{margin:8px 0 0;padding:9px 12px;border-radius:var(--r-sm);background:var(--warn-soft);
+  color:var(--warn-ink);font-size:12.5px;line-height:1.6;white-space:pre-line}
+.vsum-note b{font-weight:700}
+.btn.vcall{background:var(--good-ink);border-color:var(--good-ink);color:#fff;text-decoration:none;flex:0 0 auto}
+.btn.vcall:hover:not(:disabled){background:#255622;border-color:#255622}
+.btn.vcall svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* แท็บ — ติดบนเมื่อเลื่อน */
+.vtabs{position:sticky;top:0;z-index:3;display:flex;gap:2px;margin:0 -22px 16px;padding:6px 16px 0;
+  background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.vtabs::-webkit-scrollbar{display:none}
+.vtab{font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);background:none;border:0;
+  border-bottom:2.5px solid transparent;padding:10px 11px 9px;min-height:44px;white-space:nowrap;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:color .15s,border-color .15s}
+.vtab:hover{color:var(--ink-soft)}
+.vtab[aria-selected="true"]{color:var(--accent-ink);border-bottom-color:var(--accent)}
+.vtab:focus-visible{outline:2px solid var(--accent);outline-offset:-3px;border-radius:6px}
+.vtab b{font-size:11.5px;font-weight:700;min-width:20px;padding:1px 7px;border-radius:999px;text-align:center;
+  background:var(--panel-2);color:var(--ink-soft);border:1px solid var(--line)}
+.vtab.ok::after{content:'✓';font-size:12px;font-weight:700;color:var(--good-ink);background:var(--good-soft);
+  border-radius:999px;padding:0 6px}
+.vtab.todo::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.vpane[hidden]{display:none}
+.vpane > .sec:first-child{margin-top:4px}
+@media (prefers-reduced-motion:reduce){.vstep,.vstep i,.vtab{transition:none}.vstep[aria-busy="true"] i{animation:none}}
+@media (max-width:640px){
+  .vsum{flex-wrap:wrap}
+  .btn.vcall{width:100%}
+  .vtabs{padding:4px 12px 0}
+  .vtab{padding:10px 7px 9px;font-size:13px}
+  .vstep{font-size:11px}
+}
+
 /* ---------- ปุ่มพิมพ์ใบคำขอ (เฉพาะหน้าเจ้าหน้าที่) ---------- */
 #vPrint svg,#vCom svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #vPrint[aria-disabled="true"],#vCom[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
@@ -187,7 +251,12 @@
 
 <div class="ov" id="ovView">
   <div class="card">
-    <div class="hd"><h3 id="vTitle">รายละเอียดคำขอ</h3><p id="vSub"></p></div>
+    <div class="hd">
+      <div class="vh-top"><h3 id="vTitle">รายละเอียดคำขอ</h3><span class="pill" id="vPill"></span></div>
+      <p id="vSub"></p>
+      <!-- ขั้นสถานะ — กดขั้นไหนก็เปลี่ยนสถานะเป็นขั้นนั้นทันที -->
+      <ol class="vsteps" id="vSteps" aria-label="ขั้นตอนการติดตามลูกค้า"></ol>
+    </div>
     <div class="bd" id="vBody"></div>
     <div class="ft">
       <button class="btn" id="vPrint" type="button">
@@ -415,6 +484,7 @@ function wireQuote(r){
       }
       renderList();
       $('qMeta').textContent = quoteMeta(r);
+      paintHead(r);                                       // บันทึกเบี้ยแล้วเซิร์ฟเวอร์เลื่อนเป็น "เสนอราคาแล้ว" → ขั้นสถานะด้านบนตามทันที
       paintPrint(r);
       toast(res.cleared ? 'ล้างข้อมูลเสนอราคาแล้ว'
         : 'บันทึกเบี้ยแล้ว · รวม ' + fmtBaht(res.total) + ' บาท'
@@ -456,6 +526,8 @@ function paintPrint(r){
   $('vCom').setAttribute('aria-disabled', comWhy ? 'true' : 'false');
   $('vCom').title = comWhy;
   $('vPrintHint').textContent = why || (isRef && comWhy ? 'ใบค่าคอม: ' + comWhy : '');
+  const qt = $('vt-quote');                              // แท็บเสนอราคา: ✓ เมื่อบันทึกแล้ว
+  if(qt) qt.classList.toggle('ok', !!r.quote_at);
 }
 
 /* ---------- ใบค่าคอมมิชชั่น / ค่าแนะนำ (ตามเงื่อนไขฝ่ายประกัน) ----------
@@ -631,12 +703,14 @@ function doPrint(r, which){
   const why = printBlock(r) || (quoteDirty(r) ? 'มีข้อมูลเสนอราคาที่ยังไม่บันทึก — กด "บันทึกข้อมูลเสนอราคา" ก่อนพิมพ์' : '');
   if(why){
     toast(why, 'no');
+    showTab('quote');
     const q = $('qIns'); if(q) q.closest('.grid').scrollIntoView({ behavior:'smooth', block:'center' });
     return;
   }
   const cwhy = com ? comBlock(r) : '';
   if(cwhy){
     toast('ใบค่าคอม: ' + cwhy, 'no');
+    showTab('track');
     const s = $('vSt'); if(s) s.closest('.grid').scrollIntoView({ behavior:'smooth', block:'center' });
     return;
   }
@@ -1005,13 +1079,54 @@ $('btnReload').onclick = async ()=>{
   finally{ b.disabled = false; b.classList.remove('spin'); }
 };
 
-/* ---------- รายละเอียด ---------- */
+/* ---------- รายละเอียด ----------
+   หัว: เลขที่ + ป้ายสถานะ + ขั้นสถานะที่กดเปลี่ยนได้ · สรุปลูกค้า + ปุ่มโทร · เนื้อหาแยก 4 แท็บ */
+const STEPS = ['new', 'contacted', 'quoted', 'done'];
+function paintHead(r){
+  $('vPill').className = 'pill ' + r.status;
+  $('vPill').textContent = STATUS[r.status] || r.status;
+  const cur = STEPS.indexOf(r.status);                   // ยกเลิก = -1 → ทุกขั้นเป็นเส้นประ
+  $('vSteps').classList.toggle('off', cur < 0);
+  $('vSteps').innerHTML = STEPS.map((k, i) =>
+    '<li' + (cur >= 0 && i <= cur && i > 0 ? ' class="lit"' : '') + '>'
+    + '<button type="button" class="vstep' + (i < cur ? ' past' : i === cur ? ' cur' : '') + '" data-st="' + k + '"'
+    + (i === cur ? ' aria-current="step"' : '') + ' title="' + (i === cur ? 'สถานะปัจจุบัน' : 'เปลี่ยนสถานะเป็น "' + esc(STATUS[k]) + '"') + '">'
+    + '<i>' + (i < cur ? '✓' : i + 1) + '</i><span>' + esc(STATUS[k]) + '</span></button></li>').join('');
+  $('vSteps').querySelectorAll('.vstep').forEach(b => b.onclick = () => stepTo(r, b.dataset.st, b));
+}
+/* กดขั้นสถานะ = บันทึกทันที (ใช้บันทึกของเจ้าหน้าที่ที่พิมพ์ค้างในแท็บติดตามงานด้วย) · ปิดการขายถามยืนยันก่อน */
+async function stepTo(r, st, btn){
+  if(st === r.status) return;
+  if(st === 'done' && !(await ask({ title:'ปิดการขาย?', msg:'เปลี่ยนสถานะใบ ' + r.no + ' เป็น "ปิดการขาย"', okText:'ปิดการขาย' }))) return;
+  btn.setAttribute('aria-busy', 'true');
+  const note = $('vNote') ? $('vNote').value : (r.status_note || '');
+  try{
+    const { error } = await sb.rpc('ins_set_status', { p_req: r.id, p_status: st, p_note: note });
+    if(error) throw error;
+    r.status = st; r.status_note = note;
+    if($('vSt')){ $('vSt').value = st; $('vSt').dispatchEvent(new Event('change')); }
+    paintHead(r); paintPrint(r); renderList();
+    toast('เปลี่ยนสถานะเป็น "' + STATUS[st] + '" แล้ว', 'ok');
+  }catch(e){ toast(e.message || 'เปลี่ยนสถานะไม่สำเร็จ', 'no'); btn.removeAttribute('aria-busy'); }
+}
+function showTab(t){
+  document.querySelectorAll('#vBody .vtab').forEach(b => {
+    const on = b.dataset.tab === t;
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    b.tabIndex = on ? 0 : -1;
+  });
+  document.querySelectorAll('#vBody .vpane').forEach(p => { p.hidden = p.id !== 'vp-' + t; });
+}
+/* แท็บเริ่มต้นตามขั้นงาน: ใบใหม่ = ดูข้อมูลก่อน · ติดต่อแล้ว/เสนอราคาแล้ว = ไปที่เสนอราคาเลย */
+const defaultTab = r => (r.status === 'contacted' || r.status === 'quoted') ? 'quote' : 'info';
+
 function openView(id){
   const r = LIST.find(x=>x.id===id);
   if(!r) return;
   $('vTitle').textContent = r.no;
   $('vSub').textContent = (r.kind==='refer' ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง')
-    + ' · ส่งเมื่อ ' + thDate(r.created_at);
+    + ' · ส่งเมื่อ ' + thDate(r.created_at) + (r.assigned_to ? ' · ผู้ดูแล ' + agentName(r.assigned_to) : '');
+  paintHead(r);
 
   const addr = [
     r.addr && ('เลขที่ ' + r.addr), r.moo && ('หมู่ ' + r.moo), r.road && ('ถ.' + r.road),
@@ -1029,8 +1144,28 @@ function openView(id){
     .filter(([k])=> r['doc_' + k.replace(/[A-Z]/g, m=>'_'+m.toLowerCase())])
     .map(([,v])=>v);
 
+  const nFiles = (FILES[r.id] || []).length;
+  const carTxt = [r.car_plate, r.car_province].filter(Boolean).join(' ')
+    || [r.car_brand, r.car_model].filter(Boolean).join(' ');
+  const coverTxt = (r.covers || []).map(c => COVERS[c] || c).join(' · ');
+  const telHref = r.phone_mobile ? 'tel:' + String(r.phone_mobile).replace(/[^0-9+]/g, '') : '';
+  const TABS = [['info', 'ข้อมูลลูกค้า', ''], ['docs', 'เอกสาร', '<b>' + nFiles + '</b>'], ['quote', 'เสนอราคา', ''], ['track', 'ติดตามงาน', '']];
+
   $('vBody').innerHTML =
-      '<div class="sec">ผู้ทำประกันภัย</div>'
+      '<div class="vsum">'
+    +   '<div class="vsum-who"><b>' + esc([r.insured_title, r.insured_name].filter(Boolean).join(' ') || '—') + '</b>'
+    +     '<span>' + esc([carTxt ? 'รถ ' + carTxt : 'ยังไม่ระบุรถ', coverTxt && 'ต้องการ ' + coverTxt].filter(Boolean).join(' · ')) + '</span></div>'
+    +   (telHref ? '<a class="btn vcall" href="' + esc(telHref) + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3.5l1.8 4.4-2.3 1.5a11 11 0 0 0 6.1 6.1l1.5-2.3L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 3.5 5.6 1.5 1.5 0 0 1 5 4z"/></svg>'
+    +     '<span>โทร ' + esc(r.phone_mobile) + '</span></a>' : '')
+    + '</div>'
+    + (r.note ? '<p class="vsum-note"><b>หมายเหตุจากผู้ยื่น:</b> ' + esc(r.note) + '</p>' : '')
+    + '<div class="vtabs" role="tablist" aria-label="ส่วนของคำขอ">'
+    +   TABS.map(([k, lb, x]) => '<button type="button" role="tab" class="vtab" id="vt-' + k + '" data-tab="' + k + '"'
+          + ' aria-controls="vp-' + k + '" aria-selected="false" tabindex="-1">' + esc(lb) + x + '</button>').join('')
+    + '</div>'
+
+    + '<section class="vpane" id="vp-info" role="tabpanel" aria-labelledby="vt-info" hidden>'
+    + '<div class="sec">ผู้ทำประกันภัย</div>'
     + dl([
         ['ชื่อ–นามสกุล', [r.insured_title, r.insured_name].filter(Boolean).join(' ')],
         ['เลขบัตรประชาชน', idFmt],
@@ -1071,6 +1206,29 @@ function openView(id){
           ? '✓ ยินยอมแล้ว · ' + thDate(r.consent_at) + (r.consent_version ? ' · ฉบับ ' + r.consent_version : '')
           : 'ไม่มีบันทึก (ใบที่ส่งก่อนมีช่องยินยอม)'],
       ])
+    + '</section>'
+
+    + '<section class="vpane" id="vp-docs" role="tabpanel" aria-labelledby="vt-docs" hidden>'
+    + '<div class="sec">เอกสารแนบ</div>'
+    + (docs.length ? '<p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">ผู้ยื่นแจ้งว่ามี: ' + esc(docs.join(' · '))
+        + (r.doc_rel_note ? ' (' + esc(r.doc_rel_note) + ')' : '') + '</p>' : '')
+    + '<div class="flist" id="vFiles"></div>'
+    + '</section>'
+
+    + '<section class="vpane" id="vp-quote" role="tabpanel" aria-labelledby="vt-quote" hidden>'
+    + quoteBlock(r)
+    + '</section>'
+
+    + '<section class="vpane" id="vp-track" role="tabpanel" aria-labelledby="vt-track" hidden>'
+    + '<div class="sec">สถานะการติดตาม</div>'
+    + '<div class="grid" style="gap:11px">'
+    +   '<label class="f c4">สถานะ<select id="vSt">'
+    +     Object.entries(STATUS).map(([k,v])=>'<option value="'+k+'"'+(k===r.status?' selected':'')+'>'+esc(v)+'</option>').join('')
+    +   '</select></label>'
+    +   '<label class="f c8">บันทึกของเจ้าหน้าที่<input id="vNote" value="' + esc(r.status_note||'') + '" placeholder="เช่น โทรแล้ว รอส่งสำเนา"></label>'
+    + '</div>'
+    + '<div style="margin-top:11px"><button class="btn primary" id="vSaveSt">บันทึกสถานะ</button></div>'
+    + '<p class="agnote">เปลี่ยนสถานะเร็ว ๆ ได้จากขั้นสถานะด้านบน · ใช้ช่องนี้เมื่อต้องการบันทึกข้อความหรือยกเลิกใบ</p>'
     + '<div class="sec">ผู้ดูแลลูกค้า</div>'
     + (isAdmin()
         ? '<div class="grid" style="gap:11px;align-items:end">'
@@ -1084,25 +1242,24 @@ function openView(id){
           + (r.assigned_at ? '<p class="agnote">แจกให้เมื่อ ' + esc(thDate(r.assigned_at)) + '</p>' : '')
         : '<p style="font-size:13.5px;margin:0">คุณ (' + esc(ME ? ME.name : '') + ')'
           + (r.assigned_at ? ' <span style="color:var(--muted)">· ได้รับเมื่อ ' + esc(thDate(r.assigned_at)) + '</span>' : '') + '</p>')
-    + (r.note ? '<div class="sec">หมายเหตุจากผู้ยื่น</div><p style="font-size:13.5px;margin:0;white-space:pre-line">' + esc(r.note) + '</p>' : '')
-    + '<div class="sec">เอกสารแนบ</div>'
-    + (docs.length ? '<p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">แจ้งว่ามี: ' + esc(docs.join(' · '))
-        + (r.doc_rel_note ? ' (' + esc(r.doc_rel_note) + ')' : '') + '</p>' : '')
-    + '<div class="flist" id="vFiles"></div>'
-    + quoteBlock(r)
-    + '<div class="sec">สถานะการติดตาม</div>'
-    + '<div class="grid" style="gap:11px">'
-    +   '<label class="f c4">สถานะ<select id="vSt">'
-    +     Object.entries(STATUS).map(([k,v])=>'<option value="'+k+'"'+(k===r.status?' selected':'')+'>'+esc(v)+'</option>').join('')
-    +   '</select></label>'
-    +   '<label class="f c8">บันทึกของเจ้าหน้าที่<input id="vNote" value="' + esc(r.status_note||'') + '" placeholder="เช่น โทรแล้ว รอส่งสำเนา"></label>'
-    + '</div>'
-    + '<div style="margin-top:11px"><button class="btn primary" id="vSaveSt">บันทึกสถานะ</button></div>';
+    + '</section>';
 
   renderFiles(r);
   csel($('vSt'));
   wireQuote(r);
   paintPrint(r);
+  /* แท็บ: คลิก + ลูกศรซ้าย/ขวา/Home/End (แพตเทิร์น tablist) */
+  const tabs = [...document.querySelectorAll('#vBody .vtab')];
+  tabs.forEach((b, i) => {
+    b.onclick = () => showTab(b.dataset.tab);
+    b.onkeydown = e => {
+      const j = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null;
+      if(j == null) return;
+      e.preventDefault();
+      const t = tabs[(j + tabs.length) % tabs.length]; showTab(t.dataset.tab); t.focus();
+    };
+  });
+  showTab(defaultTab(r));
   $('vPrint').onclick = () => doPrint(r);
   $('vCom').onclick = () => doPrint(r, 'com');
   if(isAdmin()){
@@ -1130,13 +1287,14 @@ function openView(id){
         p_req: r.id, p_status: $('vSt').value, p_note: $('vNote').value });
       if(error) throw error;
       r.status = $('vSt').value; r.status_note = $('vNote').value;
+      paintHead(r);
       paintPrint(r);                                      // ปิดการขายแล้ว → ปุ่มใบค่าคอมกดได้ทันที
       renderList(); toast('บันทึกสถานะแล้ว', 'ok');
     }catch(e){ toast(e.message || 'บันทึกไม่สำเร็จ', 'no'); }
     finally{ const b=$('vSaveSt'); if(b) b.disabled = false; }
   };
   $('ovView').setAttribute('open','');
-  $('vBody').scrollTop = 0;
+  $('ovView').querySelector('.card').scrollTop = 0;
 }
 $('vClose').onclick = ()=>{ $('ovView').removeAttribute('open'); endPrint(); };
 $('ovView').addEventListener('mousedown', e=>{ if(e.target === $('ovView')) $('ovView').removeAttribute('open'); });
