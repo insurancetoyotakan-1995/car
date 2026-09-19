@@ -75,6 +75,30 @@
   .vstep{font-size:11px}
 }
 
+/* ---------- เงื่อนไขส่วนลดในบล็อกเสนอราคา ---------- */
+.qdisc{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel);padding:12px 14px;margin:-2px 0 12px}
+.qdisc-h{display:flex;align-items:baseline;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;margin-bottom:9px}
+.qdisc-h b{font-size:13.5px;color:var(--ink)}
+.qdisc-h span{font-size:11.5px;color:var(--muted)}
+.qdisc-opts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.qopt{display:flex;align-items:center;gap:10px;padding:8px 12px;min-height:44px;border:1px solid var(--line);
+  border-radius:var(--r-sm);background:var(--panel-2);cursor:pointer;font-size:13px;line-height:1.45;
+  transition:border-color .15s,background .15s}
+.qopt:hover{border-color:#b8adaf}
+.qopt:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.qopt input{flex:none;margin:0}
+.qopt .t{flex:1;min-width:0}
+.qopt .v{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.qdisc-ref{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;font-size:13px;color:var(--ink-soft)}
+.qdisc-ref span{flex:1;min-width:180px}
+.qdisc-ref b{color:var(--ink)}
+.qdisc-note{font-size:11.5px;color:var(--muted);margin:9px 0 0;line-height:1.6}
+.qdisc-chk{font-size:12.5px;font-weight:600;margin:9px 0 0;padding:7px 11px;border-radius:8px;line-height:1.55}
+.qdisc-chk.ok{background:var(--good-soft);color:var(--good-ink)}
+.qdisc-chk.warn{background:var(--warn-soft);color:var(--warn-ink)}
+.qdisc-chk.info{background:var(--panel-2);color:var(--ink-soft)}
+@media (max-width:640px){ .qdisc-opts{grid-template-columns:1fr} }
+
 /* ---------- ดูไฟล์แนบ + พิมพ์ ----------
    ซ้อนบนกล่องรายละเอียด (100) · ใต้กล่องยืนยัน (150) และ toast (200) */
 #ovFile{z-index:130}
@@ -425,6 +449,50 @@ const quoteMeta = r => r.quote_at
   ? 'บันทึกล่าสุด ' + thDate(r.quote_at) + (r.quote_by ? ' โดย ' + agentName(r.quote_by) : '')
   : 'ยังไม่ได้กรอก';
 
+/* ---------- เงื่อนไขส่วนลด (ตามตารางของฝ่ายประกัน) ----------
+   ลูกค้าแนะนำจากพนักงาน: คิดจาก "เบี้ยรวม" ภาคสมัครใจ — 12,000–18,000 ลด 500 · มากกว่า 18,000 ลด 800 (refDisc)
+   พนักงานต่อประกันเอง: สวัสดิการเลือก 1 อย่าง คิดจาก "เบี้ยสุทธิ" ภาคสมัครใจ
+     15% · ผ่อน 0% หักเงินเดือน 3 งวด 5% · ฟรีค่าธรรมเนียมรูดบัตร 10%
+     สิทธิ์ 1 คน 1 คัน · คันที่ 2 ขึ้นไป 10% ชำระเงินสด/โอนเท่านั้น (มีหลักฐานเชื่อมโยงครอบครัว / รถชื่อตัวเองมากกว่า 1 คัน)
+   พ.ร.บ. ไม่อยู่ในเงื่อนไขส่วนลดนี้
+   🔑 สวัสดิการที่เลือกเก็บเป็นแท็กหน้า "หมายเหตุการเสนอราคา" → [สวัสดิการ: …]
+      ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล · และติดไปในใบพิมพ์คำขอด้วย · เปลี่ยนอัตรา = แก้ WELFARE ที่เดียว */
+const WELFARE = [
+  { k:'w15',  pct:15, label:'ส่วนลดเบี้ย 15%' },
+  { k:'w5',   pct:5,  label:'ผ่อน 0% หักเงินเดือน 3 งวด (ส่วนลด 5%)' },
+  { k:'w10',  pct:10, label:'ฟรีค่าธรรมเนียมรูดบัตร (ส่วนลด 10%)' },
+  { k:'car2', pct:10, label:'รถคันที่ 2 ขึ้นไป (ส่วนลด 10% · เงินสด/โอนเท่านั้น)' },
+];
+const WTAG = /^\[สวัสดิการ: ([^\]]*)\]\s*/;
+const round2 = n => Math.round(n * 100) / 100;
+const noteWelfare = note => { const m = WTAG.exec(note || ''); return m ? (WELFARE.find(w => w.label === m[1]) || null) : null; };
+const noteText = note => String(note || '').replace(WTAG, '');
+const pickedWelfare = () => WELFARE.find(w => w.k === (document.querySelector('input[name="qW"]:checked') || {}).value) || null;
+function composeNote(){
+  const w = pickedWelfare(), t = $('qNote').value.trim();
+  return ((w ? '[สวัสดิการ: ' + w.label + '] ' : '') + t).trim() || null;
+}
+function discBlock(r){
+  if(r.kind === 'refer'){
+    return '<div class="qdisc" id="qDiscBox">'
+      + '<div class="qdisc-h"><b>ส่วนลดพิเศษลูกค้าแนะนำ</b><span>คิดจากเบี้ยรวมภาคสมัครใจ</span></div>'
+      + '<div class="qdisc-ref"><span id="qRefTxt"></span><button class="btn sm" id="qRefUse" type="button">ใช้ส่วนลดนี้</button></div>'
+      + '<p class="qdisc-note">เบี้ย 12,000–18,000 ลด 500 บาท · เบี้ยมากกว่า 18,000 ลด 800 บาท</p>'
+      + '<p class="qdisc-chk" id="qDiscChk" hidden></p></div>';
+  }
+  const cur = noteWelfare(r.quote_note);
+  const opt = (k, label, v) => '<label class="qopt"><input type="radio" name="qW" value="' + k + '"' + ((cur ? cur.k : '') === k ? ' checked' : '') + '>'
+    + '<span class="t">' + esc(label) + '</span>' + (v ? '<span class="v" data-wv="' + k + '">—</span>' : '') + '</label>';
+  return '<div class="qdisc" id="qDiscBox">'
+    + '<div class="qdisc-h"><b>สวัสดิการพนักงาน</b><span>เลือก 1 อย่าง · คิดจากเบี้ยสุทธิภาคสมัครใจ</span></div>'
+    + '<div class="qdisc-opts" role="radiogroup" aria-label="สวัสดิการพนักงาน">'
+    +   WELFARE.map(w => opt(w.k, w.label, true)).join('')
+    +   opt('', 'ไม่ใช้สวัสดิการ', false)
+    + '</div>'
+    + '<p class="qdisc-note">สิทธิ์ต่อประกัน 1 คน 1 คัน · คันที่ 2 ขึ้นไปลด 10% ชำระเงินสด/โอนเท่านั้น และต้องมีหลักฐานเชื่อมโยงครอบครัว หรือเป็นรถชื่อตัวเองมากกว่า 1 คัน</p>'
+    + '<p class="qdisc-chk" id="qDiscChk" hidden></p></div>';
+}
+
 function quoteBlock(r){
   const insKnown = INSURERS.some(x => x[0] === r.quote_insurer);
   const typKnown = QTYPES.indexOf(r.quote_type) >= 0;
@@ -465,11 +533,12 @@ function quoteBlock(r){
     + '</div>'
     + '<p class="qhint">เบี้ยสุทธิ = ก่อนอากรแสตมป์และภาษี · เบี้ยรวม = ยอดก่อนหักส่วนลด · ช่องที่ไม่มีเว้นว่างได้</p>'
     + row('1', 'ประกันภัย (ภาคสมัครใจ)', ['qNet','qGross','qDisc'],    [r.quote_net, r.quote_gross, r.quote_disc])
+    + discBlock(r)
     + row('2', 'พ.ร.บ. (ภาคบังคับ)',     ['qANet','qAGross','qADisc'], [r.quote_act_net, r.quote_act_gross, r.quote_act_disc])
     + '<div class="qpr-tot"><span>รวมทั้งสิ้นที่ต้องชำระ</span><b id="qTotal">—</b></div>'
     + '<div class="grid" style="gap:11px;margin-top:11px">'
-    +   '<label class="f c12">หมายเหตุการเสนอราคา<input id="qNote" maxlength="300" autocomplete="off"'
-    +     ' placeholder="เช่น ทุน 200,000 · ซ่อมอู่ · ผ่อน 0% 6 เดือน" value="' + esc(r.quote_note||'') + '"></label>'
+    +   '<label class="f c12">หมายเหตุการเสนอราคา<input id="qNote" maxlength="230" autocomplete="off"'
+    +     ' placeholder="เช่น ทุน 200,000 · ซ่อมอู่" value="' + esc(noteText(r.quote_note)) + '"></label>'
     + '</div>'
     + '<div class="qact"><button class="btn primary" id="qSave">บันทึกข้อมูลเสนอราคา</button>'
     +   '<span class="qmeta" id="qMeta">' + esc(quoteMeta(r)) + '</span></div>';
@@ -490,11 +559,65 @@ function wireQuote(r){
     $('qs2').classList.toggle('bad', s2 < 0);
     $('qTotal').classList.toggle('bad', t < 0);
   }
-  ['qNet','qGross','qDisc','qANet','qAGross','qADisc'].forEach(id => bindBaht($(id), () => { recalc(); paintPrint(r); }));
+  /* ---- ส่วนลดตามเงื่อนไข ----
+     ส่วนลดที่ระบบใส่ให้ (dataset.auto) จะ "ตาม" เมื่อแก้เบี้ย · ถ้าเจ้าหน้าที่พิมพ์ส่วนลดเอง ระบบไม่ทับ แต่เตือนว่าไม่ตรงเงื่อนไข */
+  const isRef = r.kind === 'refer';
+  const want = () => {
+    if(isRef){ const g = num('qGross'); return g == null ? null : refDisc(g); }
+    const w = pickedWelfare(), n = num('qNet');
+    return w && n != null ? round2(n * w.pct / 100) : null;
+  };
+  const setDisc = v => {
+    const d = $('qDisc');
+    d.value = v ? fmtBaht(v) : '';
+    d.dataset.auto = d.value;
+  };
+  const follow = () => {                                   // เบี้ยเปลี่ยน + ส่วนลดยังเป็นค่าที่ระบบใส่ → คิดใหม่ให้
+    const d = $('qDisc'), w = want();
+    if(w != null && d.dataset.auto != null && d.value === d.dataset.auto) setDisc(w);
+  };
+  function discUpd(){
+    const disc = num('qDisc'), w = want();
+    let msg = null;
+    if(isRef){
+      const g = num('qGross');
+      $('qRefTxt').innerHTML = g == null ? 'กรอกเบี้ยรวมภาคสมัครใจก่อน ระบบจะคิดส่วนลดให้'
+        : 'เบี้ยรวม <b>' + fmtBaht(g) + '</b> บาท → '
+          + (w ? (g > 18000 ? 'มากกว่า 18,000' : 'ช่วง 12,000–18,000') + ' ลด <b>' + fmtBaht(w) + '</b> บาท' : 'ต่ำกว่า 12,000 · ไม่มีส่วนลดพิเศษ');
+      $('qRefUse').disabled = !w;
+    } else {
+      const n = num('qNet');
+      document.querySelectorAll('#qDiscBox [data-wv]').forEach(el => {
+        const x = WELFARE.find(y => y.k === el.dataset.wv);
+        el.textContent = n == null ? '—' : '− ' + fmtBaht(round2(n * x.pct / 100));
+      });
+      if(pickedWelfare() && n == null) msg = ['info', 'กรอกเบี้ยสุทธิภาคสมัครใจ แล้วระบบจะคิดส่วนลดให้'];
+      else if(!pickedWelfare() && disc) msg = ['info', 'มีส่วนลด ' + fmtBaht(disc) + ' บาท โดยไม่ได้เลือกสวัสดิการ — ถ้าเป็นสวัสดิการพนักงาน เลือกด้านบนเพื่อบันทึกไว้'];
+    }
+    if(w != null && !(w === 0 && !disc)){
+      msg = Math.abs((disc || 0) - w) < .005
+        ? ['ok', '✓ ส่วนลดตรงตามเงื่อนไข · ' + fmtBaht(w) + ' บาท']
+        : ['warn', 'ส่วนลดในช่อง ' + fmtBaht(disc || 0) + ' บาท ไม่ตรงตามเงื่อนไข (' + fmtBaht(w) + ' บาท)'];
+    }
+    const c = $('qDiscChk');
+    c.hidden = !msg;
+    if(msg){ c.className = 'qdisc-chk ' + msg[0]; c.textContent = msg[1]; }
+  }
+  const onMoney = () => { follow(); recalc(); discUpd(); paintPrint(r); };
+  ['qNet','qGross','qDisc','qANet','qAGross','qADisc'].forEach(id => bindBaht($(id), onMoney));
   ['qIns','qTyp','qInsOther','qTypOther','qNote'].forEach(id => {
     $(id).addEventListener('input', () => paintPrint(r));
     $(id).addEventListener('change', () => paintPrint(r));
   });
+  if(isRef) $('qRefUse').onclick = () => { const w = want(); if(w != null){ setDisc(w); onMoney(); } };
+  else document.querySelectorAll('input[name="qW"]').forEach(x => x.addEventListener('change', () => {
+    const w = want(), d = $('qDisc');
+    if(w != null) setDisc(w);
+    else if(!pickedWelfare() && d.dataset.auto != null && d.value === d.dataset.auto) setDisc(0);   // เลิกใช้สวัสดิการ → เอาส่วนลดที่ระบบใส่ออก
+    onMoney();
+  }));
+  { const w = want(); if(w != null && Math.abs((num('qDisc') || 0) - w) < .005) $('qDisc').dataset.auto = $('qDisc').value; }   // ค่าที่บันทึกไว้ตรงเงื่อนไข = ให้ตามเบี้ยต่อได้
+  discUpd();
   recalc();
   csel($('qIns')); csel($('qTyp'));
   const syncOther = ()=>{
@@ -516,14 +639,14 @@ function wireQuote(r){
         p_req: r.id, p_insurer: insurer || null, p_type: type || null,
         p_net: num('qNet'), p_gross: num('qGross'), p_disc: num('qDisc'),
         p_act_net: num('qANet'), p_act_gross: num('qAGross'), p_act_disc: num('qADisc'),
-        p_note: $('qNote').value.trim() || null });
+        p_note: composeNote() });
       if(res0.error) throw res0.error;
       const res = res0.data || {};
       r.quote_insurer = insurer || null;  r.quote_type = type || null;
       r.quote_net = num('qNet');      r.quote_gross = num('qGross');      r.quote_disc = num('qDisc');
       r.quote_act_net = num('qANet'); r.quote_act_gross = num('qAGross'); r.quote_act_disc = num('qADisc');
       r.quote_total = res.total == null ? null : +res.total;
-      r.quote_note  = $('qNote').value.trim() || null;
+      r.quote_note  = composeNote();
       r.quote_at = res.cleared ? null : new Date().toISOString();
       r.quote_by = res.cleared ? null : (res.quoteBy || (ME && ME.empId) || null);
       if(res.statusChanged){
@@ -559,7 +682,7 @@ function quoteDirty(r){
   const same = (a, b) => (a == null || a === '') ? (b == null || b === '') : (b != null && b !== '' && Math.abs(+a - +b) < .005);
   return pick('qIns', 'qInsOther') !== (r.quote_insurer || '')
       || pick('qTyp', 'qTypOther') !== (r.quote_type || '')
-      || $('qNote').value.trim() !== (r.quote_note || '')
+      || (composeNote() || '') !== (r.quote_note || '')
       || [['qNet','quote_net'], ['qGross','quote_gross'], ['qDisc','quote_disc'],
           ['qANet','quote_act_net'], ['qAGross','quote_act_gross'], ['qADisc','quote_act_disc']]
           .some(([id, k]) => !same(bahtVal($(id)), r[k]));
@@ -736,7 +859,8 @@ function printSheet(r){
     + '</div>'
     + '<div class="pf-row pf-sum"><span>รวมเงินที่ต้องการชำระหลังหักส่วนลด ประเภท</span>' + L(m(sumMain), 1, 'r')
     +   '<span>พรบ</span>' + L(m(sumAct), 1, 'r') + '<span>รวมทั้งสิ้น</span>' + L(m(r.quote_total), 1.2, 'r') + '<span>บาท</span></div>'
-    + (r.quote_note ? '<div class="pf-row"><span>หมายเหตุ</span>' + L(r.quote_note) + '</div>' : '')
+    + (r.quote_note ? '<div class="pf-row"><span>หมายเหตุ</span>'
+        + L(String(r.quote_note).replace(WTAG, 'สวัสดิการพนักงาน: $1 · ').replace(/ · $/, '')) + '</div>' : '')
     + '<div class="pf-pay"><div>'
     +   '<div class="pf-row"><span>การชำระเงิน วันที่</span>' + L('') + '<span>เลขที่ใบเสร็จรับเงิน</span>' + L('', 1.3) + '</div>'
     +   '<div class="pf-row pf-ind">' + cb(false, 'เงินสด จำนวน') + L('') + '<span>บาท</span></div>'
