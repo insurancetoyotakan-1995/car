@@ -125,7 +125,8 @@
         <label class="f c3">ถนน<input id="fRoad"></label>
         <label class="f c4">ตำบล / แขวง <span class="req">*</span><input id="fTambon"></label>
         <label class="f c4">อำเภอ / เขต <span class="req">*</span><input id="fAmphoe"></label>
-        <label class="f c4">จังหวัด <span class="req">*</span><input id="fProvince" value="กาญจนบุรี"></label>
+        <label class="f c4">จังหวัด <span class="req">*</span><input id="fProvince" placeholder="เช่น กาญจนบุรี" aria-describedby="provNote">
+          <span class="fnote" id="provNote" hidden></span></label>
         <label class="f c4">รหัสไปรษณีย์ <span class="req">*</span>
           <span class="fld"><input id="fZip" inputmode="numeric" autocomplete="postal-code" placeholder="เติมให้จากที่อยู่" aria-describedby="zipAdorn zipNote"><span class="adorn" id="zipAdorn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span class="t"></span></span></span>
           <span class="fnote" id="zipNote" hidden></span></label>
@@ -801,6 +802,17 @@ function zipFor(prov, amp, tam){
   const zs = new Set(Object.keys(A).filter(Boolean).map(k => A[k]));
   return zs.size === 1 ? String([...zs][0]) : null;
 }
+/* อำเภอ (+ตำบล) นี้อยู่จังหวัดไหนได้บ้าง — ใช้ทักเมื่อกรอกจังหวัดไม่ตรงกับอำเภอ */
+function provincesFor(amp, tam){
+  if(!ZIP_DB) return [];
+  const a = String(amp || '').replace(/\s+/g,'').replace(/^(อำเภอ|อ\.|เขต)/,'');
+  const t = String(tam || '').replace(/\s+/g,'').replace(/^(ตำบล|ต\.|แขวง)/,'');
+  if(!a) return [];
+  return Object.keys(ZIP_DB).filter(pk => {
+    const A = ZIP_DB[pk][placeKey(ZIP_DB[pk], a) || (a === 'เมือง' ? 'เมือง' + pk : '')];
+    return A && (!t || placeKey(A, t));
+  });
+}
 let zipTimer = null;
 async function syncZip(){
   const el = $('fZip'), cur = el.value.trim();
@@ -831,6 +843,22 @@ async function syncZip(){
     setNote('zipNote', !$('fZip').value.trim() && $('fTambon').value.trim()
       ? 'ไม่พบในข้อมูลไปรษณีย์ — กรุณากรอกเอง' : '', 'info');
   }
+  paintProv();
+}
+/* 🔑 อำเภอที่กรอกไม่มีในจังหวัดที่กรอก = กรอกจังหวัดผิด (เจอบ่อยตอนลูกค้าอยู่ต่างจังหวัด)
+      เจอจังหวัดเดียวที่มีอำเภอนี้ → เสนอปุ่มแก้ให้ · เจอหลายจังหวัด → บอกให้ตรวจเอง */
+function paintProv(){
+  const prov = $('fProvince').value.trim(), amp = $('fAmphoe').value.trim();
+  if(!ZIP_DB || !prov || !amp) return setNote('provNote', '');
+  const here = provincesFor(amp, $('fTambon').value).some(pk => placeSkel(pk) === placeSkel(prov.replace(/^(จังหวัด|จ\.)/,'')));
+  if(here) return setNote('provNote', '');
+  const hits = provincesFor(amp, $('fTambon').value);
+  if(hits.length === 1){
+    setNote('provNote', 'อ.' + amp + ' อยู่ใน จ.' + hits[0], 'no', { label:'ใช้ ' + hits[0], run:()=>{
+      $('fProvince').value = hits[0];
+      setNote('provNote', ''); saveDraft(); syncZip();
+    }});
+  }else setNote('provNote', hits.length ? 'อ.' + amp + ' ไม่มีใน จ.' + prov + ' — ตรวจจังหวัดอีกครั้ง' : '', 'no');
 }
 ['fTambon','fAmphoe','fProvince'].forEach(id=>{
   $(id).addEventListener('focus', loadZip, { once:true });
@@ -2286,7 +2314,6 @@ function resetForm(keepEmp){
   setNote('idNote', ''); setNote('zipNote', ''); setNote('dobNote', '');
   $('fConsent').checked = false; $('consentBox').classList.remove('miss');
   $('consentBox').querySelector('details').open = false;
-  $('fProvince').value = 'กาญจนบุรี';
   setTitle('');
   if(!keepEmp){ $('fEmpId').value=''; $('fEmpName').value=''; setDept(''); paintEmpChk(null); }
   document.querySelector('input[name=kind][value=self]').checked = true;
