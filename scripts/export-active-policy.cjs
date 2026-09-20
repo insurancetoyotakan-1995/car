@@ -3,6 +3,7 @@
  * ที่มา: Excel ของฝ่ายประกัน (คอลัมน์ ชื่อ / นามสกุล / ทะเบียน / เลขตัวถัง / วันหมดอายุ)
  *   1) จับคู่ "ชื่อ+นามสกุล" กับทำเนียบพนักงาน (ตรงทั้งชื่อ หลังตัดช่องว่างและวงเล็บหมายเหตุ · ชื่อซ้ำในทำเนียบ = ไม่เดา)
  *      ถ้าไฟล์มีคอลัมน์ "รหัสพนักงาน" และแถวนั้นกรอกไว้ → ใช้รหัสนั้นเลย (เช่น รถของคู่สมรส/บุตร ที่ชื่อไม่ตรงพนักงาน)
+ *      กรอก "ไม่นับ" → ตั้งใจไม่นับรถคันนั้น (เช่น พนักงานเกษียณแล้ว) ไม่ขึ้นเป็นแถวค้าง
  *   2) วันหมดอายุในไฟล์เป็นปี พ.ศ. (9/20/69 = 20 ก.ย. 2569) → เก็บเป็น ค.ศ.
  *   3) ในระบบ: กรมธรรม์ที่ "ยังไม่เลยวันหมดอายุ" = พนักงานใช้สิทธิ์คันแรกไปแล้ว
  *      → รถคันอื่นที่ยื่นเข้ามา = รถคันที่ 2 (ทะเบียน/เลขตัวถังเดียวกัน = ต่ออายุคันเดิม ไม่นับ)
@@ -60,7 +61,7 @@ const byName = new Map();
 for (const u of users) { const k = key(u.name); byName.set(k, byName.has(k) ? null : u); }
 const byId = new Map(users.map((u) => [String(u.empId), u]));
 
-const out = [], unmatched = [], badDate = [];
+const out = [], unmatched = [], badDate = [], skipped = [];
 let total = 0;
 for (const file of SRCS) {
 const wb = XLSX.read(fs.readFileSync(file), { type: 'buffer' });
@@ -76,6 +77,7 @@ rows.slice(1).forEach((r, i) => {
   total++;
   const exp = expDate(r[C.exp]);
   if (!exp) { badDate.push({ src, row: i + 2, name, v: r[C.exp] }); return; }
+  if (C.emp >= 0 && norm(r[C.emp]) === 'ไม่นับ') { skipped.push({ src, row: i + 2, name, plate: norm(r[C.plate]), vin: vinOf(r[C.vin]) }); return; }
   const id = C.emp >= 0 ? norm(r[C.emp]).replace(/\D/g, '') : '';
   if (id && !byId.has(id)) { unmatched.push({ src, row: i + 2, name, plate: norm(r[C.plate]), vin: vinOf(r[C.vin]), exp, badId: id }); return; }
   const u = id ? byId.get(id) : byName.get(key(r[C.fn] + r[C.ln]));
@@ -89,7 +91,8 @@ const carKey = (o) => o.vin || o.plate.replace(/[\s.-]/g, '');
   for (const o of out) { const k = carKey(o); const c = keep.get(k); if (!c || (o.byId && !c.byId)) keep.set(k, o); }
   out.length = 0; out.push(...keep.values());
   const seen = new Set();
-  const left = unmatched.filter((u) => { const k = carKey(u); if (keep.has(k) || seen.has(k)) return false; seen.add(k); return true; });
+  const skip = new Set(skipped.map(carKey));
+  const left = unmatched.filter((u) => { const k = carKey(u); if (keep.has(k) || skip.has(k) || seen.has(k)) return false; seen.add(k); return true; });
   unmatched.length = 0; unmatched.push(...left); }
 out.sort((a, b) => a.empId.localeCompare(b.empId) || a.exp.localeCompare(b.exp));
 
@@ -116,6 +119,6 @@ fs.writeFileSync(OUT, sql, 'utf8');
 
 console.log('แถวในไฟล์: ' + total);
 console.log('จับคู่พนักงานได้: ' + out.length + ' คัน · ' + new Set(out.map((o) => o.empId)).size + ' คน');
-console.log('ไม่พบชื่อในทำเนียบ: ' + unmatched.length + ' แถว · วันที่อ่านไม่ได้: ' + badDate.length + ' แถว');
+console.log('ไม่พบชื่อในทำเนียบ: ' + unmatched.length + ' แถว · ตั้งใจไม่นับ: ' + new Set(skipped.map(carKey)).size + ' คัน · วันที่อ่านไม่ได้: ' + badDate.length + ' แถว');
 console.log('เขียนไฟล์: ' + OUT);
-if (REPORT) fs.writeFileSync(REPORT, JSON.stringify({ out, unmatched, badDate }, null, 1), 'utf8');
+if (REPORT) fs.writeFileSync(REPORT, JSON.stringify({ out, unmatched, skipped, badDate }, null, 1), 'utf8');

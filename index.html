@@ -2347,9 +2347,9 @@ $('btnNewOne').onclick = ()=>{
 
 /* keepEmp = คงรหัส/ชื่อพนักงานไว้ — คนเดิมมักส่งหลายใบติดกัน ไม่ต้องพิมพ์ซ้ำ */
 function resetForm(keepEmp){
-  ['fName','fIdCard','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe',
+  ['fName','fIdCard','fMobile','fHome','fAddr','fMoo','fRoad','fTambon','fAmphoe','fProvince',
    'fZip','fOcc','fWork','fIncome','fDob','fTitleOther','fRelNote','fNote'].forEach(id=>{ const e=$(id); if(e){ e.value=''; delete e.dataset.auto; } });
-  setNote('idNote', ''); setNote('zipNote', ''); setNote('dobNote', '');
+  setNote('idNote', ''); setNote('zipNote', ''); setNote('dobNote', ''); setNote('provNote', '');
   $('fConsent').checked = false; $('consentBox').classList.remove('miss');
   $('consentBox').querySelector('details').open = false;
   setTitle('');
