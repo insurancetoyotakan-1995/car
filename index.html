@@ -764,14 +764,15 @@ $('fDob').addEventListener('blur', ()=>{
   }
 });
 
-/* ---------- รหัสไปรษณีย์: เติมให้เองจาก ตำบล / อำเภอ / จังหวัด ----------
-   ข้อมูลอยู่ในไฟล์ th-zip.json (77 จังหวัด · 7,436 ตำบล · MIT จาก thailand-geography-json)
+/* ---------- รหัสไปรษณีย์: เติมให้เองจาก ตำบล / อำเภอ / จังหวัด (+ หมู่) ----------
+   ข้อมูลอยู่ในไฟล์ th-zip.json (77 จังหวัด · 7,442 ตำบล/แขวง · อ้างอิง noplink.com)
+   🔑 บางตำบลใช้หลายรหัสแยกตามหมู่ → เก็บเป็น [{c:รหัส, n:หมายเหตุ}] · กรอกหมู่แล้วระบบเลือกให้
    โหลดครั้งแรกตอนเริ่มพิมพ์ที่อยู่ (~58 KB) · 🔑 dataset.auto แบบเดียวกับชื่อผู้ทำประกัน:
    คนพิมพ์รหัสเองแล้ว ระบบไม่เขียนทับ แค่บอกว่าตามที่อยู่ควรเป็นเลขอะไร */
 let ZIP_DB = null, zipLoading = null;
 function loadZip(){
   if(ZIP_DB) return Promise.resolve(ZIP_DB);
-  return zipLoading || (zipLoading = fetch('th-zip.json?v=20260915-1')
+  return zipLoading || (zipLoading = fetch('th-zip.json?v=20260920-1')
     .then(r => r.ok ? r.json() : null)
     .then(j => (ZIP_DB = j))
     .catch(() => { zipLoading = null; return null; }));
@@ -784,7 +785,32 @@ function placeKey(obj, name){
   const k = placeSkel(name);
   return Object.keys(obj).find(x => x && placeSkel(x) === k) || null;
 }
-function zipFor(prov, amp, tam){
+/* "เฉพาะหมู่ที่ 3-4 และ 7-9" / "ยกเว้น หมู่ที่ 1 และ 2 ใช้รหัส 71000" → [3,4,7,8,9] / [1,2] */
+function mooList(note){
+  const out = [], re = /(\d+)\s*[-–]\s*(\d+)|(\d+)/g;
+  const body = String(note || '').replace(/ใช้รหัส\s*\d{5}/g, '');
+  let m;
+  while((m = re.exec(body))){
+    if(m[1]){ const a = +m[1], b = +m[2]; if(b >= a && b - a < 200) for(let i = a; i <= b; i++) out.push(i); }
+    else out.push(+m[3]);
+  }
+  return out;
+}
+/* หมายเหตุที่มีแค่เงื่อนไขหมู่ = ตัดสินให้เองได้ · มีเงื่อนไขอื่น (เช่น เฉพาะหมู่บ้านจัดสรร) = ไม่เดา */
+const mooOnly = n => String(n || '').replace(/ยกเว้น|เฉพาะ|หมู่ที่|หมู่|ใช้รหัส|และ|[\d\s,\-–:.]/g, '') === '';
+/* คืน { z:'71110' } เมื่อชัดเจน · { opts:[{c,n}] } เมื่อมีหลายรหัสและยังเลือกไม่ได้ · null เมื่อไม่พบ */
+function pickZip(v, moo){
+  if(v == null) return null;
+  if(!Array.isArray(v)) return { z: String(v) };
+  const n = parseInt(String(moo || '').replace(/\D/g, ''), 10);
+  if(n && v.every(r => mooOnly(r.n))){
+    const hit = v.filter(r => /^\s*เฉพาะ/.test(r.n || '') ? mooList(r.n).includes(n)
+                            : /^\s*ยกเว้น/.test(r.n || '') ? !mooList(r.n).includes(n) : true);
+    if(hit.length === 1) return { z: String(hit[0].c) };
+  }
+  return { opts: v };
+}
+function zipFor(prov, amp, tam, moo){
   if(!ZIP_DB) return null;
   let p = String(prov || '').replace(/\s+/g,'').replace(/^(จังหวัด|จ\.)/,'');
   if(/^(กทม|กรุงเทพ)/.test(p)) p = 'กรุงเทพมหานคร';
@@ -797,10 +823,11 @@ function zipFor(prov, amp, tam){
   const A = P[ak];
   const t = String(tam || '').replace(/\s+/g,'').replace(/^(ตำบล|ต\.|แขวง)/,'');
   const tk = placeKey(A, t);
-  if(tk) return String(A[tk]);
+  if(tk) return pickZip(A[tk], moo);
   /* ไม่รู้ตำบล: ใช้ได้เฉพาะอำเภอที่ทุกตำบลใช้รหัสเดียวกัน — ไม่เดา */
-  const zs = new Set(Object.keys(A).filter(Boolean).map(k => A[k]));
-  return zs.size === 1 ? String([...zs][0]) : null;
+  const zs = new Set();
+  Object.keys(A).filter(Boolean).forEach(k => (Array.isArray(A[k]) ? A[k].map(r => r.c) : [A[k]]).forEach(c => zs.add(+c)));
+  return zs.size === 1 ? { z: String([...zs][0]) } : null;
 }
 /* อำเภอ (+ตำบล) นี้อยู่จังหวัดไหนได้บ้าง — ใช้ทักเมื่อกรอกจังหวัดไม่ตรงกับอำเภอ */
 function provincesFor(amp, tam){
@@ -822,7 +849,8 @@ async function syncZip(){
   }
   const db = await loadZip();
   if(!db) return setNote('zipNote', cur ? '' : 'ค้นรหัสไปรษณีย์อัตโนมัติไม่ได้ — กรุณากรอกเอง', 'info');
-  const z = zipFor($('fProvince').value, $('fAmphoe').value, $('fTambon').value);
+  const hit = zipFor($('fProvince').value, $('fAmphoe').value, $('fTambon').value, $('fMoo').value);
+  const z = hit && hit.z;
   const now = el.value.trim();
   if(!el.dataset.auto && now && now === z) el.dataset.auto = now;     // กู้จากร่าง
   const untouched = !now || now === el.dataset.auto;
@@ -837,6 +865,16 @@ async function syncZip(){
         setNote('zipNote', 'อัตโนมัติ', 'auto'); saveDraft();
       }});
     }else setNote('zipNote', '');
+  }else if(hit && hit.opts){
+    /* ตำบลนี้ใช้หลายรหัสตามหมู่ — ยังเลือกไม่ได้จนกว่าจะกรอกหมู่ (หรือหมายเหตุมีเงื่อนไขอื่น) */
+    if(untouched && el.dataset.auto){ el.value = ''; delete el.dataset.auto; }
+    const codes = [...new Set(hit.opts.map(o => o.c))];
+    const hasMoo = !!String($('fMoo').value).trim();
+    if(codes.includes(+now)) setNote('zipNote', '');
+    else setNote('zipNote', hasMoo
+      /* กรอกหมู่แล้วยังเลือกไม่ได้ = หมายเหตุมีเงื่อนไขอื่น → โชว์ให้อ่านเอง */
+      ? 'ตำบลนี้มีหลายรหัส — ' + hit.opts.map(o => o.c + (o.n ? ' (' + o.n.replace(/\s*ใช้รหัส\s*\d{5}/, '') + ')' : '')).join(' · ')
+      : 'ตำบลนี้แยกรหัสตามหมู่ (' + codes.join(' หรือ ') + ') — กรอกหมู่ แล้วระบบจะเลือกให้', 'info');
   }else{
     if(untouched && el.dataset.auto){ el.value = ''; delete el.dataset.auto; }
     /* ยังไม่ได้กรอกตำบล = ไม่ต้องขึ้นอะไร (placeholder บอกอยู่แล้วว่าจะเติมให้) */
@@ -860,7 +898,7 @@ function paintProv(){
     }});
   }else setNote('provNote', hits.length ? 'อ.' + amp + ' ไม่มีใน จ.' + prov + ' — ตรวจจังหวัดอีกครั้ง' : '', 'no');
 }
-['fTambon','fAmphoe','fProvince'].forEach(id=>{
+['fTambon','fAmphoe','fProvince','fMoo'].forEach(id=>{
   $(id).addEventListener('focus', loadZip, { once:true });
   $(id).addEventListener('input', ()=>{ clearTimeout(zipTimer); zipTimer = setTimeout(syncZip, 250); });
 });
