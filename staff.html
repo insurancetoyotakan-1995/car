@@ -173,6 +173,16 @@
 .qcar2-t{flex:1;min-width:200px}
 .qcar2-t b{display:block;font-size:13px}
 .qcar2-t span{display:block}
+/* แท็บเอกสาร: สรุปว่าครบหรือขาดอะไร */
+.doc-miss,.doc-ok{display:flex;align-items:flex-start;gap:8px;margin:0 0 11px;padding:9px 12px;border-radius:8px;
+  font-size:12.5px;line-height:1.55}
+.doc-miss{background:var(--warn-soft);color:var(--warn-ink)}
+.doc-ok{background:var(--good-soft);color:var(--good-ink);font-weight:600}
+.doc-miss>svg{flex:none;width:17px;height:17px;margin-top:1px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+/* ขั้น "ปิดการขาย" ที่ยังกดไม่ได้เพราะเอกสารไม่ครบ */
+.vstep.locked{opacity:.55}
+.vstep.locked i{border-style:dashed}
 .qdisc.forced .qopt:has(input:disabled){opacity:.45;cursor:not-allowed}
 #qDisc[readonly]{background:var(--panel-2);cursor:not-allowed}
 @media (max-width:640px){ .qdisc-opts{grid-template-columns:1fr} }
@@ -470,6 +480,10 @@ const COVERS = { type1:'ประเภท 1', type2plus:'ประเภท 2 �
 const RELS = { self:'ตัวพนักงานเอง', father:'บิดา', mother:'มารดา', husband:'สามี', wife:'ภรรยา', child:'บุตร', other:'อื่น ๆ' };
 const STATUS = { new:'รอตรวจสอบ', contacted:'ติดต่อแล้ว', quoted:'เสนอราคาแล้ว', done:'ปิดการขาย', cancelled:'ยกเลิก' };
 const DOC_LABEL = { carReg:'สำเนาทะเบียนรถ', idCard:'สำเนาบัตรประชาชนผู้ทำประกัน', oldPolicy:'สำเนากรมธรรม์เดิม', relDoc:'เอกสารแสดงความสัมพันธ์' };
+/* เอกสารที่ต้องมีก่อน "ปิดการขาย" — กติกาเดียวกับ ins_missing_docs ในฐานข้อมูล (migrate-2026-09-20-docs-done.sql)
+   ด่านจริงอยู่ที่ ins_set_status · ตรงนี้บอกล่วงหน้าไม่ให้กดแล้วเด้ง error · บัญชีกลางข้ามได้ทั้ง 2 ฝั่ง */
+const REQ_DOCS = ['carReg', 'idCard', 'oldPolicy'];
+const missDocs = r => REQ_DOCS.filter(t => !(FILES[r.id] || []).some(f => f.tag === t)).map(t => DOC_LABEL[t]);
 
 /* รายชื่อบริษัทประกัน = คำที่ฝ่ายประกันใช้อยู่จริงในไฟล์ Excel ของเขา
    🔑 value = ชื่อเต็มตามไฟล์ (เอาไปจับคู่/ทำรายงานกับข้อมูลเดิมได้ตรง ๆ)
@@ -1681,11 +1695,30 @@ function paintHead(r){
     + (i === cur ? ' aria-current="step"' : '') + ' title="' + (i === cur ? 'สถานะปัจจุบัน' : 'เปลี่ยนสถานะเป็น "' + esc(STATUS[k]) + '"') + '">'
     + '<i>' + (i < cur ? '✓' : i + 1) + '</i><span>' + esc(STATUS[k]) + '</span></button></li>').join('');
   if(isViewer()) $('vSteps').querySelectorAll('.vstep').forEach(b => { b.disabled = true; b.removeAttribute('title'); });
-  else $('vSteps').querySelectorAll('.vstep').forEach(b => b.onclick = () => stepTo(r, b.dataset.st, b));
+  else {
+    const miss = isAdmin() ? [] : missDocs(r);
+    $('vSteps').querySelectorAll('.vstep').forEach(b => {
+      if(b.dataset.st === 'done' && miss.length && r.status !== 'done'){
+        b.classList.add('locked');
+        b.title = 'ยังแนบเอกสารไม่ครบ: ' + miss.join(' · ');
+      }
+      b.onclick = () => stepTo(r, b.dataset.st, b);
+    });
+  }
+}
+/* ปิดการขายได้ต่อเมื่อเอกสารครบ (บัญชีกลางข้ามได้) — ฐานข้อมูลตรวจซ้ำอีกชั้น */
+function doneOk(r, st){
+  if(st !== 'done' || isAdmin()) return true;
+  const miss = missDocs(r);
+  if(!miss.length) return true;
+  toast('ปิดการขายไม่ได้ — ยังไม่มี ' + miss.join(' · ') + ' (แนบไฟล์ก่อน หรือให้บัญชีกลางเป็นคนปิด)', 'no');
+  showTab('docs');
+  return false;
 }
 /* กดขั้นสถานะ = บันทึกทันที (ใช้บันทึกของเจ้าหน้าที่ที่พิมพ์ค้างในแท็บติดตามงานด้วย) · ปิดการขายถามยืนยันก่อน */
 async function stepTo(r, st, btn){
   if(st === r.status) return;
+  if(!doneOk(r, st)) return;
   if(st === 'done' && !(await ask({ title:'ปิดการขาย?', msg:'เปลี่ยนสถานะใบ ' + r.no + ' เป็น "ปิดการขาย"', okText:'ปิดการขาย' }))) return;
   btn.setAttribute('aria-busy', 'true');
   const note = $('vNote') ? $('vNote').value : (r.status_note || '');
@@ -1883,6 +1916,7 @@ function openView(id){
     };
   }
   if($('vSaveSt')) $('vSaveSt').onclick = async ()=>{
+    if(!doneOk(r, $('vSt').value)) return;
     $('vSaveSt').disabled = true;
     try{
       const { error } = await sb.rpc('ins_set_status', {
@@ -1910,9 +1944,14 @@ addEventListener('keydown', e=>{
 
 function renderFiles(r){
   const box = $('vFiles'), list = FILES[r.id] || [];
-  if(!list.length){ box.innerHTML = '<p style="font-size:12.5px;color:var(--muted);margin:0">ยังไม่มีไฟล์แนบ</p>'; return; }
+  const miss = missDocs(r);
+  const head = miss.length
+    ? '<p class="doc-miss">' + ICON.warn + '<span><b>ยังไม่มี ' + esc(miss.join(' · ')) + '</b>'
+      + (r.status === 'done' ? '' : ' — ต้องแนบให้ครบก่อนปิดการขาย') + '</span></p>'
+    : '<p class="doc-ok">✓ เอกสารบังคับครบแล้ว</p>';
+  if(!list.length){ box.innerHTML = head + '<p style="font-size:12.5px;color:var(--muted);margin:10px 0 0">ยังไม่มีไฟล์แนบ</p>'; return; }
   const PR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>';
-  box.innerHTML = list.map((f, i)=>{
+  box.innerHTML = head + list.map((f, i)=>{
     const img = /^image\//.test(f.mime||'');
     return '<div class="frow">'
       + '<span class="ft2' + (img?' img':'') + '">' + (img?'IMG':'PDF') + '</span>'
