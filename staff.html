@@ -272,6 +272,9 @@
    เอกสารการเงิน: ข้อมูลจากระบบพิมพ์เป็น "ตาราง/กล่อง" (ไม่ใช่เส้นประแบบเขียนมือ) · พิมพ์ขาวดำอ่านง่าย
    เน้นลำดับ: หัวเอกสาร → ข้อมูลการขาย → ผลตรวจส่วนลด → ยอดจ่าย (ใหญ่สุด) → ลงชื่อ */
 #printSheet .kc{font-size:10.5pt;line-height:1.5}
+/* ใบค่าคอมพิมพ์ 2 แผ่นต่อคำขอ (คอมมิชชั่น / ค่าแนะนำ) — แผ่นที่ 2 ต้องขึ้นหน้าใหม่เสมอ
+   ใช้ทั้ง break-before (มาตรฐานใหม่) และ page-break-before (เบราว์เซอร์เก่า/iOS) */
+#printSheet .kc + .kc{break-before:page;page-break-before:always}
 #printSheet .kc-head{display:grid;grid-template-columns:1fr 62mm;gap:10pt;align-items:end;
   border-bottom:2.2pt solid #000;padding-bottom:7pt}
 #printSheet .kc-org{font-size:9.5pt;letter-spacing:.3pt;color:#333}
@@ -488,6 +491,11 @@ const TH_MON = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','�
    🔑 รหัสพนักงาน 2 บริษัทซ้ำกันได้และเป็นคนละคน → ทุกที่ที่จับคู่ด้วย emp_id ต้องเทียบแบรนด์ด้วย
       ใบเก่าทั้งหมดไม่มีคอลัมน์นี้/เป็น 'toyota' อยู่แล้ว */
 const BRAND_LABEL = { toyota:'โตโยต้า', hino:'ฮีโน่' };
+/* ชื่อนิติบุคคลเต็ม — ใช้บนหัวเอกสารที่ใช้เบิกจ่ายจริง (ใบค่าคอม/ค่าแนะนำ) */
+const BRAND_CO = {
+  toyota: 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด',
+  hino:   'บริษัท ฮีโน่กาญจนบุรี จำกัด',
+};
 const brandOf = x => (x && x.brand) === 'hino' ? 'hino' : 'toyota';
 const brandName = x => BRAND_LABEL[brandOf(x)];
 
@@ -1174,30 +1182,28 @@ function bahtText(n){
   const v = Math.round(Math.abs(Number(n) || 0) * 100), b = Math.floor(v / 100), st = v % 100;
   return (b ? read(String(b)) + 'บาท' : (st ? '' : 'ศูนย์บาท')) + (st ? read(String(st)) + 'สตางค์' : 'ถ้วน');
 }
+/* ใบค่าคอม — พิมพ์ 2 แผ่นต่อ 1 คำขอ (ผู้ใช้สั่ง 2026-09-21)
+     แผ่นที่ 1 ใบสรุปค่าคอมมิชชั่น    → ผู้รับเงิน = เจ้าหน้าที่ประกัน
+     แผ่นที่ 2 ใบสรุปค่าแนะนำลูกค้า   → ผู้รับเงิน = พนักงานผู้แนะนำ
+   🔑 แยกแผ่นเพราะเป็นการจ่ายเงินคนละคน ต้องแยกลายเซ็นผู้รับและแยกเก็บเข้าแฟ้มของใครของมัน
+      (ของเดิมรวมใบเดียว 2 คนเซ็นแผ่นเดียวกัน แยกเอกสารตามผู้รับไม่ได้)
+   ทั้ง 2 แผ่นใช้หัวเรื่อง/ข้อมูลการขาย/ตัวตรวจส่วนลด ชุดเดียวกัน ต่างกันที่รายการจ่ายกับลายเซ็น */
 function comSheet(r){
   const m = v => (v == null || v === '') ? '—' : fmtBaht(v);
   const agentId = r.assigned_to || '', agent = agentName(agentId);
-  const total = COM_AGENT + COM_REFERRER;
   const want = refDisc(r.quote_gross), got = Number(r.quote_disc) || 0;
   const discOk = Math.abs(want - got) < .005;
-  const now = new Date();
+  const now = new Date(), printed = thDate(now.toISOString());
   const act = (r.quote_act_gross == null && r.quote_act_disc == null) ? null
             : (Number(r.quote_act_gross) || 0) - (Number(r.quote_act_disc) || 0);
   const kv = (k, v, cls) => '<dt>' + esc(k) + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(v || '—') + '</dd>';
   const sign = (name, role) => '<div><u>(' + (name ? esc(name) : '&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;') + ')</u>'
     + '<span>' + esc(role) + '</span><small>วันที่ ______ / ______ / ______</small></div>';
   const bandTxt = want === 800 ? 'มากกว่า 18,000' : want === 500 ? 'ช่วง 12,000–18,000' : 'ต่ำกว่า 12,000 · ไม่มีส่วนลดพิเศษ';
-  return '<div class="kc">'
-    + '<div class="kc-head"><div>'
-    +   '<div class="kc-org">' + esc(brandName(r)) + ' กาญจนบุรี · งานประกันภัยรถยนต์</div>'
-    +   '<h1>ใบสรุปค่าคอมมิชชั่น / ค่าแนะนำลูกค้า</h1>'
-    +   '<div class="kc-case">กรณีลูกค้าแนะนำจากพนักงานบริษัท</div></div>'
-    +   '<table class="kc-meta"><tr><th>เลขที่คำขอ</th><td>' + esc(r.no) + '</td></tr>'
-    +   '<tr><th>สถานะ</th><td>ปิดการขายแล้ว</td></tr>'
-    +   '<tr><th>วันที่พิมพ์</th><td>' + esc(thDate(now.toISOString())) + '</td></tr></table>'
-    + '</div>'
 
-    + '<div class="kc-sec"><i>1</i>ข้อมูลการขาย</div>'
+  /* ท่อนที่เหมือนกันทั้ง 2 แผ่น — ผูกใบจ่ายเงินเข้ากับการขายใบไหน และตรวจส่วนลดก่อนจ่าย */
+  const saleBlock =
+      '<div class="kc-sec"><i>1</i>ข้อมูลการขาย</div>'
     + '<dl class="kc-kv" style="margin:0">'
     +   kv('ลูกค้า', [r.insured_title, r.insured_name].filter(Boolean).join(' ')) + kv('เบอร์มือถือ', r.phone_mobile, 'e')
     +   kv('ทะเบียนรถ', [r.car_plate, r.car_province].filter(Boolean).join(' ')) + kv('เลขตัวถัง', r.car_vin, 'e')
@@ -1215,35 +1221,64 @@ function comSheet(r){
     +   '<p>ส่วนลดพิเศษลูกค้าแนะนำ: เบี้ยรวม ' + esc(m(r.quote_gross)) + ' บาท (' + esc(bandTxt) + ') → ตามเงื่อนไขต้องลด <b>'
     +     esc(fmtBaht(want)) + '</b> บาท · บันทึกในระบบ <b>' + esc(fmtBaht(got)) + '</b> บาท'
     +     (discOk ? '' : ' — <b>ตรวจสอบก่อนจ่าย</b>') + '</p>'
-    + '</div>'
+    + '</div>';
 
-    + '<div class="kc-sec"><i>2</i>รายการจ่ายค่าคอมมิชชั่น / ค่าแนะนำ</div>'
+  /* p = { title, head, who, whoSub, whoWarn, item, amount, cond, signRole } */
+  const sheet = (n, p) =>
+      '<div class="kc">'
+    + '<div class="kc-head"><div>'
+    +   '<div class="kc-org">' + esc(BRAND_CO[brandOf(r)]) + ' · งานประกันภัยรถยนต์</div>'
+    +   '<h1>' + esc(p.title) + '</h1>'
+    +   '<div class="kc-case">' + esc(p.head) + '</div></div>'
+    +   '<table class="kc-meta"><tr><th>เลขที่คำขอ</th><td>' + esc(r.no) + '</td></tr>'
+    +   '<tr><th>สถานะ</th><td>ปิดการขายแล้ว</td></tr>'
+    +   '<tr><th>วันที่พิมพ์</th><td>' + esc(printed) + '</td></tr></table>'
+    + '</div>'
+    + saleBlock
+    + '<div class="kc-sec"><i>2</i>รายการจ่าย' + esc(p.item) + '</div>'
     + '<table class="kc-tbl"><thead><tr><th class="c" style="width:10mm">ที่</th><th>ผู้รับเงิน</th>'
     +   '<th style="width:46mm">รายการ</th><th class="n" style="width:34mm">จำนวนเงิน (บาท)</th></tr></thead><tbody>'
-    +   '<tr><td class="c">1</td><td><span class="who">' + esc(agent) + '</span><span class="sm">เจ้าหน้าที่ประกัน (ผู้ดูแลลูกค้า) · รหัส ' + esc(agentId) + '</span></td>'
-    +     '<td>ค่าคอมมิชชั่น (เหมาจ่าย)</td><td class="n">' + fmtBaht(COM_AGENT) + '</td></tr>'
-    +   '<tr><td class="c">2</td><td><span class="who">' + esc(r.emp_name || '') + '</span>'
-    +     '<span class="sm">พนักงานผู้แนะนำ · รหัส ' + esc(r.emp_id || '') + ([r.emp_dept, r.emp_branch].filter(Boolean).length ? ' · ' + esc([r.emp_dept, r.emp_branch].filter(Boolean).join(' · ')) : '') + '</span>'
-    +     (r.emp_verified ? '' : '<span class="warn">⚠ รหัสไม่ตรงทำเนียบพนักงาน — ตรวจสอบก่อนจ่าย</span>') + '</td>'
-    +     '<td>ค่าแนะนำลูกค้า</td><td class="n">' + fmtBaht(COM_REFERRER) + '</td></tr>'
-    + '</tbody><tfoot><tr><td colspan="3">รวมทั้งสิ้น <span class="words">(' + esc(bahtText(total)) + ')</span></td>'
-    +   '<td class="n">' + fmtBaht(total) + '</td></tr></tfoot></table>'
-
+    +   '<tr><td class="c">1</td><td><span class="who">' + esc(p.who || '') + '</span>'
+    +     '<span class="sm">' + esc(p.whoSub) + '</span>'
+    +     (p.whoWarn ? '<span class="warn">' + esc(p.whoWarn) + '</span>' : '') + '</td>'
+    +     '<td>' + esc(p.item) + '</td><td class="n">' + fmtBaht(p.amount) + '</td></tr>'
+    + '</tbody><tfoot><tr><td colspan="3">รวมทั้งสิ้น <span class="words">(' + esc(bahtText(p.amount)) + ')</span></td>'
+    +   '<td class="n">' + fmtBaht(p.amount) + '</td></tr></tfoot></table>'
     + '<div class="kc-cond"><b>เงื่อนไข</b><ul style="margin:0;padding:0">'
-    +   '<li>ลูกค้าแนะนำจากพนักงานบริษัท: เจ้าหน้าที่ประกันได้คอมเหมาจ่าย ' + fmtBaht(COM_AGENT) + ' บาท · พนักงานผู้แนะนำได้ค่าแนะนำ ' + fmtBaht(COM_REFERRER) + ' บาท</li>'
-    +   '<li>ส่วนลดพิเศษลูกค้า: เบี้ย 12,000–18,000 ลด 500 บาท · เบี้ยมากกว่า 18,000 ลด 800 บาท</li>'
-    +   '<li>พนักงานบริษัทต่อประกันเอง ไม่มีค่าคอมมิชชั่น (NO COM)</li>'
+    +   p.cond.map(x => '<li>' + x + '</li>').join('')
     + '</ul></div>'
-
     + '<div class="kc-sign">'
-    +   sign(agent, 'เจ้าหน้าที่ประกัน · ผู้รับเงิน')
-    +   sign(r.emp_name, 'พนักงานผู้แนะนำ · ผู้รับเงิน')
+    +   sign(p.who, p.signRole)
     +   sign('', 'ผู้ตรวจสอบ')
     +   sign('', 'ผู้อนุมัติ')
     + '</div>'
-    + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no) + '</span>'
-    +   '<span>พิมพ์เมื่อ ' + esc(thDate(now.toISOString())) + '</span></div>'
+    + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no) + ' · แผ่นที่ ' + n + ' / 2</span>'
+    +   '<span>พิมพ์เมื่อ ' + esc(printed) + '</span></div>'
     + '</div>';
+
+  const empSub = 'พนักงานผู้แนะนำ · รหัส ' + (r.emp_id || '')
+    + ([r.emp_dept, r.emp_branch].filter(Boolean).length ? ' · ' + [r.emp_dept, r.emp_branch].filter(Boolean).join(' · ') : '');
+
+  return sheet(1, {
+      title: 'ใบสรุปค่าคอมมิชชั่น',
+      head: 'ค่าคอมมิชชั่นเจ้าหน้าที่ประกัน · กรณีลูกค้าแนะนำจากพนักงานบริษัท',
+      who: agent, whoSub: 'เจ้าหน้าที่ประกัน (ผู้ดูแลลูกค้า) · รหัส ' + agentId,
+      item: 'ค่าคอมมิชชั่น (เหมาจ่าย)', amount: COM_AGENT,
+      signRole: 'เจ้าหน้าที่ประกัน · ผู้รับเงิน',
+      cond: ['ลูกค้าแนะนำจากพนักงานบริษัท: เจ้าหน้าที่ประกันได้คอมเหมาจ่าย ' + fmtBaht(COM_AGENT) + ' บาทต่อ 1 คำขอที่ปิดการขาย',
+             'พนักงานบริษัทต่อประกันเอง ไม่มีค่าคอมมิชชั่น (NO COM)',
+             'ค่าแนะนำลูกค้าของพนักงานผู้แนะนำ อยู่ในใบแผ่นที่ 2 แยกต่างหาก'] })
+    + sheet(2, {
+      title: 'ใบสรุปค่าแนะนำลูกค้า',
+      head: 'ค่าแนะนำลูกค้าของพนักงานบริษัท',
+      who: r.emp_name, whoSub: empSub,
+      whoWarn: r.emp_verified ? '' : '⚠ รหัสไม่ตรงทำเนียบพนักงาน — ตรวจสอบก่อนจ่าย',
+      item: 'ค่าแนะนำลูกค้า', amount: COM_REFERRER,
+      signRole: 'พนักงานผู้แนะนำ · ผู้รับเงิน',
+      cond: ['พนักงานบริษัทแนะนำลูกค้า: ได้ค่าแนะนำ ' + fmtBaht(COM_REFERRER) + ' บาทต่อ 1 คำขอที่ปิดการขาย',
+             'ส่วนลดพิเศษลูกค้า: เบี้ย 12,000–18,000 ลด 500 บาท · เบี้ยมากกว่า 18,000 ลด 800 บาท',
+             'พนักงานบริษัทต่อประกันเอง ไม่ถือเป็นการแนะนำลูกค้า (NO COM)',
+             'ค่าคอมมิชชั่นของเจ้าหน้าที่ประกัน อยู่ในใบแผ่นที่ 1 แยกต่างหาก'] });
 }
 function printSheet(r){
   const L  = (v, flex, cls) => '<span class="pl' + (cls ? ' ' + cls : '') + '"' + (flex ? ' style="' + (typeof flex === 'number' ? 'flex-grow:' + flex : 'flex:' + flex) + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
