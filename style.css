@@ -228,6 +228,14 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .addopt:hover{border-color:var(--accent)}
 .addopt:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
 .addopt input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
+/* ติ๊กยืนยันข้อมูลที่อ่านจากสำเนาทะเบียนรถ */
+.co-ok{display:flex;align-items:center;gap:8px;margin-top:7px;font-size:12.5px;font-weight:600;
+  color:var(--ink-soft);cursor:pointer;min-height:32px}
+.co-ok input[type=checkbox]{width:18px;height:18px;cursor:pointer}
+.co-ok input[type=checkbox]:checked{background:var(--good-ink);border-color:var(--good-ink)}
+.co-ok:has(input:checked){color:var(--good-ink)}
+.co-ok.off{opacity:.45;cursor:default}
+.co-ok.off input{cursor:default}
 
 /* ---------- เอกสารแนบ (ขั้นที่ 3) ---------- */
 .p3-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}

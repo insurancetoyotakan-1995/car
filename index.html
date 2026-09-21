@@ -1059,6 +1059,12 @@ function stepFail(n){
       if(row) row.classList.add('miss');
       return {msg:'กรุณาแนบไฟล์' + label, el: row ? row.querySelector('input[type=file]') : 'docRows'};
     }
+    /* ---- ต้องติ๊กยืนยันข้อมูลที่อ่านจากสำเนาทะเบียนรถ ---- */
+    for(const id of CAR_FIELDS){
+      const c = $(OK_OF[id]);
+      if($(id).value.trim() && c && !c.checked)
+        return {msg:'กรุณาเทียบ' + CAR_LABEL[id] + 'กับเล่มทะเบียน แล้วติ๊กยืนยัน', el:c};
+    }
     /* ---- ด่านสิทธิ์ต่อประกัน (ฐานข้อมูลตรวจซ้ำที่ ins_submit) ---- */
     if(GATE && kindNow() !== 'refer'){
       if(GATE.state === 'early') return {msg:'รถทะเบียน ' + (GATE.plate || '') + ' ยื่นต่ออายุได้ตั้งแต่ ' + thDay(GATE.openFrom), el:'fPlate', step:3};
@@ -1965,15 +1971,35 @@ const CAR_BOX = '<div class="carocr" id="carOcr" hidden>'
   + '<div class="co-bar" id="coBar" hidden><i></i></div>'
   + '<div class="co-grid">'
   +   '<div class="co-f"><label class="f">เลขทะเบียน<span class="co-tag" aria-hidden="true">อ่านจากรูป</span><input id="fPlate" maxlength="20" autocomplete="off" placeholder="เช่น 5ขจ 7692"></label>'
-  +     '<p class="co-fn" id="nPlate" hidden></p></div>'
+  +     '<p class="co-fn" id="nPlate" hidden></p>'
+  +     '<label class="co-ok"><input type="checkbox" id="okPlate" disabled><span>เลขทะเบียนถูกต้อง</span></label></div>'
   +   '<div class="co-f"><label class="f">จังหวัด<span class="co-tag" aria-hidden="true">อ่านจากรูป</span><input id="fPlateProv" maxlength="40" autocomplete="off" placeholder="เช่น กรุงเทพมหานคร"></label>'
-  +     '<p class="co-fn" id="nProv" hidden></p></div>'
+  +     '<p class="co-fn" id="nProv" hidden></p>'
+  +     '<label class="co-ok"><input type="checkbox" id="okProv" disabled><span>จังหวัดถูกต้อง</span></label></div>'
   +   '<div class="co-f co-vin"><label class="f">เลขตัวรถ<span class="co-tag" aria-hidden="true">อ่านจากรูป</span><input id="fVin" maxlength="25" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น MR2BD8A3900073087"></label>'
-  +     '<p class="co-fn" id="nVin" hidden></p></div>'
+  +     '<p class="co-fn" id="nVin" hidden></p>'
+  +     '<label class="co-ok"><input type="checkbox" id="okVin" disabled><span>เลขตัวรถถูกต้อง</span></label></div>'
   + '</div>'
   + '<p class="co-note">ระบบอ่านให้อัตโนมัติ — <b>โปรดเทียบทุกตัวกับเล่มทะเบียน</b> ไม่ตรงแก้ในช่องได้เลย</p>'
   + '</div>';
 
+/* ติ๊กยืนยันว่าอ่านตรงกับเล่มทะเบียน — ค่าเปลี่ยนเมื่อไหร่ ติ๊กหลุดทันที ต้องตรวจใหม่ */
+const OK_OF = { fPlate:'okPlate', fPlateProv:'okProv', fVin:'okVin' };
+const CAR_LABEL = { fPlate:'เลขทะเบียน', fPlateProv:'จังหวัด', fVin:'เลขตัวรถ' };
+function okReset(id){
+  const c = $(OK_OF[id]); if(!c) return;
+  const v = $(id).value.trim();
+  /* ติ๊กไว้แล้วค่ายังเหมือนเดิม = เก็บติ๊กไว้ (ตัวอ่านทำงานเสร็จทีหลังไม่ล้างของที่ตรวจแล้ว) */
+  if(!(v && c.checked && c.dataset.v === v)) c.checked = false;
+  c.disabled = !v;
+  c.closest('.co-ok').classList.toggle('off', c.disabled);
+}
+function okSync(){ CAR_FIELDS.forEach(okReset); }
+function wireOk(){
+  CAR_FIELDS.forEach(id => { const c = $(OK_OF[id]); if(!c || c.__w) return; c.__w = 1;
+    c.addEventListener('change', () => { c.dataset.v = c.checked ? $(id).value.trim() : ''; saveDraft(); });
+  });
+}
 function carStatus(kind, text){
   const box = $('carOcr'); if(!box) return;
   box.dataset.st = kind;
@@ -2003,7 +2029,7 @@ function paintCarNote(id){
     n.classList.add('sug');
     n.querySelector('.co-use').onclick = () => {
       e.value = sug; e.dataset.auto = sug; e.classList.add('ocr'); delete CAR.sugg[id];
-      paintCarNotes(); saveDraft(); if(STEP === 3) renderReview();
+      paintCarNotes(); okSync(); saveDraft(); if(STEP === 3) renderReview();
     };
     n.hidden = false;
     return;
@@ -2129,10 +2155,12 @@ function wireCarBox(){
     }
     e.classList.toggle('ocr', !!e.dataset.auto && e.value === e.dataset.auto);
     paintCarNote(id);
+    okReset(id);                                         // แก้ค่าเอง = ต้องติ๊กยืนยันใหม่
     if(id === 'fPlate' || id === 'fVin') queueCar2();     // ทะเบียน/เลขตัวถังเปลี่ยน = เช็กสิทธิ์ใหม่
     if(STEP === 3) renderReview();
   }));
   $('coStop').onclick = () => carStop(false);
+  wireOk(); okSync();                                    // ร่างที่กู้มามีค่าอยู่แล้ว → เปิดให้ติ๊กได้ แต่ยังไม่ติ๊กให้
 }
 
 /* ---------- แผงตรวจก่อนส่ง (ขั้นที่ 3) ----------
@@ -2438,7 +2466,7 @@ $('fTitle').addEventListener('change', ()=>{
 });
 $('fName').addEventListener('blur', pullTitleFromName);
 const hadDraft = restoreDraft();
-syncCarBox(); vinHint();
+syncCarBox(); vinHint(); okSync();
 cselLabel($('fBranch').closest('.csel'));            // ร่างอาจเปลี่ยนสาขา — ป้ายบนปุ่มต้องตามด้วย
 setBranchByEmp();                                    // ร่างเก่าที่สาขาไม่ตรงกับรหัส → แก้ให้ตรง
 syncKind();
