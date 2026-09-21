@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260921-3">
+<link rel="stylesheet" href="style.css?v=20260921-4">
 <script src="config.js?v=20260919-1"></script>
 <style>
 /* ---------- กล่องรายละเอียดคำขอ ----------
@@ -1681,9 +1681,10 @@ function renderList(){
           r.kind === 'refer' ? 'แนะนำลูกค้า' : 'พนักงานทำเอง',
           esc('โดย ' + r.emp_name),
         ].join(' · ');
-        /* ป้ายแบรนด์ขึ้นเฉพาะใบที่ "ไม่ใช่โตโยต้า" — ใบโตโยต้ามีเป็นส่วนใหญ่ ติดป้ายทุกใบรกเปล่า ๆ */
-        const bTag = brandOf(r) === 'toyota' ? ''
-          : '<span class="rq-tag brand">' + esc(brandName(r)) + '</span>';
+        /* ป้ายบริษัทติดทุกใบทั้ง 2 แบรนด์ (ผู้ใช้สั่ง)
+           🔑 ติดข้างเดียวไม่พอ — ต้องจำกฎว่า "ไม่มีป้าย = โตโยต้า" ซึ่งพลาดง่ายเวลารีบ
+              และแยกด้วยสีไม่ใช่แค่ตัวอักษร (โตโยต้าแดง · ฮีโน่น้ำเงิน) กวาดตาดูรู้ทันที */
+        const bTag = '<span class="rq-tag brand b-' + brandOf(r) + '">' + esc(brandName(r)) + '</span>';
         return '<button type="button" class="rq s-' + esc(r.status) + '" data-id="' + esc(r.id) + '">'
           + '<span class="rq-st"><i></i>' + esc(STATUS[r.status] || r.status) + '</span>'
           + '<span class="rq-main">'
