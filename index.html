@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260921-1">
+<link rel="stylesheet" href="style.css?v=20260921-2">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
 <script src="config.js?v=20260919-1"></script>
 
@@ -312,13 +312,55 @@ const DOC_TYPES = [
 ];
 const MAX_FILE = 10 * 1024 * 1024;
 const MAX_FILES = 8;
-const DRAFT_KEY = 'ins_form_draft_v1';
+
+/* =======================================================================
+   แบรนด์ — โค้ดชุดเดียว ใช้ได้ทั้งโตโยต้าและฮีโน่ (เงื่อนไขทุกข้อเหมือนกัน)
+   เลือกแบรนด์จาก URL:  .../car/hino/  หรือ  ?b=hino   (ไม่ระบุ = โตโยต้า)
+   🔑 รหัสพนักงานของ 2 บริษัท "ซ้ำกันจริง" และเป็นคนละคน (เช็คแล้ว 29 จาก 47 รหัส)
+      → ทุก RPC ต้องส่งแบรนด์ไปด้วยเสมอ ไม่งั้นได้ชื่อผิดบริษัท
+        และสิทธิ์รถคันที่ 2 / ล็อกต่ออายุจะนับข้ามบริษัทกัน
+   เพิ่มแบรนด์ใหม่ = เพิ่มก้อนใน BRANDS + โฟลเดอร์ลิงก์สั้น + brand ในฐานข้อมูล
+   ======================================================================= */
+const BRANDS = {
+  toyota: {
+    kicker:  'โตโยต้า กาญจนบุรี',
+    company: 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด',
+    title:   'แบบฟอร์มขอทำประกันภัยรถยนต์ · โตโยต้า กาญจนบุรี',
+    desc:    'แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงานโตโยต้า กาญจนบุรี และลูกค้าที่พนักงานแนะนำ',
+    branches: ['สำนักงานใหญ่', 'ท่ามะกา', 'พนมทวน'],
+    depts: ['เจ้าของกิจการ','เลขานุการ','ส่วนกลาง Center','แผนกขาย','แผนกบริการ','แผนกตัวถังและสี',
+      'แผนกอะไหล่','แผนกการเงิน','แผนกบัญชี','แผนกบุคคล','แผนกลูกค้าสัมพันธ์','แผนกการตลาดประชาสัมพันธ์',
+      'แผนก Digital Marketing','แผนกอาคารสถานที่และรปภ.','แผนกแม่บ้าน'],
+    minId: 4,                                       // รหัสพนักงานโตโยต้าเป็นเลข 8 หลักเสมอ
+  },
+  hino: {
+    kicker:  'ฮีโน่ กาญจนบุรี',
+    company: 'บริษัท ฮีโน่กาญจนบุรี จำกัด',          // ชื่อนิติบุคคล (ผู้ใช้ยืนยัน 2026-09-21)
+    title:   'แบบฟอร์มขอทำประกันภัยรถยนต์ · ฮีโน่ กาญจนบุรี',
+    desc:    'แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงานฮีโน่ กาญจนบุรี และลูกค้าที่พนักงานแนะนำ',
+    branches: ['สำนักงานใหญ่'],                      // ฮีโน่มีสาขาเดียว (ผู้ใช้ยืนยัน)
+    /* แผนกตามไฟล์ "รายชื่อพนักงาน ปี 69_งานประกัน.xlsx" — ค่าที่ไม่อยู่ในลิสต์ setDept เติมให้เอง */
+    depts: ['ฝ่ายขาย','ฝ่ายบริการ','ฝ่ายอะไหล่','ฝ่ายบัญชี-การเงิน','ที่ปรึกษากรรมการ','แม่บ้าน'],
+    /* 🔑 ทำเนียบฮีโน่มีรหัสหลักเดียวจริง (รหัส '1' = วันดี ยอดกาวี — ผู้ใช้ยืนยัน)
+       จึงค้นตั้งแต่ 1 ตัว ต่างจากโตโยต้าที่เป็นเลข 8 หลักเสมอ */
+    minId: 1,
+  },
+};
+const BRAND = (() => {
+  const q = (new URLSearchParams(location.search).get('b') || '').toLowerCase();
+  const k = q || (/\/hino(\/|$)/i.test(location.pathname) ? 'hino' : '');
+  return BRANDS[k] ? k : 'toyota';
+})();
+const BR = BRANDS[BRAND];
+
+/* ร่างในเครื่องต้องแยกตามแบรนด์ — เครื่องเดียวกรอกให้ทั้ง 2 บริษัทได้ ไม่ปนกัน */
+const DRAFT_KEY = 'ins_form_draft_v1' + (BRAND === 'toyota' ? '' : '_' + BRAND);
 /* ช่องข้อความทั้งหมดที่บันทึกร่างไว้ในเครื่อง — ใช้ทั้งตอนเก็บ กู้คืน และล้าง */
 /* 🔒 ไม่เก็บเลขบัตรประชาชนลงร่าง — เครื่องที่ใช้ร่วมกันคนถัดไปจะเห็นเลขของคนก่อน */
 const TEXT_FIELDS = ['fEmpId','fEmpName','fName','fMobile','fHome','fAddr','fMoo','fRoad',
   'fTambon','fAmphoe','fProvince','fZip','fOcc','fWork','fIncome','fDob','fTitleOther','fRelNote','fNote',
   'fPlate','fPlateProv','fVin'];
-const COMPANY = 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด';
+const COMPANY = BR.company;
 
 let PENDING = [];                                   // ไฟล์ที่เลือกไว้ แต่ใบยังไม่ถูกสร้าง
 /* แบบ "แนะนำลูกค้าทั่วไป" ไม่มีเอกสารแสดงความสัมพันธ์ (ลูกค้าไม่ใช่ครอบครัวพนักงาน)
@@ -527,9 +569,9 @@ function paintEmpChk(state, msg, sub){
 }
 async function lookupEmp(){
   const id = $('fEmpId').value.replace(/\D/g,'');
-  if(id.length < 4 || !sb){ paintEmpChk(null); return; }
+  if(id.length < BR.minId || !sb){ paintEmpChk(null); return; }
   try{
-    const { data, error } = await sb.rpc('ins_lookup_emp', { p_emp_id: id });
+    const { data, error } = await sb.rpc('ins_lookup_emp', { p_emp_id: id, p_brand: BRAND });
     if(error) throw error;
     if($('fEmpId').value.replace(/\D/g,'') !== id) return;      // พิมพ์ต่อไปแล้ว ทิ้งผลเก่า
     const r = Array.isArray(data) ? data[0] : data;
@@ -565,13 +607,14 @@ async function checkCar2(){
   const id = $('fEmpId').value.replace(/\D/g,'');
   const plate = $('fPlate') ? $('fPlate').value.trim() : '';
   const vin = $('fVin') ? $('fVin').value.trim() : '';
-  const key = kindNow() === 'refer' || id.length < 4 || !sb ? '' : id + '|' + plate + '|' + vin;
+  const key = kindNow() === 'refer' || id.length < BR.minId || !sb ? '' : id + '|' + plate + '|' + vin;
   if(key === car2Key) return;
   car2Key = key;
   let g = null;
   if(key){
     try{
-      const { data, error } = await sb.rpc('ins_car_gate', { p_emp_id: id, p_plate: plate, p_vin: vin });
+      const { data, error } = await sb.rpc('ins_car_gate',
+        { p_emp_id: id, p_plate: plate, p_vin: vin, p_brand: BRAND });
       if(error) throw error;
       if(car2Key !== key) return;                                // รหัส/ทะเบียนเปลี่ยนระหว่างรอ
       g = data || null;
@@ -645,10 +688,28 @@ $('fEmpId').addEventListener('input', ()=>{
 /* ---------- แผนก ----------
    🔑 รายชื่อต้องตรงกับ DEPARTMENTS ของระบบในออฟฟิศ (admin.html / login.html / ใบสำคัญจ่าย.html)
       ค่าที่ไม่อยู่ในลิสต์ (มาจากทำเนียบหรือร่างเก่า) → ใส่เป็นตัวเลือกเพิ่ม ไม่ให้หายเงียบ */
-const DEPARTMENTS = ['เจ้าของกิจการ','เลขานุการ','ส่วนกลาง Center','แผนกขาย','แผนกบริการ','แผนกตัวถังและสี',
-  'แผนกอะไหล่','แผนกการเงิน','แผนกบัญชี','แผนกบุคคล','แผนกลูกค้าสัมพันธ์','แผนกการตลาดประชาสัมพันธ์',
-  'แผนก Digital Marketing','แผนกอาคารสถานที่และรปภ.','แผนกแม่บ้าน'];
+const DEPARTMENTS = BR.depts;
 DEPARTMENTS.forEach(d=>{ const o = document.createElement('option'); o.value = o.textContent = d; $('fDept').appendChild(o); });
+
+/* ---------- ชื่อบริษัท/สาขา ตามแบรนด์ ----------
+   HTML เขียนของโตโยต้าไว้เป็นค่าตั้งต้น ที่นี่ทับด้วยของแบรนด์ที่เปิดอยู่ */
+function paintBrand(){
+  document.documentElement.dataset.brand = BRAND;
+  document.title = BR.title;
+  const meta = document.querySelector('meta[name="description"]');
+  if(meta) meta.content = BR.desc;
+  const kick = document.querySelector('.hero-kicker');
+  if(kick) kick.textContent = BR.kicker;
+  const lead = $('consentLead');
+  if(lead) lead.textContent = 'ข้าพเจ้ายินยอมให้ ' + BR.company
+    + ' เก็บรวบรวม ใช้ และเปิดเผยข้อมูลที่กรอกและเอกสารที่แนบ เพื่อดำเนินการขอทำประกันภัยรถยนต์';
+  const br = $('fBranch');
+  if(br){
+    br.innerHTML = '';
+    BR.branches.forEach(b=>{ const o = document.createElement('option'); o.value = o.textContent = b; br.appendChild(o); });
+  }
+}
+paintBrand();
 /* ---------- คำนำหน้าชื่อ ----------
    นาย / นาง / นางสาว / อื่น ๆ (ระบุเอง เช่น ดร., ว่าที่ ร.ต.) · ค่าที่ส่ง = ข้อความคำนำหน้าจริง */
 const TITLE_STD = ['นาย','นาง','นางสาว'];
@@ -959,7 +1020,7 @@ function syncKind(){
   paintCar2(); queueCar2();
 }
 const CONSENT_VER = 'pdpa-2026-09-15';
-const CONSENT_CO = 'บริษัท โตโยต้ากาญจนบุรี 1995 ผู้จำหน่ายโตโยต้า จำกัด';
+const CONSENT_CO = BR.company;
 /* ผู้กรอกเป็นเจ้าของข้อมูลเอง (พนักงานทำให้ตัวเอง) vs กรอกแทนคนอื่น (ครอบครัว / ลูกค้าที่แนะนำ) */
 function paintConsent(){
   const own = kindNow() !== 'refer' && relNow() === 'self';
@@ -2222,6 +2283,7 @@ function renderReview(){
 function collect(){
   const relDocNote = $('fRelDocNote');
   return {
+    brand: BRAND,
     kind: kindNow(),
     addReason: kindNow() === 'refer' ? '' : ADD_REASON,
     empId: $('fEmpId').value, empName: $('fEmpName').value, empBranch: $('fBranch').value,

@@ -82,11 +82,13 @@ const sql = [
   '-- ที่มา: ' + path.basename(SRC) + ' · จับคู่ได้ ' + map.length + ' คน · รันซ้ำได้ (ทับของเดิมที่มาจาก Excel)',
   '-- ⚠️ ต้องรัน migrate-2026-09-15-emp-owner.sql ก่อน',
   '',
-  'insert into public.ins_emp_owner (emp_id, agent_emp_id, source, note) values',
-  map.map((m) => '  (' + [q(m.empId), q(m.agent), q('excel'),
+  /* 🔑 brand = toyota เสมอ: ต้นทางคือทำเนียบพนักงานโตโยต้า (voucher.db)
+     กุญแจหลักเป็น (brand, emp_id) ตั้งแต่ migrate-2026-09-21-brand.sql */
+  "insert into public.ins_emp_owner (brand, emp_id, agent_emp_id, source, note) values",
+  map.map((m) => "  ('toyota', " + [q(m.empId), q(m.agent), q('excel'),
     // 🔒 ไม่ส่งเลขกรมธรรม์ขึ้นคลาวด์ — ไม่จำเป็นต่อการแจกงาน
     q(m.policies + ' กรมธรรม์ใน Excel' + (m.fallback ? ' · ผู้ขายล่าสุด ' + m.fallback + ' ไม่อยู่ในระบบ' : ''))].join(', ') + ')').join(',\n'),
-  'on conflict (emp_id) do update',
+  'on conflict (brand, emp_id) do update',
   '  set agent_emp_id = excluded.agent_emp_id, source = excluded.source, note = excluded.note, updated_at = now();',
   '',
 ].join('\n');

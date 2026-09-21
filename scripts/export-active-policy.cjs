@@ -105,9 +105,11 @@ const sql = [
   '-- ⚠️ ต้องรัน migrate-2026-09-19-active-policy.sql ก่อน · รันซ้ำได้ (แทนชุดเดิมที่มาจาก Excel ทั้งหมด)',
   '',
   'begin;',
-  "delete from public.ins_active_policy where source = 'excel';",
-  out.length ? 'insert into public.ins_active_policy (emp_id, plate, vin, expire_on, source) values\n'
-    + out.map((o) => '  (' + [q(o.empId), q(o.plate), q(o.vin), q(o.exp), q('excel')].join(', ') + ')').join(',\n') + ';' : '',
+  /* 🔑 brand = toyota เสมอ: จับคู่ชื่อกับทำเนียบพนักงานโตโยต้า (voucher.db)
+     ล้างเฉพาะของโตโยต้า — ของฮีโน่ที่นำเข้าแยกจะไม่ถูกลบไปด้วย */
+  "delete from public.ins_active_policy where source = 'excel' and brand = 'toyota';",
+  out.length ? "insert into public.ins_active_policy (brand, emp_id, plate, vin, expire_on, source) values\n"
+    + out.map((o) => "  ('toyota', " + [q(o.empId), q(o.plate), q(o.vin), q(o.exp), q('excel')].join(', ') + ')').join(',\n') + ';' : '',
   'commit;',
   '',
   "select count(*) as policies, count(distinct emp_id) as employees,",

@@ -51,9 +51,11 @@ const sql = [
   '-- รันซ้ำได้ — ชื่อ/แผนกที่เปลี่ยนจะถูกอัปเดตทับ',
   '',
   ...chunks.map((c) =>
-    'insert into public.employees (emp_id, name, dept) values\n'
-    + c.map((u) => '  (' + q(u.empId) + ', ' + q(u.name) + ', ' + q(u.dept) + ')').join(',\n')
-    + '\non conflict (emp_id) do update set name = excluded.name, dept = excluded.dept, active = true;'
+    /* 🔑 กุญแจหลักเป็น (brand, emp_id) ตั้งแต่ migrate-2026-09-21-brand.sql
+       เพราะรหัสพนักงานโตโยต้ากับฮีโน่ซ้ำกันได้ และเป็นคนละคน */
+    "insert into public.employees (brand, emp_id, name, dept) values\n"
+    + c.map((u) => "  ('toyota', " + q(u.empId) + ', ' + q(u.name) + ', ' + q(u.dept) + ')').join(',\n')
+    + '\non conflict (brand, emp_id) do update set name = excluded.name, dept = excluded.dept, active = true;'
   ),
   '',
 ].join('\n');

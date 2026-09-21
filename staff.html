@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260921-1">
+<link rel="stylesheet" href="style.css?v=20260921-2">
 <script src="config.js?v=20260919-1"></script>
 <style>
 /* ---------- กล่องรายละเอียดคำขอ ----------
@@ -329,11 +329,15 @@
   <span class="ops-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></span>
   <div class="brand">
     <h1>รายการคำขอประกันภัย</h1>
-    <p>สำหรับเจ้าหน้าที่ · โตโยต้า กาญจนบุรี</p>
+    <!-- ทีมเดียวกันดูแลทั้งโตโยต้าและฮีโน่ → หัวเรื่องไม่ผูกกับแบรนด์ใดแบรนด์หนึ่ง -->
+    <p>สำหรับเจ้าหน้าที่ · โตโยต้า และ ฮีโน่ กาญจนบุรี</p>
   </div>
   <span class="spacer"></span>
   <span class="who-chip" id="whoChip" hidden></span>
-  <a class="hbtn" href="index.html">📝 ฟอร์มยื่นคำขอ</a>
+  <!-- 🔑 แยก 2 ปุ่ม: เจ้าหน้าที่คีย์ใบจากกระดาษของฮีโน่ในฟอร์มโตโยต้า = ได้ชื่อพนักงานผิดบริษัท
+       (รหัสพนักงาน 2 บริษัทซ้ำกันได้ และเป็นคนละคน) -->
+  <a class="hbtn" href="index.html">📝 ฟอร์มโตโยต้า</a>
+  <a class="hbtn" href="index.html?b=hino">📝 ฟอร์มฮีโน่</a>
   <button class="hbtn" id="btnLine" type="button" hidden>🔗 แจ้งเตือน LINE</button>
   <button class="hbtn" id="btnOut" hidden>ออกจากระบบ</button>
 </header>
@@ -373,6 +377,14 @@
       </label>
       <label class="f qagent" id="agentFilterBox" hidden>
         <select id="fltAgent" aria-label="กรองตามผู้ดูแล"><option value="">ผู้ดูแลทุกคน</option></select>
+      </label>
+      <!-- โผล่เฉพาะตอนมีใบของฮีโน่จริง ๆ (ช่วงแรกยังไม่มี = ไม่ต้องรกหน้าจอ) -->
+      <label class="f qagent" id="brandFilterBox" hidden>
+        <select id="fltBrand" aria-label="กรองตามบริษัท">
+          <option value="">ทั้ง 2 บริษัท</option>
+          <option value="toyota">โตโยต้า</option>
+          <option value="hino">ฮีโน่</option>
+        </select>
       </label>
     </div>
 
@@ -470,6 +482,14 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const $  = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TH_MON = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+/* ---------- แบรนด์ ----------
+   ทีมประกันดูแลทั้งโตโยต้าและฮีโน่จากหน้านี้หน้าเดียว (ผู้ใช้ยืนยันว่าเงื่อนไขเหมือนกันทุกข้อ)
+   🔑 รหัสพนักงาน 2 บริษัทซ้ำกันได้และเป็นคนละคน → ทุกที่ที่จับคู่ด้วย emp_id ต้องเทียบแบรนด์ด้วย
+      ใบเก่าทั้งหมดไม่มีคอลัมน์นี้/เป็น 'toyota' อยู่แล้ว */
+const BRAND_LABEL = { toyota:'โตโยต้า', hino:'ฮีโน่' };
+const brandOf = x => (x && x.brand) === 'hino' ? 'hino' : 'toyota';
+const brandName = x => BRAND_LABEL[brandOf(x)];
 
 const CFG = window.SUPA || {};
 const cfgReady = !!(CFG.url && CFG.anonKey
@@ -581,12 +601,14 @@ const vinKey = v => String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
 function priorCars(r){
   if(!r || r.kind === 'refer' || !r.emp_id) return [];
   const t = new Date(r.created_at).getTime(), k = plateKey(r.car_plate), vk = vinKey(r.car_vin), seen = new Set();
+  const b = brandOf(r);                                  // 🔑 รหัสพนักงาน 2 บริษัทซ้ำกันได้ — ต้องเทียบแบรนด์ด้วย
   const same = (p, v) => (!!k && plateKey(p) === k) || (!!vk && vinKey(v) === vk);
-  const pols = POLICIES.filter(p => p.emp_id === r.emp_id && !same(p.plate, p.vin))
+  const pols = POLICIES.filter(p => p.emp_id === r.emp_id && brandOf(p) === b && !same(p.plate, p.vin))
     .map(p => ({ policy:true, id:'p:' + p.plate + p.vin, car_plate:p.plate, car_vin:p.vin, expire_on:p.expire_on }));
   const reqs = LIST.filter(x => {
       const tx = new Date(x.created_at).getTime();
-      return x.id !== r.id && x.kind === 'self' && x.emp_id === r.emp_id && x.status !== 'cancelled'
+      return x.id !== r.id && x.kind === 'self' && x.emp_id === r.emp_id && brandOf(x) === b
+        && x.status !== 'cancelled'
         && tx < t && t - tx < 365 * 864e5
         && !(Array.isArray(x.covers) && x.covers.length === 1 && x.covers[0] === 'act')
         && !same(x.car_plate, x.car_vin);
@@ -1167,7 +1189,7 @@ function comSheet(r){
   const bandTxt = want === 800 ? 'มากกว่า 18,000' : want === 500 ? 'ช่วง 12,000–18,000' : 'ต่ำกว่า 12,000 · ไม่มีส่วนลดพิเศษ';
   return '<div class="kc">'
     + '<div class="kc-head"><div>'
-    +   '<div class="kc-org">โตโยต้า กาญจนบุรี · งานประกันภัยรถยนต์</div>'
+    +   '<div class="kc-org">' + esc(brandName(r)) + ' กาญจนบุรี · งานประกันภัยรถยนต์</div>'
     +   '<h1>ใบสรุปค่าคอมมิชชั่น / ค่าแนะนำลูกค้า</h1>'
     +   '<div class="kc-case">กรณีลูกค้าแนะนำจากพนักงานบริษัท</div></div>'
     +   '<table class="kc-meta"><tr><th>เลขที่คำขอ</th><td>' + esc(r.no) + '</td></tr>'
@@ -1246,7 +1268,7 @@ function printSheet(r){
   const rels = [['father','บิดา'], ['mother','มารดา'], ['husband','สามี'], ['wife','ภรรยา'], ['child','บุตร']];
   const now = new Date();
   return '<div class="pf-no"><span>เลขที่</span>' + L(r.no) + '</div>'
-    + '<div class="pf-title">แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงานโตโยต้า</div>'
+    + '<div class="pf-title">แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงาน' + esc(brandName(r)) + '</div>'
     + '<div class="pf-cap">&gt;&gt; ส่วนสำหรับพนักงานกรอกข้อมูล</div>'
     + '<div class="pf-row"><span>ชื่อพนักงาน</span>' + L(r.emp_name, 2) + '<span>แผนก</span>' + L(r.emp_dept, 1.4) + '<span>สาขา</span>' + L(r.emp_branch, 1.2) + '</div>'
     + '<div class="pf-row pf-ind">' + cb(!self, 'ผู้ทำประกันภัย') + '</div>'
@@ -1494,7 +1516,7 @@ $('lgEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') $('lgPw').focu
 $('btnOut').onclick = async ()=>{
   await sb.auth.signOut();
   LIST = []; FILES = {}; POLICIES = []; ME = null; AGENTS = [];
-  $('agentFilterBox').hidden = true; $('agentStrip').hidden = true; ST = '';
+  $('agentFilterBox').hidden = true; $('brandFilterBox').hidden = true; $('agentStrip').hidden = true; ST = '';
   $('listPanel').hidden = true; $('loginBox').hidden = false;
   $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
   toast('ออกจากระบบแล้ว');
@@ -1520,6 +1542,7 @@ async function loadList(){
     for(const x of (f.data || [])) (FILES[x.req_id] = FILES[x.req_id] || []).push(x);
     const pol = await sb.rpc('ins_active_policies');       // กรมธรรม์ที่ยังไม่หมดอายุ (สิทธิ์รถคันที่ 2) · ยังไม่ได้ migrate = ว่าง
     POLICIES = pol.error ? [] : (pol.data || []);
+    syncBrandFilter();
     /* แถวทยอยโผล่เฉพาะตอนโหลดข้อมูล — ไม่เล่นซ้ำทุกครั้งที่พิมพ์ค้นหา (renderList ถูกเรียกถี่) */
     $('listBody').classList.add('anim');
     renderList();
@@ -1601,10 +1624,12 @@ const STATUS_ORDER = ['new','contacted','quoted','done','cancelled'];
 
 function renderList(){
   const q = norm($('find').value), ag = isAdmin() ? $('fltAgent').value : '';
+  const br = $('brandFilterBox').hidden ? '' : $('fltBrand').value;
   // ใบที่ผ่านตัวกรองอื่นทั้งหมด ยกเว้นสถานะ → ใช้นับตัวเลขบนแท็บ
   if(isViewer()) ST = 'done';                               // ฝ่ายบุคคล: มีแท็บเดียว (RLS ส่งมาแค่ใบปิดการขายอยู่แล้ว — กรองซ้ำกันพลาด)
   const base = LIST.filter(r=>{
     if(isViewer() && r.status !== 'done') return false;
+    if(br && brandOf(r) !== br) return false;
     if(ag === '__none' && r.assigned_to) return false;
     if(ag && ag !== '__none' && r.assigned_to !== ag) return false;
     if(!q) return true;
@@ -1622,7 +1647,7 @@ function renderList(){
 
   const rows = base.filter(r=> !ST || r.status === ST);
   if(!rows.length){
-    const filtered = LIST.length && (q || ag || (ST && !isViewer()));
+    const filtered = LIST.length && (q || ag || br || (ST && !isViewer()));
     $('listBody').innerHTML = '<div class="empty"><b>' + (filtered ? 'ไม่พบคำขอที่ตรงกับตัวกรอง' : isViewer() ? 'ยังไม่มีใบที่ปิดการขาย' : 'ยังไม่มีคำขอ') + '</b>'
       + (filtered ? (isViewer() ? 'ลองล้างคำค้น' : 'ลองล้างคำค้นหรือเลือกแท็บ "ทั้งหมด"')
          : isViewer() ? 'ใบที่เจ้าหน้าที่ปิดการขายแล้วจะแสดงที่นี่'
@@ -1632,6 +1657,7 @@ function renderList(){
     if(filtered) $('btnClearF').onclick = ()=>{
       $('find').value = ''; ST = '';
       if(isAdmin()){ $('fltAgent').value = ''; $('fltAgent').dispatchEvent(new Event('change')); }
+      if(!$('brandFilterBox').hidden) setBrandFilter('');
       renderList();
     };
     return;
@@ -1655,10 +1681,14 @@ function renderList(){
           r.kind === 'refer' ? 'แนะนำลูกค้า' : 'พนักงานทำเอง',
           esc('โดย ' + r.emp_name),
         ].join(' · ');
+        /* ป้ายแบรนด์ขึ้นเฉพาะใบที่ "ไม่ใช่โตโยต้า" — ใบโตโยต้ามีเป็นส่วนใหญ่ ติดป้ายทุกใบรกเปล่า ๆ */
+        const bTag = brandOf(r) === 'toyota' ? ''
+          : '<span class="rq-tag brand">' + esc(brandName(r)) + '</span>';
         return '<button type="button" class="rq s-' + esc(r.status) + '" data-id="' + esc(r.id) + '">'
           + '<span class="rq-st"><i></i>' + esc(STATUS[r.status] || r.status) + '</span>'
           + '<span class="rq-main">'
           +   '<span class="rq-line"><span class="rq-nm">' + esc(r.insured_name) + '</span>'
+          +     bTag
           +     (nf ? '<span class="rq-tag" title="ไฟล์แนบ ' + nf + ' ไฟล์">' + ICON.clip + nf + '</span>' : '')
           +     (r.emp_verified ? '' : '<span class="rq-tag warn" title="รหัสพนักงานผู้แนะนำไม่ตรงทำเนียบ">' + ICON.warn + 'รหัสยังไม่ยืนยัน</span>')
           +     (r.add_reason === 'family' ? '<span class="rq-tag" title="พนักงานระบุว่าเป็นรถของคนในครอบครัว">รถครอบครัว</span>' : '')
@@ -1680,6 +1710,19 @@ function renderList(){
 let findTimer = null;
 $('find').addEventListener('input', ()=>{ clearTimeout(findTimer); findTimer = setTimeout(renderList, 120); });
 $('fltAgent').addEventListener('change', renderList);
+$('fltBrand').addEventListener('change', renderList);
+/* ตัวกรองบริษัทโผล่เฉพาะตอนมีใบของแบรนด์อื่นจริง ๆ — ช่วงที่ยังมีแต่โตโยต้าจะไม่รกหน้าจอ */
+function setBrandFilter(v){
+  const sel = $('fltBrand');
+  sel.value = v;
+  const box = sel.closest('.csel');
+  if(box) cselLabel(box);                                 // ปุ่มดรอปดาวน์แบบกำหนดเองต้องอัปเดตป้ายเอง
+}
+function syncBrandFilter(){
+  const box = $('brandFilterBox'), many = LIST.some(r=> brandOf(r) !== 'toyota');
+  if(many && box.hidden){ box.hidden = false; csel($('fltBrand')); }
+  if(!many && !box.hidden){ setBrandFilter(''); box.hidden = true; }
+}
 $('btnReload').onclick = async ()=>{
   const b = $('btnReload'); b.disabled = true; b.classList.add('spin');
   try{ await loadAgents(); await loadList(); }
@@ -1827,7 +1870,8 @@ function openView(id){
     + '<div class="sec">' + (r.kind==='refer' ? 'ผู้แนะนำ' : 'พนักงานผู้ยื่น') + '</div>'
     + dl([
         ['ชื่อพนักงาน', r.emp_name + (r.emp_verified ? '' : '  ⚠️ รหัสไม่ตรงทำเนียบ')],
-        ['รหัสพนักงาน', r.emp_id],
+        /* 🔑 รหัสพนักงานซ้ำกันได้ระหว่าง 2 บริษัท — ต้องบอกบริษัทคู่กับรหัสเสมอ */
+        ['รหัสพนักงาน', r.emp_id + ' · ' + brandName(r)],
         ['แผนก', r.emp_dept],
         ['สาขา', r.emp_branch],
         r.emp_typed_name ? ['ชื่อที่ผู้กรอกพิมพ์มา', r.emp_typed_name] : null,
