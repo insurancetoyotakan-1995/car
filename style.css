@@ -220,6 +220,14 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .car2 p{margin:3px 0 0}
 .car2 .sm{font-size:12.5px;opacity:.88}
 .cust .car2{animation:rise .3s var(--ease)}
+.car2.lock{background:var(--bad-soft,#fdeaea);color:var(--bad-ink,#8a2020);border-color:#f0cccc}
+/* เมนูเหตุผลขอเพิ่มรถ */
+.addopts{display:grid;gap:7px;margin-top:8px}
+.addopt{display:flex;align-items:center;gap:9px;padding:9px 12px;border:1px solid #e3d3b4;border-radius:var(--r-sm);
+  background:var(--panel);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;min-height:44px}
+.addopt:hover{border-color:var(--accent)}
+.addopt:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.addopt input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
 
 /* ---------- เอกสารแนบ (ขั้นที่ 3) ---------- */
 .p3-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}

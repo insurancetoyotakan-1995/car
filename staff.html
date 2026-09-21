@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260919-2">
+<link rel="stylesheet" href="style.css?v=20260921-1">
 <script src="config.js?v=20260919-1"></script>
 <style>
 /* ---------- กล่องรายละเอียดคำขอ ----------
@@ -483,6 +483,9 @@ const DOC_LABEL = { carReg:'สำเนาทะเบียนรถ', idCard:
 /* เอกสารที่ต้องมีก่อน "ปิดการขาย" — กติกาเดียวกับ ins_missing_docs ในฐานข้อมูล (migrate-2026-09-20-docs-done.sql)
    ด่านจริงอยู่ที่ ins_set_status · ตรงนี้บอกล่วงหน้าไม่ให้กดแล้วเด้ง error · บัญชีกลางข้ามได้ทั้ง 2 ฝั่ง */
 const REQ_DOCS = ['carReg', 'idCard', 'oldPolicy'];
+/* เหตุผลขอเพิ่มรถ (add_reason) — พนักงานเลือกในฟอร์ม · กติกาใน migrate-2026-09-21-car-lock.sql */
+const ADD_LABEL = { own2:'ขอเพิ่มรถคันที่ 2 ชื่อตัวเอง', family:'รถครอบครัวเชื่อมโยง',
+                    renew:'ต่ออายุรถคันเดิม', first:'รถคันแรก' };
 const missDocs = r => REQ_DOCS.filter(t => !(FILES[r.id] || []).some(f => f.tag === t)).map(t => DOC_LABEL[t]);
 
 /* รายชื่อบริษัทประกัน = คำที่ฝ่ายประกันใช้อยู่จริงในไฟล์ Excel ของเขา
@@ -1273,6 +1276,7 @@ function printSheet(r){
     + '</div>'
     + '<div class="pf-row pf-sum"><span>รวมเงินที่ต้องการชำระหลังหักส่วนลด ประเภท</span>' + L(m(sumMain), 1, 'r')
     +   '<span>พรบ</span>' + L(m(sumAct), 1, 'r') + '<span>รวมทั้งสิ้น</span>' + L(m(r.quote_total), 1.2, 'r') + '<span>บาท</span></div>'
+    + (ADD_LABEL[r.add_reason] && r.add_reason !== 'first' ? '<div class="pf-row"><span>สิทธิ์ที่ใช้ยื่น</span>' + L(ADD_LABEL[r.add_reason], 6) + '</div>' : '')
     + (r.quote_note ? '<div class="pf-row"><span>หมายเหตุ</span>'
         + L(String(r.quote_note).replace(WTAG, 'สวัสดิการพนักงาน: $1 · ').replace(/ · $/, '')) + '</div>' : '')
     + '<div class="pf-pay"><div>'
@@ -1657,6 +1661,7 @@ function renderList(){
           +   '<span class="rq-line"><span class="rq-nm">' + esc(r.insured_name) + '</span>'
           +     (nf ? '<span class="rq-tag" title="ไฟล์แนบ ' + nf + ' ไฟล์">' + ICON.clip + nf + '</span>' : '')
           +     (r.emp_verified ? '' : '<span class="rq-tag warn" title="รหัสพนักงานผู้แนะนำไม่ตรงทำเนียบ">' + ICON.warn + 'รหัสยังไม่ยืนยัน</span>')
+          +     (r.add_reason === 'family' ? '<span class="rq-tag" title="พนักงานระบุว่าเป็นรถของคนในครอบครัว">รถครอบครัว</span>' : '')
           +     (pc ? '<span class="rq-tag warn" title="พนักงานคนนี้มีรถที่ใช้สิทธิ์อยู่แล้ว ' + pc + ' คัน · ส่วนลด 10% เงินสด/โอนเท่านั้น">' + ICON.warn + 'รถคันที่ ' + (pc + 1) + '</span>' : '')
           +   '</span>'
           +   '<span class="rq-sub">' + tags + '</span>'
@@ -1783,7 +1788,9 @@ function openView(id){
     + '</div>'
     + (r.note ? '<p class="vsum-note"><b>หมายเหตุจากผู้ยื่น:</b> ' + esc(r.note) + '</p>' : '')
     + (prior.length ? '<p class="vsum-note"><b>รถคันที่ ' + (prior.length + 1) + ' ของพนักงาน:</b> ใช้สิทธิ์อยู่แล้ว ' + esc(priorTxt(prior))
-      + ' · บังคับส่วนลด 10% ชำระเงินสด/โอนเท่านั้น</p>' : '')
+      + ' · บังคับส่วนลด 10% ชำระเงินสด/โอนเท่านั้น'
+      + (ADD_LABEL[r.add_reason] && r.add_reason !== 'renew' && r.add_reason !== 'first'
+          ? ' · พนักงานเลือก: ' + esc(ADD_LABEL[r.add_reason]) : '') + '</p>' : '')
     + '<div class="vtabs" role="tablist" aria-label="ส่วนของคำขอ">'
     +   TABS.map(([k, lb, x]) => '<button type="button" role="tab" class="vtab" id="vt-' + k + '" data-tab="' + k + '"'
           + ' aria-controls="vp-' + k + '" aria-selected="false" tabindex="-1">' + esc(lb) + x + '</button>').join('')
@@ -1824,6 +1831,7 @@ function openView(id){
         ['แผนก', r.emp_dept],
         ['สาขา', r.emp_branch],
         r.emp_typed_name ? ['ชื่อที่ผู้กรอกพิมพ์มา', r.emp_typed_name] : null,
+        r.kind !== 'refer' && r.add_reason ? ['สิทธิ์ที่ใช้ยื่น', ADD_LABEL[r.add_reason] || r.add_reason] : null,
       ])
     + '<div class="sec">ความยินยอม (PDPA)</div>'
     + dl([

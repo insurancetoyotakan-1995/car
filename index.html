@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260919-2">
+<link rel="stylesheet" href="style.css?v=20260921-1">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
 <script src="config.js?v=20260919-1"></script>
 
@@ -552,7 +552,14 @@ async function lookupEmp(){
    (ทะเบียน/เลขตัวถังเดียวกับที่กำลังกรอก = ต่ออายุคันเดิม ไม่นับ) · ถามใหม่เฉพาะตอนรหัส/ทะเบียน/เลขตัวถังเปลี่ยน
    ยังไม่ได้รัน migrate-2026-09-19-car2.sql → RPC error → เงียบ ไม่แจ้ง ไม่ขวางการกรอก
    ======================================================================= */
-let CAR2 = 0, car2Key = '', car2Timer = null;
+let CAR2 = 0, GATE = null, ADD_REASON = '', car2Key = '', car2Timer = null;
+/* เหตุผลขอเพิ่มรถ — ต้องตรงกับ add_reason ในฐานข้อมูล (migrate-2026-09-21-car-lock.sql) */
+const ADD_LABEL = { own2:'ขอเพิ่มรถคันที่ 2 ชื่อตัวเอง', family:'รถครอบครัวเชื่อมโยง' };
+const TH_MON_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const thDay = iso => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  return m ? (+m[3]) + ' ' + TH_MON_SHORT[+m[2] - 1] + ' ' + (+m[1] + 543) : '';
+};
 function queueCar2(){ clearTimeout(car2Timer); car2Timer = setTimeout(checkCar2, 400); }
 async function checkCar2(){
   const id = $('fEmpId').value.replace(/\D/g,'');
@@ -561,30 +568,60 @@ async function checkCar2(){
   const key = kindNow() === 'refer' || id.length < 4 || !sb ? '' : id + '|' + plate + '|' + vin;
   if(key === car2Key) return;
   car2Key = key;
-  let n = 0;
+  let g = null;
   if(key){
     try{
-      const { data, error } = await sb.rpc('ins_car2_check', { p_emp_id: id, p_plate: plate, p_vin: vin });
+      const { data, error } = await sb.rpc('ins_car_gate', { p_emp_id: id, p_plate: plate, p_vin: vin });
       if(error) throw error;
-      if(car2Key !== key) return;                                // รหัส/ทะเบียนเปลี่ยนระหว่างรอ ทิ้งผลเก่า
-      n = Math.max(0, +data || 0);
-    }catch(e){ n = 0; }
+      if(car2Key !== key) return;                                // รหัส/ทะเบียนเปลี่ยนระหว่างรอ
+      g = data || null;
+    }catch(e){ g = null; }                                       // ยังไม่ได้รัน migrate → ไม่ขวางการกรอก
   }
-  if(n === CAR2) return;
-  CAR2 = n;
+  const same = JSON.stringify(g) === JSON.stringify(GATE);
+  GATE = g;
+  CAR2 = Math.max(0, (g && +g.cars) || 0);
+  if(!(g && g.state === 'add')) ADD_REASON = '';                 // ไม่ใช่การขอเพิ่มรถแล้ว = ล้างเหตุผล
+  if(same) return;
   paintCar2();
   if(STEP === 3) renderReview();
 }
+/* กล่องสถานะสิทธิ์ใต้ช่องพนักงาน — เตือน / ล็อก / เมนูขอเพิ่มรถ */
 function paintCar2(){
-  const box = $('car2Note'), on = CAR2 > 0 && kindNow() !== 'refer';
+  const box = $('car2Note'), g = GATE;
+  const on = !!g && kindNow() !== 'refer' && (g.state === 'early' || g.state === 'pending' || g.state === 'add' || (g.state === 'renew' && CAR2 > 0));
   box.hidden = !on;
+  box.className = 'car2' + (g && (g.state === 'early' || g.state === 'pending') ? ' lock' : '');
   if(!on){ box.innerHTML = ''; return; }
-  box.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.2M12 17.2v.1"/></svg>'
-    + '<div><b>คันนี้จะใช้สิทธิ์ "รถคันที่ ' + (CAR2 + 1) + '"</b>'
-    + '<p>ระบบพบว่ารหัสนี้มีรถที่ใช้สิทธิ์ประกันพนักงานอยู่แล้ว ' + CAR2 + ' คัน (กรมธรรม์ที่ยังไม่หมดอายุ หรือคำขอใน 12 เดือน) · สวัสดิการพนักงานได้ 1 คน 1 คัน '
-    + 'คันที่ 2 ขึ้นไปได้ส่วนลด 10% และ<strong>ชำระด้วยเงินสดหรือโอนเท่านั้น</strong> (ผ่อนหักเงินเดือน/รูดบัตรไม่ได้)</p>'
-    + '<p class="sm">รถต้องเป็นชื่อของพนักงานเอง หรือแนบเอกสารยืนยันความสัมพันธ์ครอบครัว · '
-    + 'ถ้าเป็นการต่ออายุรถคันเดิม กรอกทะเบียนหรือเลขตัวถังให้ตรงแล้วข้อความนี้จะหายไปเอง</p></div>';
+  const warn = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.2M12 17.2v.1"/></svg>';
+  const lock = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10" width="15" height="10.5" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+  if(g.state === 'early'){
+    box.innerHTML = lock + '<div><b>รถคันนี้ยังต่ออายุไม่ได้</b>'
+      + '<p>ทะเบียน ' + esc(g.plate || '-') + ' มีประกันที่ยังไม่หมดอายุ ถึง ' + esc(thDay(g.expireOn))
+      + ' · ยื่นต่ออายุได้ตั้งแต่ <strong>' + esc(thDay(g.openFrom)) + '</strong> (อีก ' + (g.daysLeft || 0) + ' วัน)</p>'
+      + '<p class="sm">ถ้าเป็นรถคนละคัน กรอกทะเบียนและเลขตัวถังของคันที่จะทำประกันให้ถูกต้อง</p></div>';
+    return;
+  }
+  if(g.state === 'pending'){
+    box.innerHTML = lock + '<div><b>รถคันนี้มีคำขออยู่ในระบบแล้ว</b>'
+      + '<p>ยื่นไว้เมื่อ ' + esc(thDay(g.since)) + ' · เจ้าหน้าที่กำลังดำเนินการ ไม่ต้องยื่นซ้ำ</p>'
+      + '<p class="sm">ถ้าต้องการแก้ไขข้อมูล ติดต่อเจ้าหน้าที่ประกันได้เลย</p></div>';
+    return;
+  }
+  const opt = (k) => '<label class="addopt"><input type="radio" name="addWhy" value="' + k + '"'
+    + (ADD_REASON === k ? ' checked' : '') + '><span>' + esc(ADD_LABEL[k]) + '</span></label>';
+  box.innerHTML = warn + '<div><b>' + (g.state === 'renew' ? 'รถคันที่ ' + (CAR2 + 1) + ' ของคุณ' : 'คุณมีรถที่ใช้สิทธิ์อยู่แล้ว ' + CAR2 + ' คัน') + '</b>'
+    + '<p>สวัสดิการพนักงานได้ 1 คน 1 คัน คันที่ 2 ขึ้นไปได้ส่วนลด 10% และ<strong>ชำระด้วยเงินสดหรือโอนเท่านั้น</strong> '
+    + '(ผ่อนหักเงินเดือน/รูดบัตรไม่ได้)</p>'
+    + (g.state === 'add'
+        ? '<p class="sm">เลือกเหตุผลที่ขอเพิ่มรถ แล้วจึงส่งคำขอได้</p>'
+          + '<div class="addopts" role="radiogroup" aria-label="เหตุผลที่ขอเพิ่มรถ">' + opt('own2') + opt('family') + '</div>'
+          + (ADD_REASON === 'family' ? '<p class="sm">รถครอบครัว: ต้องแนบเอกสารแสดงความสัมพันธ์ในขั้นที่ 3</p>' : '')
+        : '<p class="sm">ถ้าเป็นการต่ออายุรถคันเดิม กรอกทะเบียนหรือเลขตัวถังให้ตรงแล้วข้อความนี้จะหายไปเอง</p>')
+    + '</div>';
+  box.querySelectorAll('input[name=addWhy]').forEach(r => r.addEventListener('change', ()=>{
+    ADD_REASON = r.value; paintCar2(); saveDraft();
+    if(STEP === 3) renderReview();
+  }));
 }
 /* สาขาตามหลักแรกของรหัสพนักงาน: 1 สำนักงานใหญ่ · 2 ท่ามะกา · 3 พนมทวน
    (กติกาเดียวกับเลขเอกสาร/ที่อยู่สาขาของระบบใบสำคัญจ่าย) · หลักอื่น = ไม่แตะ เลือกเองได้ */
@@ -1022,6 +1059,14 @@ function stepFail(n){
       if(row) row.classList.add('miss');
       return {msg:'กรุณาแนบไฟล์' + label, el: row ? row.querySelector('input[type=file]') : 'docRows'};
     }
+    /* ---- ด่านสิทธิ์ต่อประกัน (ฐานข้อมูลตรวจซ้ำที่ ins_submit) ---- */
+    if(GATE && kindNow() !== 'refer'){
+      if(GATE.state === 'early') return {msg:'รถทะเบียน ' + (GATE.plate || '') + ' ยื่นต่ออายุได้ตั้งแต่ ' + thDay(GATE.openFrom), el:'fPlate', step:3};
+      if(GATE.state === 'pending') return {msg:'รถคันนี้มีคำขออยู่ในระบบแล้ว (ยื่นเมื่อ ' + thDay(GATE.since) + ') ไม่ต้องยื่นซ้ำ', el:'fPlate', step:3};
+      if(GATE.state === 'add' && !ADD_REASON) return {msg:'กรุณาเลือกเหตุผลที่ขอเพิ่มรถ (ขั้นที่ 1)', el:'car2Note', step:1};
+      if(ADD_REASON === 'family' && !activeFiles().some(f => f.tag === 'relDoc'))
+        return {msg:'รถครอบครัวเชื่อมโยง — กรุณาแนบเอกสารแสดงความสัมพันธ์', el: $('docRows').querySelector('.docrow[data-tag="relDoc"] input[type=file]') || 'docRows'};
+    }
     if(!$('fConsent').checked){
       $('consentBox').classList.add('miss');
       return {msg:'กรุณาอ่านและติ๊กยินยอมให้เก็บและใช้ข้อมูลส่วนบุคคลก่อนส่ง', el:'fConsent'};
@@ -1030,13 +1075,15 @@ function stepFail(n){
   return null;
 }
 function showFail(bad, atStep){
-  STEP = atStep; paintSteps();
+  STEP = bad.step || atStep; paintSteps();           // bad.step = ปัญหาอยู่คนละขั้นกับที่กำลังตรวจ
   toast(bad.msg, 'no');
   let el = typeof bad.el === 'string' ? $(bad.el) : bad.el;
+  if(!el) return;
   /* select ถูกซ่อน โฟกัสไม่ได้ → ชี้ไปที่ปุ่มดรอปดาวน์ของเราแทน */
   if(el.tagName === 'SELECT' && el.closest('.csel')) el = el.closest('.csel').__btn;
-  el.setAttribute('aria-invalid','true');
-  el.focus();
+  const radio = el.querySelector && el.querySelector('input[type=radio]');
+  if(radio) el = radio;                              // กล่องเหตุผลขอเพิ่มรถ → โฟกัสตัวเลือกแรก
+  if(el.focus){ el.setAttribute('aria-invalid','true'); el.focus(); }
   el.scrollIntoView({block:'center'});
 }
 function paintSteps(){
@@ -2082,6 +2129,7 @@ function wireCarBox(){
     }
     e.classList.toggle('ocr', !!e.dataset.auto && e.value === e.dataset.auto);
     paintCarNote(id);
+    if(id === 'fPlate' || id === 'fVin') queueCar2();     // ทะเบียน/เลขตัวถังเปลี่ยน = เช็กสิทธิ์ใหม่
     if(STEP === 3) renderReview();
   }));
   $('coStop').onclick = () => carStop(false);
@@ -2121,7 +2169,10 @@ function renderReview(){
           row('แบบคำขอ', refer ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง')
         + row('ชื่อ', [val('fEmpName'), val('fEmpId') && ('รหัส ' + val('fEmpId'))].filter(Boolean).join(' · '))
         + row('แผนก / สาขา', [val('fDept'), $('fBranch').value].filter(Boolean).join(' · '))
-        + (!refer && CAR2 > 0 ? row('สวัสดิการ', 'รถคันที่ ' + (CAR2 + 1) + ' · ส่วนลด 10% ชำระเงินสด/โอนเท่านั้น') : ''))
+        + (!refer && CAR2 > 0 ? row('สวัสดิการ', 'รถคันที่ ' + (CAR2 + 1) + ' · ส่วนลด 10% ชำระเงินสด/โอนเท่านั้น') : '')
+        + (!refer && GATE && GATE.state === 'add'
+            ? row('เหตุผลขอเพิ่มรถ', ADD_REASON ? ADD_LABEL[ADD_REASON] : '', '⚠ ยังไม่ได้เลือก — กด "แก้" เพื่อเลือก') : '')
+        + (!refer && GATE && GATE.state === 'renew' ? row('สิทธิ์', 'ต่ออายุรถคันเดิม') : ''))
     + block(2, refer ? 'ลูกค้าที่แนะนำ' : 'ผู้ทำประกัน', 2,
           row('ชื่อ', [titleNow(), val('fName')].filter(Boolean).join(' '))
         + row('เลขบัตรประชาชน', val('fIdCard'))
@@ -2144,6 +2195,7 @@ function collect(){
   const relDocNote = $('fRelDocNote');
   return {
     kind: kindNow(),
+    addReason: kindNow() === 'refer' ? '' : ADD_REASON,
     empId: $('fEmpId').value, empName: $('fEmpName').value, empBranch: $('fBranch').value,
     empDept: $('fDept').value,
     insuredTitle: titleNow(),
@@ -2303,6 +2355,7 @@ function showDone(d, v){
     ['เบอร์ติดต่อ', d.phoneMobile],
     [d.kind==='refer' ? 'ผู้แนะนำ' : 'พนักงาน', d.empName + (d.empVerified ? '' : ' (ยังไม่ยืนยันรหัส)')],
     d.kind !== 'refer' && CAR2 > 0 && ['สวัสดิการ', 'รถคันที่ ' + (CAR2 + 1) + ' · ส่วนลด 10% ชำระเงินสด/โอนเท่านั้น'],
+    d.kind !== 'refer' && ADD_REASON && ['เหตุผลขอเพิ่มรถ', ADD_LABEL[ADD_REASON]],
   ].filter(Boolean).map(([k,val])=>'<dt>'+esc(k)+'</dt><dd>'+esc(val||'—')+'</dd>').join('');
   renderDoneFiles();
   $('tabForm').hidden = true; $('tabDone').hidden = false;
@@ -2360,6 +2413,7 @@ function resetForm(keepEmp){
   PENDING.forEach(p=>{ if(p.url) URL.revokeObjectURL(p.url); });   // คืนหน่วยความจำรูปตัวอย่าง
   PENDING = [];
   carStop(true);
+  ADD_REASON = ''; GATE = null;
   car2Key = null;                                    // เพิ่งส่งไป 1 คัน → นับใหม่
   renderDocRows(); renderChips(); syncKind();
   STEP = 1; paintSteps();
