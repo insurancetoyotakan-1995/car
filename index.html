@@ -2182,6 +2182,7 @@ function carClearAuto(){
   CAR_FIELDS.forEach(id => { const e = $(id); if(e && e.dataset.auto && e.value === e.dataset.auto){ e.value = ''; e.classList.remove('ocr'); delete e.dataset.auto; } });
   CAR.sugg = {}; CAR.warn = {}; CAR.miss = {};
   paintCarNotes();
+  okSync();                                                // ค่าหายไปแล้ว ปุ่มติ๊กต้องกลับไปเป็น "ยังไม่มีข้อมูล"
 }
 function carStop(silent){
   CAR.run++; CAR.again = false;
@@ -2232,6 +2233,9 @@ async function runCarOcr(){
     }
     const sugg = Object.keys(CAR.sugg).length;
     paintCarNotes();
+    /* 🔑 ตัวอ่านเติมค่าด้วย JS ช่องจึงไม่ยิง input → ต้องปลดล็อกปุ่มติ๊กเอง
+       ไม่งั้นช่องที่ระบบอ่านมาให้ "กดยืนยันไม่ได้" ต้องเข้าไปพิมพ์แก้ก่อน ซึ่งกลับหัวกลับหาง */
+    okSync();
     const warned = CAR_FIELDS.some(id => { const x = $(CAR_NOTE[id]); return !x.hidden && !x.classList.contains('sug'); });
     if(fail === 'load' && !found) carStatus('err', 'โหลดตัวอ่านรูปไม่สำเร็จ (อินเทอร์เน็ตไม่เสถียร) · กรอกเองได้ในช่องด้านล่าง');
     else if(!found)       carStatus('none', 'อ่านจากรูปไม่ได้ · รูปอาจเบลอหรือไม่ใช่หน้า "รายการจดทะเบียน" กรอกเองได้');
