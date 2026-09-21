@@ -19,4 +19,6 @@ supabase/line-bind-secret.sql
 supabase/ins-emp-owner.sql
 
 # กรมธรรม์พนักงานที่ยังไม่หมดอายุ (scripts/export-active-policy.cjs)
+# มีชื่อพนักงาน ทะเบียนรถ เลขตัวถัง = ข้อมูลส่วนบุคคล ห้ามขึ้น repo สาธารณะ
 supabase/ins-active-policy.sql
+supabase/*active-policy.sql
