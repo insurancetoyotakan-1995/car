@@ -474,6 +474,11 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .ld-bar i{display:block;height:100%;background:var(--red-300);transform-origin:left;transition:transform .3s var(--ease)}
 .ld.on .ld-bar i{background:var(--accent)}
 .ld-n{font-size:13px;font-weight:700;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+/* เจ้าหน้าที่ที่ถูกตัดออกจากการแจกงาน — ยังเห็นใบที่ถือค้างอยู่ แต่ไม่ได้ใบใหม่ */
+.ld.off .ld-nm,.ld.off .ld-n{color:var(--muted)}
+.ld.off .ld-bar i{background:var(--line)}
+.ld-pz{margin-left:7px;font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px;
+  color:var(--ink-soft);background:var(--bg-2);box-shadow:inset 0 0 0 1px var(--line)}
 
 .qgroup{margin:0 -22px}
 .qday{display:flex;justify-content:space-between;align-items:center;padding:12px 22px 6px;

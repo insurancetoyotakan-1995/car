@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260921-4">
+<link rel="stylesheet" href="style.css?v=20260921-5">
 <script src="config.js?v=20260919-1"></script>
 <style>
 /* ---------- กล่องรายละเอียดคำขอ ----------
@@ -1567,7 +1567,8 @@ async function loadAgents(){
   AGENTS = data || [];
   const sel = $('fltAgent'), cur = sel.value;
   sel.innerHTML = '<option value="">ผู้ดูแลทุกคน</option><option value="__none">ยังไม่มีผู้ดูแล</option>'
-    + AGENTS.map(a=>'<option value="' + esc(a.emp_id) + '">' + esc(a.name) + ' (' + a.active_count + ')</option>').join('');
+    + AGENTS.map(a=>'<option value="' + esc(a.emp_id) + '">' + esc(a.name) + ' (' + a.active_count + ')'
+        + (a.takes_new === false ? ' · พักแจก' : '') + '</option>').join('');
   sel.value = [...sel.options].some(o=>o.value===cur) ? cur : '';
   csel(sel);
   $('agentFilterBox').hidden = false;
@@ -1583,14 +1584,22 @@ function renderLoad(){
     box.dataset.init = '1';
     try{ box.open = localStorage.getItem('staff_load_open') === '1'; }catch(e){}
   }
-  const n = AGENTS.map(a=> +a.active_count || 0);
-  const max = Math.max(1, ...n), min = Math.min(...n), sum = n.reduce((x,y)=>x+y, 0);
-  $('loadSum').textContent = AGENTS.length + ' คน · รวม ' + sum + ' ใบ · ' + (max - min <= 1 ? 'แจกเท่ากันแล้ว' : 'ห่างกันสูงสุด ' + (max - min) + ' ใบ');
+  /* คนที่ถูกตัดออกจากการแจก (takes_new = false) ไม่นับในคำว่า "แจกเท่ากันแล้ว"
+     ไม่งั้นใบที่เขาถือค้างอยู่จะทำให้ดูเหมือนแจกไม่เท่ากันไปตลอด */
+  const paused = a => a.takes_new === false;
+  const live = AGENTS.filter(a => !paused(a));
+  const n = (live.length ? live : AGENTS).map(a=> +a.active_count || 0);
+  const max = Math.max(1, ...n), min = Math.min(...n);
+  const sum = AGENTS.reduce((x, a)=> x + (+a.active_count || 0), 0);
+  $('loadSum').textContent = live.length + ' คน · รวม ' + sum + ' ใบ · '
+    + (max - min <= 1 ? 'แจกเท่ากันแล้ว' : 'ห่างกันสูงสุด ' + (max - min) + ' ใบ')
+    + (AGENTS.length - live.length ? ' · พักแจก ' + (AGENTS.length - live.length) + ' คน' : '');
   const ag = $('fltAgent').value;
   $('loadGrid').innerHTML = AGENTS.map(a=>{
     const c = +a.active_count || 0;
-    return '<button type="button" class="ld' + (ag === a.emp_id ? ' on' : '') + '" data-emp="' + esc(a.emp_id) + '" aria-pressed="' + (ag === a.emp_id) + '">'
-      + '<span class="ld-nm">' + esc(a.name) + '</span>'
+    return '<button type="button" class="ld' + (ag === a.emp_id ? ' on' : '') + (paused(a) ? ' off' : '')
+      + '" data-emp="' + esc(a.emp_id) + '" aria-pressed="' + (ag === a.emp_id) + '">'
+      + '<span class="ld-nm">' + esc(a.name) + (paused(a) ? '<span class="ld-pz">พักแจก</span>' : '') + '</span>'
       + '<span class="ld-bar"><i style="transform:scaleX(' + (c / max).toFixed(3) + ')"></i></span>'
       + '<span class="ld-n">' + c + '</span></button>';
   }).join('');
