@@ -228,13 +228,22 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .addopt:hover{border-color:var(--accent)}
 .addopt:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
 .addopt input{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
-/* ติ๊กยืนยันข้อมูลที่อ่านจากสำเนาทะเบียนรถ */
-.co-ok{display:flex;align-items:center;gap:8px;margin-top:7px;font-size:12.5px;font-weight:600;
-  color:var(--ink-soft);cursor:pointer;min-height:32px}
-.co-ok input[type=checkbox]{width:18px;height:18px;cursor:pointer}
+/* ติ๊กยืนยันข้อมูลที่อ่านจากสำเนาทะเบียนรถ
+   เป็น "ปุ่มเต็มความกว้าง" ไม่ใช่ติ๊กเล็ก ๆ ลอย ๆ เพราะเป็นสิ่งที่กั้นการส่งคำขอ
+   จึงควรเด่นเท่าความสำคัญ และสูง 44px ให้แตะโดนบนมือถือ (เป้าแตะขั้นต่ำ)
+   margin-top:auto = ดันไปล่างสุดของการ์ด → ช่องซ้าย/ขวาติ๊กอยู่ระดับเดียวกันแม้คำเตือนยาวไม่เท่ากัน */
+.co-ok{display:flex;align-items:center;gap:10px;margin:9px 0 0;padding:0 12px;min-height:44px;
+  border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;
+  transition:background .18s var(--ease),border-color .18s var(--ease),color .18s var(--ease)}
+.co-f .co-ok{margin-top:auto}
+.co-ok input[type=checkbox]{flex:none;width:19px;height:19px;cursor:pointer}
+.co-ok:hover:not(.off){border-color:var(--good);background:var(--good-soft);color:var(--good-ink)}
+.co-ok:has(input:focus-visible){outline:2px solid var(--good-ink);outline-offset:2px}
+/* ยืนยันแล้ว: พื้นเขียวอ่อน + ตัวอักษรเขียวเข้ม — ไม่ใช้สีเพียงอย่างเดียว ข้อความก็เปลี่ยนด้วย */
+.co-ok:has(input:checked){border-color:var(--good);background:var(--good-soft);color:var(--good-ink)}
 .co-ok input[type=checkbox]:checked{background:var(--good-ink);border-color:var(--good-ink)}
-.co-ok:has(input:checked){color:var(--good-ink)}
-.co-ok.off{opacity:.45;cursor:default}
+.co-ok.off{background:var(--panel-2);border-style:dashed;color:var(--muted);cursor:default;font-weight:400}
 .co-ok.off input{cursor:default}
 
 /* ---------- เอกสารแนบ (ขั้นที่ 3) ---------- */
@@ -1050,6 +1059,17 @@ label.f .csel{width:100%}
 .co-stop{flex:none;border:1px solid #d8d0d1;background:var(--panel);color:var(--ink-soft);border-radius:var(--r-sm);
   font:inherit;font-size:12.5px;font-weight:700;padding:7px 12px;cursor:pointer;min-height:36px}
 .co-stop:hover{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+/* ตัวนับ "ยืนยันแล้ว n/3" บนหัวแผง — ครบแล้วเปลี่ยนเป็นเขียว */
+.co-pg{flex:none;font-size:12px;font-weight:700;white-space:nowrap;border-radius:999px;padding:4px 10px;
+  color:var(--warn-ink);background:var(--warn-soft);transition:background .18s var(--ease),color .18s var(--ease)}
+.co-pg[hidden]{display:none}
+.co-pg::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:currentColor;margin-right:6px;vertical-align:1.5px}
+.carocr[data-ok="1"] .co-pg{color:var(--good-ink);background:var(--good-soft)}
+/* ครบแล้วเปลี่ยนแค่กรอบ + ป้าย + บรรทัดสรุป — ไม่ย้อมพื้นทั้งแผงเป็นเขียว (ดังเกินเหตุ อ่านช่องกรอกยากขึ้น) */
+.carocr[data-ok="1"]{border-color:var(--good)}
+.carocr[data-ok="1"] .co-note{color:var(--good-ink)}
+.carocr[data-ok="1"] .co-note b{color:var(--good-ink)}
 .co-bar{height:4px;border-radius:99px;background:var(--line-soft);overflow:hidden;margin:10px 0 0}
 .co-bar i{display:block;height:100%;background:var(--accent);transform-origin:left center;
   transform:scaleX(var(--p,0));transition:transform .3s var(--ease)}
@@ -1057,14 +1077,18 @@ label.f .csel{width:100%}
   padding-top:12px;border-top:1px solid var(--line-soft)}
 .co-grid .co-vin{grid-column:1 / -1}
 .co-vin input{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.08em}
-.co-f{min-width:0;position:relative}
+/* การ์ดต่อช่อง — เป็น flex คอลัมน์ เพื่อให้ปุ่มยืนยันถูกดันไปล่างสุด (ดู .co-ok) */
+.co-f{min-width:0;position:relative;display:flex;flex-direction:column}
 /* ป้าย "อ่านจากรูป" ต่อท้ายชื่อช่อง — โผล่เฉพาะค่าที่ระบบเติมและยังไม่มีใครแก้
    (อยู่ในบรรทัดเดียวกับชื่อช่อง ไม่ลอยทับ — จอแคบก็ขึ้นบรรทัดใหม่เอง) */
 .co-tag{display:none;margin-left:7px;font-size:11px;font-weight:600;vertical-align:1px;
   color:var(--info-ink);background:var(--info-soft);border-radius:999px;padding:0 8px;line-height:1.7;white-space:nowrap}
 .co-f.is-auto .co-tag{display:inline-block}
 /* ช่องที่ต้องตรวจ — กรอบ/พื้นอำพัน · ⚠️ ต้องมี .cust นำหน้า ชนะกฎ .cust input:not(..):not(..) (0,3,1) ของหน้าลูกค้า */
-.carocr .co-f.is-warn input,.cust .carocr .co-f.is-warn input{background:var(--warn-soft);border-color:#d9a94a;box-shadow:inset 0 0 0 .5px #d9a94a}
+/* 🔑 :not([type=checkbox]) — ไม่งั้นกล่องติ๊กยืนยันในการ์ดเดียวกันถูกย้อมอำพันไปด้วย
+   (เห็นชัดตอนทำติ๊กเป็นปุ่มเต็มความกว้าง: ติ๊กกลายเป็นสีเตือนทั้งที่ยังไม่ได้ติ๊ก) */
+.carocr .co-f.is-warn input:not([type=checkbox]),
+.cust .carocr .co-f.is-warn input:not([type=checkbox]){background:var(--warn-soft);border-color:#d9a94a;box-shadow:inset 0 0 0 .5px #d9a94a}
 .co-f.is-warn .co-tag{color:var(--warn-ink);background:#f7e3bd}
 /* บรรทัดใต้ช่อง: คำเตือน (อำพันเข้ม + ไอคอนสามเหลี่ยม) · หรือคำแนะนำ/ค่าที่อ่านได้แต่ไม่ได้เติม (เทา) */
 .co-fn{display:flex;gap:6px;align-items:flex-start;font-size:12px;color:var(--warn-ink);font-weight:600;margin:6px 0 0;line-height:1.6}

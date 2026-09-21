@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260921-2">
+<link rel="stylesheet" href="style.css?v=20260921-3">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
 <script src="config.js?v=20260919-1"></script>
 
@@ -2023,25 +2023,40 @@ async function readCarReg(file, stage, provs){
 }
 
 /* ---- กล่องบนหน้าจอ ---- */
+/* ---------- 1 ช่องในแผงอ่านสำเนาทะเบียนรถ ----------
+   ชื่อช่อง + ช่องกรอก + บรรทัดเตือน + ปุ่มติ๊กยืนยัน (เป็นปุ่มเต็มความกว้าง แตะง่ายบนมือถือ)
+   🔑 ติ๊กอยู่ "ล่างสุดของการ์ด" เสมอ (CSS ดันด้วย margin-top:auto) — ของเดิมช่องซ้ายมีคำเตือน
+      ช่องขวาไม่มี ติ๊กจึงอยู่คนละระดับ อ่านยาก
+   🔑 aria-label ต้องมีชื่อช่องกำกับ ไม่งั้นโปรแกรมอ่านหน้าจอได้ยิน "ตรงกับเล่มทะเบียน" 3 อันเหมือนกันหมด */
+function coField(cls, label, noteId, okId, inputHtml){
+  return '<div class="' + cls + '">'
+    + '<label class="f">' + label + '<span class="co-tag" aria-hidden="true">อ่านจากรูป</span>'
+    +   inputHtml + '</label>'
+    + '<p class="co-fn" id="' + noteId + '" hidden></p>'
+    + '<label class="co-ok">'
+    +   '<input type="checkbox" id="' + okId + '" disabled aria-label="' + label + 'ถูกต้อง ตรงกับเล่มทะเบียน">'
+    +   '<span class="co-ok-t">ตรงกับเล่มทะเบียน</span>'
+    + '</label>'
+    + '</div>';
+}
 const CAR_BOX = '<div class="carocr" id="carOcr" hidden>'
   + '<div class="co-hd">'
   +   '<span class="co-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg></span>'
   +   '<span class="co-tt"><b>ข้อมูลจากสำเนาทะเบียนรถ</b><span class="co-st" id="coSt" role="status" aria-live="polite"></span></span>'
+  /* ตัวนับ "ยืนยันแล้ว n/3" — บอกให้เห็นว่าเหลืออีกกี่ช่องถึงจะส่งได้ (ของเดิมบอกแค่ผลการอ่าน) */
+  +   '<span class="co-pg" id="coPg" role="status" aria-live="polite" hidden></span>'
   +   '<button type="button" class="co-stop" id="coStop" hidden>หยุดอ่าน</button>'
   + '</div>'
   + '<div class="co-bar" id="coBar" hidden><i></i></div>'
   + '<div class="co-grid">'
-  +   '<div class="co-f"><label class="f">เลขทะเบียน<span class="co-tag" aria-hidden="true">อ่านจากรูป</span><input id="fPlate" maxlength="20" autocomplete="off" placeholder="เช่น 5ขจ 7692"></label>'
-  +     '<p class="co-fn" id="nPlate" hidden></p>'
-  +     '<label class="co-ok"><input type="checkbox" id="okPlate" disabled><span>เลขทะเบียนถูกต้อง</span></label></div>'
-  +   '<div class="co-f"><label class="f">จังหวัด<span class="co-tag" aria-hidden="true">อ่านจากรูป</span><input id="fPlateProv" maxlength="40" autocomplete="off" placeholder="เช่น กรุงเทพมหานคร"></label>'
-  +     '<p class="co-fn" id="nProv" hidden></p>'
-  +     '<label class="co-ok"><input type="checkbox" id="okProv" disabled><span>จังหวัดถูกต้อง</span></label></div>'
-  +   '<div class="co-f co-vin"><label class="f">เลขตัวรถ<span class="co-tag" aria-hidden="true">อ่านจากรูป</span><input id="fVin" maxlength="25" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น MR2BD8A3900073087"></label>'
-  +     '<p class="co-fn" id="nVin" hidden></p>'
-  +     '<label class="co-ok"><input type="checkbox" id="okVin" disabled><span>เลขตัวรถถูกต้อง</span></label></div>'
+  +   coField('co-f', 'เลขทะเบียน', 'nPlate', 'okPlate',
+        '<input id="fPlate" maxlength="20" autocomplete="off" placeholder="เช่น 5ขจ 7692">')
+  +   coField('co-f', 'จังหวัด', 'nProv', 'okProv',
+        '<input id="fPlateProv" maxlength="40" autocomplete="off" placeholder="เช่น กรุงเทพมหานคร">')
+  +   coField('co-f co-vin', 'เลขตัวรถ', 'nVin', 'okVin',
+        '<input id="fVin" maxlength="25" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น MR2BD8A3900073087">')
   + '</div>'
-  + '<p class="co-note">ระบบอ่านให้อัตโนมัติ — <b>โปรดเทียบทุกตัวกับเล่มทะเบียน</b> ไม่ตรงแก้ในช่องได้เลย</p>'
+  + '<p class="co-note" id="coNote"></p>'
   + '</div>';
 
 /* ติ๊กยืนยันว่าอ่านตรงกับเล่มทะเบียน — ค่าเปลี่ยนเมื่อไหร่ ติ๊กหลุดทันที ต้องตรวจใหม่ */
@@ -2053,12 +2068,39 @@ function okReset(id){
   /* ติ๊กไว้แล้วค่ายังเหมือนเดิม = เก็บติ๊กไว้ (ตัวอ่านทำงานเสร็จทีหลังไม่ล้างของที่ตรวจแล้ว) */
   if(!(v && c.checked && c.dataset.v === v)) c.checked = false;
   c.disabled = !v;
-  c.closest('.co-ok').classList.toggle('off', c.disabled);
+  const box = c.closest('.co-ok');
+  box.classList.toggle('off', c.disabled);
+  /* ช่องยังว่าง = บอกเหตุผลที่กดไม่ได้ ไม่ใช่ปล่อยให้เป็นปุ่มเทาเฉย ๆ */
+  const t = box.querySelector('.co-ok-t');
+  if(t) t.textContent = c.disabled ? 'ยังไม่มีข้อมูลให้ตรวจ' : 'ตรงกับเล่มทะเบียน';
 }
-function okSync(){ CAR_FIELDS.forEach(okReset); }
+/* ตัวนับบนหัวแผง + ข้อความสรุปล่างแผง — ให้เห็นว่าเหลืออีกกี่ช่องถึงจะส่งคำขอได้ */
+function okProgress(){
+  const box = $('carOcr'); if(!box) return;
+  const live = CAR_FIELDS.filter(id => $(id).value.trim());
+  const done = live.filter(id => { const c = $(OK_OF[id]); return c && c.checked; });
+  const all = live.length > 0 && done.length === live.length;
+  box.dataset.ok = all ? '1' : '0';
+  const pg = $('coPg');
+  if(pg){
+    pg.hidden = !live.length;
+    pg.textContent = all ? 'ตรวจครบแล้ว' : 'ยืนยันแล้ว ' + done.length + ' / ' + live.length;
+  }
+  /* 🔑 ห่อข้อความใน span ชิ้นเดียว — .co-note เป็น flex (ไอคอน i + ข้อความ)
+     ถ้าปล่อยข้อความเปล่ากับ <b> ลอย ๆ แต่ละก้อนจะเป็น flex item แยกกัน
+     จอแคบเลยแตกเป็น 3 คอลัมน์อ่านไม่รู้เรื่อง */
+  const note = $('coNote');
+  if(note) note.innerHTML = '<span>' + (all
+    ? 'ยืนยันครบทุกช่องแล้ว — <b>ส่งคำขอต่อได้เลย</b>'
+    : 'ระบบอ่านให้อัตโนมัติ — <b>เทียบกับเล่มทะเบียนแล้วกดยืนยันทุกช่อง</b> ไม่ตรงแก้ในช่องได้เลย') + '</span>';
+}
+function okSync(){ CAR_FIELDS.forEach(okReset); okProgress(); }
 function wireOk(){
   CAR_FIELDS.forEach(id => { const c = $(OK_OF[id]); if(!c || c.__w) return; c.__w = 1;
-    c.addEventListener('change', () => { c.dataset.v = c.checked ? $(id).value.trim() : ''; saveDraft(); });
+    c.addEventListener('change', () => {
+      c.dataset.v = c.checked ? $(id).value.trim() : '';
+      okProgress(); saveDraft();
+    });
   });
 }
 function carStatus(kind, text){
@@ -2216,7 +2258,7 @@ function wireCarBox(){
     }
     e.classList.toggle('ocr', !!e.dataset.auto && e.value === e.dataset.auto);
     paintCarNote(id);
-    okReset(id);                                         // แก้ค่าเอง = ต้องติ๊กยืนยันใหม่
+    okReset(id); okProgress();                           // แก้ค่าเอง = ต้องติ๊กยืนยันใหม่ · ตัวนับต้องถอยตาม
     if(id === 'fPlate' || id === 'fVin') queueCar2();     // ทะเบียน/เลขตัวถังเปลี่ยน = เช็กสิทธิ์ใหม่
     if(STEP === 3) renderReview();
   }));
