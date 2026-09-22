@@ -173,6 +173,9 @@
 .qcar2-t{flex:1;min-width:200px}
 .qcar2-t b{display:block;font-size:13px}
 .qcar2-t span{display:block}
+/* เป็น "คันหลัก" = ได้สิทธิ์เต็ม ไม่ใช่ความผิดปกติ → โทนเขียวแทนโทนเตือน */
+.qcar2.ok{background:var(--good-soft);color:var(--good-ink);border-color:#cfe4cb}
+.qcar2 #qMain{flex:none;margin-left:auto}
 /* แท็บเอกสาร: สรุปว่าครบหรือขาดอะไร */
 .doc-miss,.doc-ok{display:flex;align-items:flex-start;gap:8px;margin:0 0 11px;padding:9px 12px;border-radius:8px;
   font-size:12.5px;line-height:1.55}
@@ -606,6 +609,21 @@ function composeNote(){
    🔑 ใบในระบบนับจากรายการที่บัญชีนี้เห็น — พนักงานคนเดิมได้ผู้ดูแลคนเดิมเสมอ (ins_pick_assignee) จึงเห็นใบก่อนหน้าครบ */
 const plateKey = p => String(p || '').replace(/[\s.\-]/g, '');
 const vinKey = v => String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+
+/* ---------- รถคันหลักของพนักงาน (ins_main_car · migrate-2026-09-22-main-car.sql) ----------
+   กติกา: คันหลักได้สวัสดิการเต็ม (เช่นลด 15%) · คันที่ 2 ขึ้นไปบังคับลด 10% เงินสด/โอน
+   🔑 "ยังไม่ได้กำหนดคันหลัก" ให้ถือว่าไม่ใช่คันหลัก → บังคับ 10% ไว้ก่อน
+      ปลอดภัยกว่าการแจก 15% ให้ทุกคัน · หน้าเว็บขึ้นปุ่มให้เจ้าหน้าที่กำหนดเอง */
+const mainKeyOf = r => brandOf(r) + '|' + (r.emp_id || '');
+const mainCarOf = r => (r && r.emp_id) ? (MAIN[mainKeyOf(r)] || null) : null;
+function isMainCar(r){
+  const m = mainCarOf(r);
+  if(!m) return false;
+  const k = plateKey(r.car_plate), vk = vinKey(r.car_vin);
+  return (!!k && plateKey(m.plate) === k) || (!!vk && vinKey(m.vin) === vk);
+}
+/* บังคับสิทธิ์รถคันที่ 2 หรือไม่ — ใช้ที่เดียวทั้ง discBlock และ wireQuote ไม่ให้ตรรกะแตกกัน */
+const forcedCar2 = r => r.kind !== 'refer' && priorCars(r).length > 0 && !isMainCar(r);
 function priorCars(r){
   if(!r || r.kind === 'refer' || !r.emp_id) return [];
   const t = new Date(r.created_at).getTime(), k = plateKey(r.car_plate), vk = vinKey(r.car_vin), seen = new Set();
@@ -817,16 +835,28 @@ function discBlock(r){
       + '<p class="qdisc-chk" id="qDiscChk" hidden></p></div>';
   }
   /* 🔑 รถคันที่ 2 ขึ้นไป (priorCars) = บังคับสิทธิ์ car2 · ส่วนลด 10% ของเบี้ยสุทธิ — ตัวเลือกอื่นกดไม่ได้ ช่องส่วนลดแก้เองไม่ได้ */
-  const cur = noteWelfare(r.quote_note), prior = priorCars(r), forced = prior.length > 0;
+  const cur = noteWelfare(r.quote_note), prior = priorCars(r), forced = forcedCar2(r);
+  const isMain = isMainCar(r), otherMain = !isMain && mainCarOf(r);
   const curK = forced ? 'car2' : (cur ? cur.k : '');
   const opt = (k, label, v) => '<label class="qopt"><input type="radio" name="qW" value="' + k + '"' + (curK === k ? ' checked' : '')
     + (forced && k !== 'car2' ? ' disabled' : '') + '>'
     + '<span class="t">' + esc(label) + '</span>' + (v ? '<span class="v" data-wv="' + k + '">—</span>' : '') + '</label>';
   return '<div class="qdisc' + (forced ? ' forced' : '') + '" id="qDiscBox">'
     + '<div class="qdisc-h"><b>สวัสดิการพนักงาน</b><span>' + (forced ? 'บังคับสิทธิ์รถคันที่ 2 ขึ้นไป' : 'เลือก 1 อย่าง') + ' · คิดจากเบี้ยสุทธิภาคสมัครใจ</span></div>'
-    + (forced ? '<div class="qcar2" id="qCar2">' + ICON.warn
-      + '<div class="qcar2-t"><b>รถคันที่ ' + (prior.length + 1) + ' ของพนักงานคนนี้ — บังคับส่วนลด 10%</b>'
-      + '<span>ใช้สิทธิ์อยู่แล้ว: ' + esc(priorTxt(prior)) + ' · ชำระเงินสด/โอนเท่านั้น · สวัสดิการอื่นเลือกไม่ได้</span></div></div>' : '')
+    /* กล่องสิทธิ์รถคันที่ 2 — 3 สถานะ: บังคับ 10% / เป็นคันหลัก / ยังไม่ได้กำหนด
+       ปุ่ม "คันหลัก" ให้เจ้าหน้าที่ย้ายสิทธิ์เต็มมาที่รถของใบนี้ (1 คนมีคันหลักได้ 1 คัน) */
+    + (prior.length ? '<div class="qcar2' + (isMain ? ' ok' : '') + '" id="qCar2">' + (isMain ? ICON.user : ICON.warn)
+      + '<div class="qcar2-t"><b>' + (isMain
+          ? 'รถคันหลักของพนักงานคนนี้ — เลือกสวัสดิการได้ตามปกติ'
+          : 'รถคันที่ ' + (prior.length + 1) + ' ของพนักงานคนนี้ — บังคับส่วนลด 10%') + '</b>'
+      + '<span>' + (isMain ? 'รถคันอื่น: ' : 'ใช้สิทธิ์อยู่แล้ว: ') + esc(priorTxt(prior))
+      +   (isMain ? '' : ' · ชำระเงินสด/โอนเท่านั้น · สวัสดิการอื่นเลือกไม่ได้')
+      +   (otherMain ? '<br>คันหลักที่กำหนดไว้: <b>' + esc(otherMain.plate || otherMain.vin || '—') + '</b>'
+                     : (isMain ? '' : '<br>ยังไม่ได้กำหนดคันหลักของพนักงานคนนี้'))
+      + '</span>'
+      + '<button class="btn sm" type="button" id="qMain">'
+      +   (isMain ? 'ยกเลิกคันหลัก' : 'กำหนดให้คันนี้เป็นคันหลัก') + '</button>'
+      + '</div></div>' : '')
     + '<div class="qdisc-opts" role="radiogroup" aria-label="สวัสดิการพนักงาน">'
     +   WELFARE.map(w => opt(w.k, w.label, true)).join('')
     +   opt('', 'ไม่ใช้สวัสดิการ', false)
@@ -926,7 +956,7 @@ function wireQuote(r){
   }
   /* ---- ส่วนลดตามเงื่อนไข ----
      ส่วนลดที่ระบบใส่ให้ (dataset.auto) จะ "ตาม" เมื่อแก้เบี้ย · ถ้าเจ้าหน้าที่พิมพ์ส่วนลดเอง ระบบไม่ทับ แต่เตือนว่าไม่ตรงเงื่อนไข */
-  const isRef = r.kind === 'refer', forced = !isRef && priorCars(r).length > 0;
+  const isRef = r.kind === 'refer', forced = forcedCar2(r);
   const want = () => {
     if(isRef){ const g = num('qGross'); return g == null ? null : refDisc(g); }
     const w = pickedWelfare(), n = num('qNet');
@@ -989,6 +1019,25 @@ function wireQuote(r){
     else if(!pickedWelfare() && d.dataset.auto != null && d.value === d.dataset.auto) setDisc(0);   // เลิกใช้สวัสดิการ → เอาส่วนลดที่ระบบใส่ออก
     onMoney();
   }));
+  /* ปุ่มกำหนด/ยกเลิก "คันหลัก" — ย้ายสิทธิ์สวัสดิการเต็มมาที่รถของใบนี้
+     บันทึกแล้ววาดแผงใหม่ทั้งชุด เพราะ forced/ส่วนลด/ข้อความเตือน คิดจากค่านี้ทั้งหมด */
+  if($('qMain')) $('qMain').onclick = async () => {
+    const btn = $('qMain'), on = !isMainCar(r);
+    if(on && !(await ask({ title:'กำหนดเป็นคันหลัก?',
+        msg:'ให้รถ ' + (r.car_plate || r.car_vin || 'คันนี้') + ' เป็นคันหลักของ ' + (r.emp_name || 'พนักงานคนนี้')
+            + ' — คันหลักใช้สวัสดิการได้เต็ม (เช่นลด 15%) ส่วนรถคันอื่นของเขาจะถูกบังคับลด 10%',
+        okText:'กำหนดคันหลัก' }))) return;
+    btn.disabled = true;
+    try{
+      const { error } = await sb.rpc('ins_set_main_car', { p_req: r.id, p_on: on });
+      if(error) throw error;
+      const key = mainKeyOf(r);
+      if(on) MAIN[key] = { brand: brandOf(r), emp_id: r.emp_id, plate: r.car_plate || '', vin: r.car_vin || '' };
+      else delete MAIN[key];
+      toast(on ? 'กำหนดเป็นคันหลักแล้ว' : 'ยกเลิกคันหลักแล้ว', 'ok');
+      renderList(); openView(r.id); showTab('quote');
+    }catch(e){ toast(e.message || 'บันทึกไม่สำเร็จ', 'no'); btn.disabled = false; }
+  };
   if(forced){                                              // ล็อกช่องส่วนลด + คิดใหม่ทันที (ใบเก่าที่บันทึกสวัสดิการอื่นไว้ → ต้องกดบันทึกใหม่)
     const d = $('qDisc');
     d.readOnly = true; d.title = 'รถคันที่ 2 ขึ้นไป — ส่วนลดบังคับ 10% ของเบี้ยสุทธิ';
@@ -1411,7 +1460,7 @@ function fitSheet(ps){
 const PAGE_TITLE = document.title;
 function endPrint(){ document.body.classList.remove('printing'); document.title = PAGE_TITLE; }
 
-let LIST = [], FILES = {}, POLICIES = [], TEAMS = {};   // TEAMS[รหัสเจ้าหน้าที่] = { team, lead_emp_id, lead_name }
+let LIST = [], FILES = {}, POLICIES = [], TEAMS = {}, MAIN = {};   // TEAMS[รหัสเจ้าหน้าที่] = { team, lead_emp_id, lead_name }
 /* ME = บัญชีที่ล็อกอิน {empId, role:'agent'|'admin'|'viewer', name}
    agent เห็นเฉพาะใบของตัวเอง (บังคับที่ RLS) · admin (บัญชีกลาง) เห็นทุกใบ + เปลี่ยนผู้ดูแลได้
    viewer (ฝ่ายบุคคล · ตาราง ins_viewers) เห็นเฉพาะใบปิดการขาย + แก้อะไรไม่ได้ — ด่านจริงอยู่ที่ RLS/RPC (migrate-2026-09-19-viewer.sql)
@@ -1561,7 +1610,7 @@ $('lgPw').addEventListener('keydown', e=>{ if(e.key==='Enter') signIn(); });
 $('lgEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') $('lgPw').focus(); });
 $('btnOut').onclick = async ()=>{
   await sb.auth.signOut();
-  LIST = []; FILES = {}; POLICIES = []; TEAMS = {}; ME = null; AGENTS = [];
+  LIST = []; FILES = {}; POLICIES = []; TEAMS = {}; MAIN = {}; ME = null; AGENTS = [];
   $('agentFilterBox').hidden = true; $('brandFilterBox').hidden = true; $('agentStrip').hidden = true; ST = '';
   $('listPanel').hidden = true; $('loginBox').hidden = false;
   $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
@@ -1590,6 +1639,9 @@ async function loadList(){
     POLICIES = pol.error ? [] : (pol.data || []);
     /* โครงทีมของแผนก → ชื่อหัวหน้าทีมบนช่อง "ผู้ตรวจสอบ" ของใบค่าคอม
        ยังไม่ได้รัน migrate-2026-09-22-teams.sql = ว่าง → ช่องผู้ตรวจสอบเว้นว่างเหมือนเดิม */
+    const mc = await sb.rpc('ins_main_cars');            // รถคันหลักของพนักงาน (เจ้าหน้าที่กำหนด)
+    MAIN = {};
+    if(!mc.error) for(const m of (mc.data || [])) MAIN[m.brand + '|' + m.emp_id] = m;
     const tm = await sb.rpc('ins_teams');
     TEAMS = {};
     if(!tm.error) for(const t of (tm.data || [])) TEAMS[t.emp_id] = t;
@@ -1736,6 +1788,7 @@ function renderList(){
     '<div class="qgroup"><div class="qday"><span>' + esc(g.label) + '</span><span class="qday-n">' + g.items.length + ' ใบ</span></div>'
     + g.items.map(r=>{
         const d = new Date(r.created_at), nf = (FILES[r.id] || []).length, wait = waitText(r), pc = priorCars(r).length;
+        const pcForced = pc > 0 && forcedCar2(r);            // คันหลัก = ไม่บังคับ 10% → ป้ายไม่ใช้สีเตือน
         const tags = [
           esc(r.no),
           r.kind === 'refer' ? 'แนะนำลูกค้า' : 'พนักงานทำเอง',
@@ -1753,7 +1806,8 @@ function renderList(){
           +     (nf ? '<span class="rq-tag" title="ไฟล์แนบ ' + nf + ' ไฟล์">' + ICON.clip + nf + '</span>' : '')
           +     (r.emp_verified ? '' : '<span class="rq-tag warn" title="รหัสพนักงานผู้แนะนำไม่ตรงทำเนียบ">' + ICON.warn + 'รหัสยังไม่ยืนยัน</span>')
           +     (r.add_reason === 'family' ? '<span class="rq-tag" title="พนักงานระบุว่าเป็นรถของคนในครอบครัว">รถครอบครัว</span>' : '')
-          +     (pc ? '<span class="rq-tag warn" title="พนักงานคนนี้มีรถที่ใช้สิทธิ์อยู่แล้ว ' + pc + ' คัน · ส่วนลด 10% เงินสด/โอนเท่านั้น">' + ICON.warn + 'รถคันที่ ' + (pc + 1) + '</span>' : '')
+          +     (pcForced ? '<span class="rq-tag warn" title="พนักงานคนนี้มีรถที่ใช้สิทธิ์อยู่แล้ว ' + pc + ' คัน · ส่วนลด 10% เงินสด/โอนเท่านั้น">' + ICON.warn + 'รถคันที่ ' + (pc + 1) + '</span>'
+          :      pc ? '<span class="rq-tag" title="เจ้าหน้าที่กำหนดให้รถคันนี้เป็นคันหลักของพนักงาน — ใช้สวัสดิการได้เต็ม">คันหลัก</span>' : '')
           +   '</span>'
           +   '<span class="rq-sub">' + tags + '</span>'
           + '</span>'
@@ -1896,8 +1950,11 @@ function openView(id){
     +     '<span>โทร ' + esc(r.phone_mobile) + '</span></a>' : '')
     + '</div>'
     + (r.note ? '<p class="vsum-note"><b>หมายเหตุจากผู้ยื่น:</b> ' + esc(r.note) + '</p>' : '')
-    + (prior.length ? '<p class="vsum-note"><b>รถคันที่ ' + (prior.length + 1) + ' ของพนักงาน:</b> ใช้สิทธิ์อยู่แล้ว ' + esc(priorTxt(prior))
-      + ' · บังคับส่วนลด 10% ชำระเงินสด/โอนเท่านั้น'
+    + (prior.length ? '<p class="vsum-note"><b>' + (isMainCar(r)
+          ? 'รถคันหลักของพนักงาน:</b> รถคันอื่น '
+          : 'รถคันที่ ' + (prior.length + 1) + ' ของพนักงาน:</b> ใช้สิทธิ์อยู่แล้ว ') + esc(priorTxt(prior))
+      + (isMainCar(r) ? ' · ใช้สวัสดิการได้เต็มตามสิทธิ์คันหลัก'
+                      : ' · บังคับส่วนลด 10% ชำระเงินสด/โอนเท่านั้น')
       + (ADD_LABEL[r.add_reason] && r.add_reason !== 'renew' && r.add_reason !== 'first'
           ? ' · พนักงานเลือก: ' + esc(ADD_LABEL[r.add_reason]) : '') + '</p>' : '')
     + '<div class="vtabs" role="tablist" aria-label="ส่วนของคำขอ">'
