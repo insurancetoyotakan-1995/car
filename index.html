@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260922-1">
+<link rel="stylesheet" href="style.css?v=20260922-2">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
 <script src="config.js?v=20260919-1"></script>
 
@@ -1277,33 +1277,50 @@ const empSurname = () => {
   const t = nm.split(/\s+/);
   return t.length > 1 ? t[t.length - 1] : '';
 };
-/* แถบนี้โผล่เมื่อ: ไม่ใช่แบบแนะนำลูกค้า · มีข้อมูลจำไว้ · รหัสพนักงานตรงกัน · ที่อยู่ในฟอร์มยังว่าง */
+/* สถานะของแถบ "ดึงข้อมูลที่เคยกรอก"
+   🔑 ปุ่มอยู่ตลอด (ผู้ใช้สั่ง) — ซ่อนเฉพาะแบบแนะนำลูกค้าทั่วไป เพราะที่อยู่เป็นของลูกค้า ไม่ใช่ของพนักงาน
+      ไม่มีข้อมูลก็ยังเห็นปุ่ม แต่บอกเหตุผลไว้ให้ ไม่ใช่ปุ่มหายไปเงียบ ๆ แล้วหาไม่เจอ
+   🔒 ถ้าข้อมูลที่จำไว้เป็นของรหัสอื่น ไม่บอกว่าเป็นของใครและไม่โชว์ที่อยู่ */
+function reuseState(){
+  if(kindNow() === 'refer') return { show:false };
+  const d = houseGet(), id = $('fEmpId').value.replace(/\D/g,'');
+  if(!id) return { show:true, ok:false, msg:'กรอกรหัสพนักงานในขั้นที่ 1 ก่อน แล้วกดปุ่มนี้เพื่อดึงที่อยู่ที่เคยกรอกไว้' };
+  if(!d || d.empId !== id) return { show:true, ok:false,
+    msg:'ยังไม่มีข้อมูลของรหัสนี้ในเครื่องนี้ — ระบบจะจำให้เองหลังส่งคำขอสำเร็จ ใบถัดไปกดปุ่มนี้ได้เลย' };
+  const addr = [d.fAddr, d.fMoo && 'หมู่ ' + d.fMoo, d.fTambon, d.fAmphoe, d.fProvince].filter(Boolean).join(' ');
+  const sur = relNow() === 'self' ? '' : empSurname();
+  return { show:true, ok:true, d,
+    msg: [addr, d.fMobile, sur && 'นามสกุล ' + sur].filter(Boolean).join(' · ') };
+}
 function paintReuse(){
   const box = $('reuseBox'); if(!box) return;
-  const d = houseGet(), id = $('fEmpId').value.replace(/\D/g,'');
-  const ok = d && kindNow() !== 'refer' && id && id === d.empId && !$('fAddr').value.trim();
-  box.hidden = !ok;
-  if(!ok) return;
-  const self = relNow() === 'self';
-  $('reuseTt').textContent = self ? 'ใช้ที่อยู่เดิมของคุณ' : 'ใช้ข้อมูลเดียวกับพนักงาน';
-  const parts = [[d.fAddr, d.fMoo && 'หมู่ ' + d.fMoo, d.fTambon, d.fAmphoe, d.fProvince].filter(Boolean).join(' '),
-                 d.fMobile].filter(Boolean);
-  $('reuseSub').textContent = parts.join(' · ') + (self || !empSurname() ? '' : ' · นามสกุล ' + empSurname());
+  const st = reuseState();
+  box.hidden = !st.show;
+  if(!st.show) return;
+  box.classList.toggle('off', !st.ok);
+  $('reuseTt').textContent = !st.ok ? 'ดึงข้อมูลที่เคยกรอก'
+    : relNow() === 'self' ? 'ใช้ที่อยู่เดิมของคุณ' : 'ใช้ข้อมูลเดียวกับพนักงาน';
+  $('reuseSub').textContent = st.msg;
+  $('reuseDel').hidden = !st.ok;
 }
 function reuseFill(){
-  const d = houseGet(); if(!d) return;
-  HOUSE_FIELDS.forEach(f => { const e = $(f); if(e && d[f] && !e.value.trim()){ e.value = d[f]; e.removeAttribute('aria-invalid'); } });
+  const st = reuseState();
+  if(!st.ok){ toast(st.msg, 'no'); return; }
+  const d = st.d;
+  let n = 0;
+  HOUSE_FIELDS.forEach(f => { const e = $(f); if(e && d[f] && !e.value.trim()){ e.value = d[f]; e.removeAttribute('aria-invalid'); n++; } });
   /* นามสกุลพนักงาน: เติมให้เฉพาะตอนช่องชื่อยังว่าง แล้ววางเคอร์เซอร์หน้าสุดให้พิมพ์ชื่อต้นต่อ */
   const nm = $('fName'), sur = empSurname();
   if(relNow() !== 'self' && sur && !nm.value.trim()){
-    nm.value = sur; nm.removeAttribute('aria-invalid');
+    nm.value = sur; nm.removeAttribute('aria-invalid'); n++;
     nm.focus(); try{ nm.setSelectionRange(0, 0); }catch(e){}
   }
   syncZip();
   paintProv();
   paintReuse();
   saveDraft();
-  toast('เติมข้อมูลให้แล้ว — ตรวจให้ตรงกับผู้ทำประกันก่อนส่ง');
+  toast(n ? 'เติมให้ ' + n + ' ช่อง — ตรวจให้ตรงกับผู้ทำประกันก่อนส่ง'
+          : 'ช่องเหล่านี้กรอกไว้แล้วทั้งหมด — ระบบไม่เขียนทับของที่พิมพ์เอง');
 }
 function clearDraft(){ clearTimeout(draftTimer); try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
 function restoreDraft(){
