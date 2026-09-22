@@ -590,6 +590,7 @@ async function lookupEmp(){
       paintEmpChk('ok', r.name, r.dept ? '· ' + r.dept : '');
       syncSelfName();                                           // ตัวพนักงานเอง → ชื่อผู้ทำประกันตามชื่อจากทำเนียบ
       saveDraft();
+      fetchEmpAddr(id);                                         // ที่อยู่พนักงานในระบบ (ถ้ามี) ไว้ให้กดเติม
     }else{
       paintEmpChk('no', 'ไม่พบรหัสนี้ในระบบ', '— ส่งคำขอต่อได้ แต่กรุณาตรวจรหัสและกรอกชื่อให้ครบ');
     }
@@ -1268,9 +1269,30 @@ function houseGet(){
   }catch(e){ return null; }
 }
 function houseDel(){ try{ localStorage.removeItem(HOUSE_KEY); }catch(e){} paintReuse(); }
+/* ที่อยู่พนักงานจากระบบ (ins_addr_pub) — ผู้ใช้สั่งเปิดใช้ 2026-09-22
+   🔑 เก็บลง HOUSE_KEY ที่เดียวกับที่ปุ่มอ่านอยู่แล้ว → ไม่ต้องแก้ reuseState/paintReuse/reuseFill
+   🔒 ไม่ทับของที่ผู้กรอกพิมพ์เองไว้ (ของในเครื่องใหม่กว่าและตรงครัวเรือนจริงกว่า)
+   ⚠️ ฟอร์มนี้ไม่มีล็อกอิน ใครรู้รหัสพนักงานก็ดึงที่อยู่คนนั้นได้ — ฝั่งฐานข้อมูลมีเพดานต่อ IP
+      และบันทึกทุกครั้งที่ดึง · ปิดได้ด้วย revoke execute ... from anon แล้วหน้าเว็บไม่พัง */
+async function fetchEmpAddr(id){
+  if(!sb || !id) return;
+  const cur = houseGet();
+  if(cur && cur.empId === id) return;
+  try{
+    const { data, error } = await sb.rpc('ins_addr_pub', { p_emp: id, p_brand: BRAND });
+    if(error) throw error;
+    const a = Array.isArray(data) ? data[0] : data;
+    if(!a || !a.addr) return;
+    if($('fEmpId').value.replace(/\D/g,'') !== id) return;
+    const d = { empId:id, empName:$('fEmpName').value.trim(), at:Date.now(),
+      fAddr:a.addr || '', fMoo:a.moo || '', fRoad:a.road || '', fTambon:a.tambon || '',
+      fAmphoe:a.amphoe || '', fProvince:a.province || '', fZip:a.zipcode || '', fMobile:'' };
+    try{ localStorage.setItem(HOUSE_KEY, JSON.stringify(d)); }catch(e){}
+    paintReuse();
+  }catch(e){ /* ยังไม่เปิดสิทธิ์ หรือถี่เกินไป → เงียบ ใช้ของในเครื่องต่อได้ */ }
+}
 /* นามสกุลของพนักงาน — ใช้เติมให้คนในครอบครัวที่นามสกุลเดียวกัน
-   ช่องชื่อยังว่าง (ยังไม่ได้ค้นทำเนียบ) → ใช้ชื่อที่จำไว้ในเครื่องแทน
-   แถบนี้โผล่เฉพาะตอนรหัสพนักงานตรงกับที่จำไว้ จึงเป็นคนเดียวกันแน่ */
+   ช่องชื่อยังว่าง (ยังไม่ได้ค้นทำเนียบ) → ใช้ชื่อที่จำไว้ในเครื่องแทน */
 const empSurname = () => {
   const d = houseGet();
   const nm = ($('fEmpName').value.trim() || (d && d.empName) || '').trim();
