@@ -22,3 +22,6 @@ supabase/ins-emp-owner.sql
 # มีชื่อพนักงาน ทะเบียนรถ เลขตัวถัง = ข้อมูลส่วนบุคคล ห้ามขึ้น repo สาธารณะ
 supabase/ins-active-policy.sql
 supabase/*active-policy.sql
+
+# ที่อยู่บ้านพนักงาน (scripts/export-emp-addr.cjs) — ข้อมูลส่วนบุคคล
+supabase/ins-emp-addr.sql
