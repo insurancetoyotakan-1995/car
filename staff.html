@@ -1201,6 +1201,15 @@ function comSheet(r){
     + '<span>' + esc(role) + '</span><small>วันที่ ______ / ______ / ______</small></div>';
   const bandTxt = want === 800 ? 'มากกว่า 18,000' : want === 500 ? 'ช่วง 12,000–18,000' : 'ต่ำกว่า 12,000 · ไม่มีส่วนลดพิเศษ';
 
+  /* ผู้ตรวจสอบ = หัวหน้าทีมของเจ้าหน้าที่ผู้ดูแลใบนี้ (ดู ins_teams · migrate-2026-09-22-teams.sql)
+     🔑 ถ้าหัวหน้าทีมเป็นผู้รับเงินเองในใบนี้ → เว้นชื่อว่างไว้ เพราะตรวจงานจ่ายเงินของตัวเองไม่ได้
+        และไม่ใส่คำว่า "หัวหน้าทีม" ต่อท้ายด้วย ไม่งั้นเหมือนบังคับให้เขาเซ็นเอง
+     ยังไม่ได้จัดทีม (TEAMS ว่าง) → เว้นว่างเหมือนของเดิม ไม่พัง */
+  const tm = TEAMS[agentId];
+  const ownLead = !!tm && tm.lead_emp_id === agentId;
+  const chkName = tm && !ownLead ? tm.lead_name : '';
+  const chkRole = tm && !ownLead ? 'ผู้ตรวจสอบ · หัวหน้าทีม ' + tm.team : 'ผู้ตรวจสอบ';
+
   /* ท่อนที่เหมือนกันทั้ง 2 แผ่น — ผูกใบจ่ายเงินเข้ากับการขายใบไหน และตรวจส่วนลดก่อนจ่าย */
   const saleBlock =
       '<div class="kc-sec"><i>1</i>ข้อมูลการขาย</div>'
@@ -1251,7 +1260,7 @@ function comSheet(r){
     + '</ul></div>'
     + '<div class="kc-sign">'
     +   sign(p.who, p.signRole)
-    +   sign('', 'ผู้ตรวจสอบ')
+    +   sign(chkName, chkRole)
     +   sign('', 'ผู้อนุมัติ')
     + '</div>'
     + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no) + ' · แผ่นที่ ' + n + ' / 2</span>'
@@ -1402,7 +1411,7 @@ function fitSheet(ps){
 const PAGE_TITLE = document.title;
 function endPrint(){ document.body.classList.remove('printing'); document.title = PAGE_TITLE; }
 
-let LIST = [], FILES = {}, POLICIES = [];
+let LIST = [], FILES = {}, POLICIES = [], TEAMS = {};   // TEAMS[รหัสเจ้าหน้าที่] = { team, lead_emp_id, lead_name }
 /* ME = บัญชีที่ล็อกอิน {empId, role:'agent'|'admin'|'viewer', name}
    agent เห็นเฉพาะใบของตัวเอง (บังคับที่ RLS) · admin (บัญชีกลาง) เห็นทุกใบ + เปลี่ยนผู้ดูแลได้
    viewer (ฝ่ายบุคคล · ตาราง ins_viewers) เห็นเฉพาะใบปิดการขาย + แก้อะไรไม่ได้ — ด่านจริงอยู่ที่ RLS/RPC (migrate-2026-09-19-viewer.sql)
@@ -1552,7 +1561,7 @@ $('lgPw').addEventListener('keydown', e=>{ if(e.key==='Enter') signIn(); });
 $('lgEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') $('lgPw').focus(); });
 $('btnOut').onclick = async ()=>{
   await sb.auth.signOut();
-  LIST = []; FILES = {}; POLICIES = []; ME = null; AGENTS = [];
+  LIST = []; FILES = {}; POLICIES = []; TEAMS = {}; ME = null; AGENTS = [];
   $('agentFilterBox').hidden = true; $('brandFilterBox').hidden = true; $('agentStrip').hidden = true; ST = '';
   $('listPanel').hidden = true; $('loginBox').hidden = false;
   $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
@@ -1579,6 +1588,11 @@ async function loadList(){
     for(const x of (f.data || [])) (FILES[x.req_id] = FILES[x.req_id] || []).push(x);
     const pol = await sb.rpc('ins_active_policies');       // กรมธรรม์ที่ยังไม่หมดอายุ (สิทธิ์รถคันที่ 2) · ยังไม่ได้ migrate = ว่าง
     POLICIES = pol.error ? [] : (pol.data || []);
+    /* โครงทีมของแผนก → ชื่อหัวหน้าทีมบนช่อง "ผู้ตรวจสอบ" ของใบค่าคอม
+       ยังไม่ได้รัน migrate-2026-09-22-teams.sql = ว่าง → ช่องผู้ตรวจสอบเว้นว่างเหมือนเดิม */
+    const tm = await sb.rpc('ins_teams');
+    TEAMS = {};
+    if(!tm.error) for(const t of (tm.data || [])) TEAMS[t.emp_id] = t;
     syncBrandFilter();
     /* แถวทยอยโผล่เฉพาะตอนโหลดข้อมูล — ไม่เล่นซ้ำทุกครั้งที่พิมพ์ค้นหา (renderList ถูกเรียกถี่) */
     $('listBody').classList.add('anim');
