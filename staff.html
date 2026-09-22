@@ -298,7 +298,7 @@
 #printSheet .kc-kv dd.w{grid-column:span 3}
 #printSheet .kc-kv dd{border-right:.8pt solid #000}
 #printSheet .kc-kv dd.e,#printSheet .kc-kv dd.w{border-right:0}   /* e = ช่องสุดท้ายของแถว */
-#printSheet .kc-money{display:grid;grid-template-columns:repeat(4,1fr);border:.8pt solid #000;border-top:0}
+#printSheet .kc-money{display:grid;grid-template-columns:repeat(5,1fr);border:.8pt solid #000;border-top:0}
 #printSheet .kc-money div{padding:4pt 6pt;border-right:.8pt solid #000}
 #printSheet .kc-money div:last-child{border-right:0;background:#f1f1f1;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 #printSheet .kc-money span{display:block;font-size:9pt;color:#333}
@@ -579,11 +579,12 @@ const quoteMeta = r => r.quote_at
   : 'ยังไม่ได้กรอก';
 
 /* ---------- เงื่อนไขส่วนลด (ตามตารางของฝ่ายประกัน) ----------
-   ลูกค้าแนะนำจากพนักงาน: คิดจาก "เบี้ยรวม" ภาคสมัครใจ — 12,000–18,000 ลด 500 · มากกว่า 18,000 ลด 800 (refDisc)
+   ลูกค้าแนะนำจากพนักงาน: คิดจาก "เบี้ยสุทธิ" ภาคสมัครใจ — 12,000–18,000 ลด 500 · มากกว่า 18,000 ลด 800 (refDisc)
    พนักงานต่อประกันเอง: สวัสดิการเลือก 1 อย่าง คิดจาก "เบี้ยสุทธิ" ภาคสมัครใจ
      15% · ผ่อน 0% หักเงินเดือน 3 งวด 5% · ฟรีค่าธรรมเนียมรูดบัตร 10%
      สิทธิ์ 1 คน 1 คัน · คันที่ 2 ขึ้นไป 10% ชำระเงินสด/โอนเท่านั้น (มีหลักฐานเชื่อมโยงครอบครัว / รถชื่อตัวเองมากกว่า 1 คัน)
-   พ.ร.บ. ไม่อยู่ในเงื่อนไขส่วนลดนี้
+   พ.ร.บ.: พนักงานทำเองลด 10% ของ "เบี้ยสุทธิ พ.ร.บ." (ACT_PCT) · ลูกค้าแนะนำไม่มีสิทธิ์นี้
+   🔑 ทุกส่วนลดคิดจากเบี้ยสุทธิทั้งหมด (ผู้ใช้ยืนยัน 2026-09-22)
    🔑 สวัสดิการที่เลือกเก็บเป็นแท็กหน้า "หมายเหตุการเสนอราคา" → [สวัสดิการ: …]
       ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล · และติดไปในใบพิมพ์คำขอด้วย · เปลี่ยนอัตรา = แก้ WELFARE ที่เดียว */
 const WELFARE = [
@@ -833,7 +834,7 @@ addEventListener('resize', () => { if(DP) dpPlace(); });
 function discBlock(r){
   if(r.kind === 'refer'){
     return '<div class="qdisc" id="qDiscBox">'
-      + '<div class="qdisc-h"><b>ส่วนลดพิเศษลูกค้าแนะนำ</b><span>คิดจากเบี้ยรวมภาคสมัครใจ</span></div>'
+      + '<div class="qdisc-h"><b>ส่วนลดพิเศษลูกค้าแนะนำ</b><span>คิดจากเบี้ยสุทธิภาคสมัครใจ</span></div>'
       + '<div class="qdisc-ref"><span id="qRefTxt"></span><button class="btn sm" id="qRefUse" type="button">ใช้ส่วนลดนี้</button></div>'
       + '<p class="qdisc-note">เบี้ย 12,000–18,000 ลด 500 บาท · เบี้ยมากกว่า 18,000 ลด 800 บาท</p>'
       + '<p class="qdisc-chk" id="qDiscChk" hidden></p></div>';
@@ -963,7 +964,7 @@ function wireQuote(r){
      ส่วนลดที่ระบบใส่ให้ (dataset.auto) จะ "ตาม" เมื่อแก้เบี้ย · ถ้าเจ้าหน้าที่พิมพ์ส่วนลดเอง ระบบไม่ทับ แต่เตือนว่าไม่ตรงเงื่อนไข */
   const isRef = r.kind === 'refer', forced = forcedCar2(r);
   const want = () => {
-    if(isRef){ const g = num('qGross'); return g == null ? null : refDisc(g); }
+    if(isRef){ const g = num('qNet'); return g == null ? null : refDisc(g); }
     const w = pickedWelfare(), n = num('qNet');
     return w && n != null ? round2(n * w.pct / 100) : null;
   };
@@ -981,9 +982,9 @@ function wireQuote(r){
     const disc = num('qDisc'), w = want();
     let msg = null;
     if(isRef){
-      const g = num('qGross');
-      $('qRefTxt').innerHTML = g == null ? 'กรอกเบี้ยรวมภาคสมัครใจก่อน ระบบจะคิดส่วนลดให้'
-        : 'เบี้ยรวม <b>' + fmtBaht(g) + '</b> บาท → '
+      const g = num('qNet');
+      $('qRefTxt').innerHTML = g == null ? 'กรอกเบี้ยสุทธิภาคสมัครใจก่อน ระบบจะคิดส่วนลดให้'
+        : 'เบี้ยสุทธิ <b>' + fmtBaht(g) + '</b> บาท → '
           + (w ? (g > 18000 ? 'มากกว่า 18,000' : 'ช่วง 12,000–18,000') + ' ลด <b>' + fmtBaht(w) + '</b> บาท' : 'ต่ำกว่า 12,000 · ไม่มีส่วนลดพิเศษ');
       $('qRefUse').disabled = !w;
     } else {
@@ -1234,8 +1235,8 @@ function paintPrint(r){
    ส่วนลดพิเศษลูกค้าแนะนำ:         เบี้ย 12,000–18,000 ลด 500 · มากกว่า 18,000 ลด 800
    🔑 เปลี่ยนอัตราเมื่อไร แก้ตัวเลขชุดนี้ที่เดียว */
 const COM_AGENT = 300, COM_REFERRER = 300;
-const refDisc = gross => {                                 // เบี้ยรวมภาคสมัครใจ → ส่วนลดพิเศษลูกค้าแนะนำ
-  const g = Number(gross) || 0;
+const refDisc = net => {                                   // เบี้ยสุทธิภาคสมัครใจ → ส่วนลดพิเศษลูกค้าแนะนำ
+  const g = Number(net) || 0;                              // 🔑 ผู้ใช้สั่ง 2026-09-22: ทุกส่วนลดคิดจากเบี้ยสุทธิ
   if(g > 18000) return 800;
   if(g >= 12000) return 500;
   return 0;
@@ -1273,7 +1274,7 @@ function bahtText(n){
 function comSheet(r){
   const m = v => (v == null || v === '') ? '—' : fmtBaht(v);
   const agentId = r.assigned_to || '', agent = agentName(agentId);
-  const want = refDisc(r.quote_gross), got = Number(r.quote_disc) || 0;
+  const want = refDisc(r.quote_net), got = Number(r.quote_disc) || 0;
   const discOk = Math.abs(want - got) < .005;
   const now = new Date(), printed = thDate(now.toISOString());
   const act = (r.quote_act_gross == null && r.quote_act_disc == null) ? null
@@ -1302,6 +1303,7 @@ function comSheet(r){
     +   kv('ประเภท', r.quote_type) + kv('เสนอราคา', r.quote_at ? thDate(r.quote_at) : '', 'e')
     + '</dl>'
     + '<div class="kc-money">'
+    +   '<div><span>เบี้ยสุทธิ (ภาคสมัครใจ)</span><b>' + m(r.quote_net) + '</b></div>'
     +   '<div><span>เบี้ยรวม (ภาคสมัครใจ)</span><b>' + m(r.quote_gross) + '</b></div>'
     +   '<div><span>ส่วนลด</span><b>' + m(r.quote_disc) + '</b></div>'
     +   '<div><span>พ.ร.บ. (หลังหักส่วนลด)</span><b>' + m(act) + '</b></div>'
@@ -1309,7 +1311,7 @@ function comSheet(r){
     + '</div>'
     + '<div class="kc-check' + (discOk ? '' : ' bad') + '">'
     +   '<span class="kc-badge">' + (discOk ? '✓ ส่วนลดตรงเงื่อนไข' : '⚠ ส่วนลดไม่ตรงเงื่อนไข') + '</span>'
-    +   '<p>ส่วนลดพิเศษลูกค้าแนะนำ: เบี้ยรวม ' + esc(m(r.quote_gross)) + ' บาท (' + esc(bandTxt) + ') → ตามเงื่อนไขต้องลด <b>'
+    +   '<p>ส่วนลดพิเศษลูกค้าแนะนำ: เบี้ยสุทธิ ' + esc(m(r.quote_net)) + ' บาท (' + esc(bandTxt) + ') → ตามเงื่อนไขต้องลด <b>'
     +     esc(fmtBaht(want)) + '</b> บาท · บันทึกในระบบ <b>' + esc(fmtBaht(got)) + '</b> บาท'
     +     (discOk ? '' : ' — <b>ตรวจสอบก่อนจ่าย</b>') + '</p>'
     + '</div>';
