@@ -4,16 +4,18 @@
  *   จับคู่ชื่อ→รหัสพนักงาน ด้วยกติกาเดียวกับ export-active-policy.cjs
  *   (ตรงทั้งชื่อหลังตัดช่องว่าง/วงเล็บ · ชื่อซ้ำในทำเนียบ = ไม่เดา · มีคอลัมน์ "รหัสพนักงาน" ก็ใช้ตัวนั้นก่อน)
  *
- * ปรับข้อมูลให้เข้ารูปฟอร์ม 2 อย่าง (รายงานให้ดูทุกแถวที่แก้)
+ * ปรับข้อมูลให้เข้ารูปฟอร์ม 3 อย่าง (รายงานให้ดูทุกแถวที่แก้)
  *   1) หมู่ "ม.3" → "3"        — ช่องหมู่ในฟอร์มใช้เฉพาะเลข (ใช้หาเลขไปรษณีย์)
  *   2) อำเภอ "เมือง" → "เมือง<จังหวัด>" — ให้ตรงกับชุดข้อมูลไปรษณีย์ (th-zip.json)
+ *   3) เบอร์โทร "861742037" → "0861742037" — Excel มองเป็นตัวเลข เลข 0 หน้าจึงหาย
  *
  * วิธีใช้ (อ่านอย่างเดียว ไม่แก้ฐานข้อมูลในออฟฟิศ):
  *   node scripts/export-emp-addr.cjs "Z:\IT\Botbell\งานประกัน\ข้อมูลพนักงานประกันยังไม่หมดอายุ.xlsx"
  *
  * ผลลัพธ์: supabase/ins-emp-addr.sql (อยู่ใน .gitignore) → วางใน SQL Editor แล้ว Run
- * 🔒 ที่อยู่บ้านพนักงาน = ข้อมูลส่วนบุคคล · ในคลาวด์อ่านได้เฉพาะเจ้าหน้าที่ประกัน (ins_addr_of)
- *    ไม่ส่งชื่อ ไม่ส่งเบอร์โทร ไม่ส่งทะเบียนรถ ไปกับตารางนี้
+ * 🔒 ที่อยู่ + เบอร์โทรพนักงาน = ข้อมูลส่วนบุคคล · อ่านได้เฉพาะเจ้าหน้าที่ประกัน (ins_addr_of)
+ *    ไม่ส่งชื่อ ไม่ส่งทะเบียนรถ ไปกับตารางนี้
+ *    ⚠️ เบอร์โทรไม่อยู่ใน ins_addr_pub ที่ฟอร์มสาธารณะเรียก — เห็นได้เฉพาะคนที่ล็อกอิน
  */
 const fs = require('fs');
 const path = require('path');
@@ -54,7 +56,8 @@ for (const file of SRCS) {
   };
   const C = { fn: col('ชื่อ', 1), ln: col('นามสกุล', 1), addr: col('บ้านเลขที่', 1), road: col('ถนน', 1),
               moo: col('หมู่', 1), tambon: col('ตำบล', 1), amphoe: col('อำเภอ', 1),
-              province: col('จังหวัด', 1), zip: col('เลขไปรษณีย์', 1), emp: H.indexOf('รหัสพนักงาน') };
+              province: col('จังหวัด', 1), zip: col('เลขไปรษณีย์', 1),
+              phone: H.indexOf('เบอร์โทรศัพท์'), emp: H.indexOf('รหัสพนักงาน') };
   const src = path.basename(file);
 
   grid.slice(1).forEach((r, i) => {
@@ -76,7 +79,15 @@ for (const file of SRCS) {
     let amphoe = norm(r[C.amphoe]);
     if (amphoe === 'เมือง' && province) { fixed.push({ name, what: 'อำเภอ', from: amphoe, to: 'เมือง' + province }); amphoe = 'เมือง' + province; }
 
-    const a = { empId: String(u.empId), name,
+    /* เบอร์โทร: Excel เก็บเป็นตัวเลข เลข 0 หน้าหาย → 9 หลักขึ้นต้น 6/8/9 เติม 0 คืน
+       ยาวไม่ครบ 10 หลัก = ไม่เก็บ ดีกว่าเก็บเบอร์ที่โทรไม่ติด */
+    let phone = C.phone >= 0 ? norm(r[C.phone]).replace(/[^0-9]/g, '') : '';
+    if (phone.length === 9 && /^[689]/.test(phone)) {
+      fixed.push({ name, what: 'เบอร์โทร', from: phone, to: '0' + phone });
+      phone = '0' + phone;
+    }
+    if (phone.length !== 10) phone = '';
+    const a = { empId: String(u.empId), name, phone,
                 addr: norm(r[C.addr]).slice(0, 80), moo: moo.slice(0, 20), road: norm(r[C.road]).slice(0, 60),
                 tambon: norm(r[C.tambon]).slice(0, 60), amphoe: amphoe.slice(0, 60),
                 province: province.slice(0, 60), zipcode: norm(r[C.zip]).replace(/\D/g, '').slice(0, 5) };
@@ -94,16 +105,17 @@ const sql = [
   '-- สร้างโดย scripts/export-emp-addr.cjs เมื่อ ' + new Date().toLocaleString('th-TH'),
   '-- ที่มา: ' + SRCS.map((f) => path.basename(f)).join(' + '),
   '-- จับคู่ได้ ' + out.length + ' คน จาก ' + total + ' แถว · ไม่พบชื่อในทำเนียบ ' + unmatched.length + ' แถว',
-  '-- ⚠️ ต้องรัน migrate-2026-09-22-emp-addr.sql ก่อน · รันซ้ำได้ (ทับชุดเดิมที่มาจาก Excel)',
+  '-- ⚠️ ต้องรัน migrate-2026-09-22-renewal.sql ก่อน (ต้องมีคอลัมน์ phone_mobile) · รันซ้ำได้',
   '-- 🔒 ข้อมูลส่วนบุคคล — ไฟล์นี้อยู่ใน .gitignore ห้ามขึ้น repo สาธารณะ',
   '',
   'begin;',
   "delete from public.ins_emp_addr where source = 'excel' and brand = 'toyota';",
-  'insert into public.ins_emp_addr (brand, emp_id, addr, moo, road, tambon, amphoe, province, zipcode, source) values',
-  out.map((o) => "  ('toyota', " + [o.empId, o.addr, o.moo, o.road, o.tambon, o.amphoe, o.province, o.zipcode, 'excel']
+  'insert into public.ins_emp_addr (brand, emp_id, addr, moo, road, tambon, amphoe, province, zipcode, phone_mobile, source) values',
+  out.map((o) => "  ('toyota', " + [o.empId, o.addr, o.moo, o.road, o.tambon, o.amphoe, o.province, o.zipcode, o.phone, 'excel']
     .map(q).join(', ') + ')').join(',\n') + '\non conflict (brand, emp_id) do update set'
     + '\n  addr = excluded.addr, moo = excluded.moo, road = excluded.road, tambon = excluded.tambon,'
     + '\n  amphoe = excluded.amphoe, province = excluded.province, zipcode = excluded.zipcode,'
+    + '\n  phone_mobile = excluded.phone_mobile,'
     + '\n  source = excluded.source, updated_at = now();',
   'commit;',
   '',

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260922-2">
+<link rel="stylesheet" href="style.css?v=20260922-3">
 <script src="config.js?v=20260919-1"></script>
 <style>
 /* ---------- กล่องรายละเอียดคำขอ ----------
@@ -398,6 +398,13 @@
     <details class="qload" id="agentStrip" hidden>
       <summary><span class="lb">ภาระงานเจ้าหน้าที่</span><span class="qload-sum" id="loadSum"></span></summary>
       <div class="qload-grid" id="loadGrid"></div>
+    </details>
+
+    <!-- ต่ออายุกรมธรรม์ — กรมธรรม์ใกล้หมดอายุจาก ins_active_policy + ปุ่มสร้างใบต่ออายุ
+         พับได้ จำสถานะไว้ในเครื่องเหมือนแถบภาระงาน -->
+    <details class="qload" id="renewStrip" hidden>
+      <summary><span class="lb">ต่ออายุกรมธรรม์</span><span class="qload-sum" id="renewSum"></span></summary>
+      <div id="renewBody"></div>
     </details>
 
     <div id="listBody" aria-live="polite"></div>
@@ -1509,7 +1516,7 @@ function fitSheet(ps){
 const PAGE_TITLE = document.title;
 function endPrint(){ document.body.classList.remove('printing'); document.title = PAGE_TITLE; }
 
-let LIST = [], FILES = {}, POLICIES = [], TEAMS = {}, MAIN = {};   // TEAMS[รหัสเจ้าหน้าที่] = { team, lead_emp_id, lead_name }
+let LIST = [], FILES = {}, POLICIES = [], TEAMS = {}, MAIN = {}, RENEW = [];   // TEAMS[รหัสเจ้าหน้าที่] = { team, lead_emp_id, lead_name }
 /* ME = บัญชีที่ล็อกอิน {empId, role:'agent'|'admin'|'viewer', name}
    agent เห็นเฉพาะใบของตัวเอง (บังคับที่ RLS) · admin (บัญชีกลาง) เห็นทุกใบ + เปลี่ยนผู้ดูแลได้
    viewer (ฝ่ายบุคคล · ตาราง ins_viewers) เห็นเฉพาะใบปิดการขาย + แก้อะไรไม่ได้ — ด่านจริงอยู่ที่ RLS/RPC (migrate-2026-09-19-viewer.sql)
@@ -1659,8 +1666,9 @@ $('lgPw').addEventListener('keydown', e=>{ if(e.key==='Enter') signIn(); });
 $('lgEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') $('lgPw').focus(); });
 $('btnOut').onclick = async ()=>{
   await sb.auth.signOut();
-  LIST = []; FILES = {}; POLICIES = []; TEAMS = {}; MAIN = {}; ME = null; AGENTS = [];
-  $('agentFilterBox').hidden = true; $('brandFilterBox').hidden = true; $('agentStrip').hidden = true; ST = '';
+  LIST = []; FILES = {}; POLICIES = []; TEAMS = {}; MAIN = {}; RENEW = []; ME = null; AGENTS = [];
+  $('agentFilterBox').hidden = true; $('brandFilterBox').hidden = true; $('agentStrip').hidden = true;
+  $('renewStrip').hidden = true; ST = '';
   $('listPanel').hidden = true; $('loginBox').hidden = false;
   $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
   toast('ออกจากระบบแล้ว');
@@ -1688,6 +1696,9 @@ async function loadList(){
     POLICIES = pol.error ? [] : (pol.data || []);
     /* โครงทีมของแผนก → ชื่อหัวหน้าทีมบนช่อง "ผู้ตรวจสอบ" ของใบค่าคอม
        ยังไม่ได้รัน migrate-2026-09-22-teams.sql = ว่าง → ช่องผู้ตรวจสอบเว้นว่างเหมือนเดิม */
+    const rn = await sb.rpc('ins_renewals', { p_days: 90 });   // กรมธรรม์ใกล้หมดอายุ 90 วัน
+    RENEW = rn.error ? [] : (rn.data || []);
+    renderRenew();
     const mc = await sb.rpc('ins_main_cars');            // รถคันหลักของพนักงาน (เจ้าหน้าที่กำหนด)
     MAIN = {};
     if(!mc.error) for(const m of (mc.data || [])) MAIN[m.brand + '|' + m.emp_id] = m;
@@ -1725,6 +1736,77 @@ async function loadAgents(){
   csel(sel);
   $('agentFilterBox').hidden = false;
   renderLoad();
+}
+/* ---------- ต่ออายุกรมธรรม์ ----------
+   ข้อมูลจาก ins_renewals: กรมธรรม์ที่หมดอายุภายใน 90 วัน (รวมที่เลยกำหนดแล้ว)
+   เรียงตามความเร่งด่วน · ใบที่มีคำขอค้างอยู่แล้วไม่ต้องสร้างใหม่ กดเปิดใบเดิมได้เลย
+   🔑 เจ้าหน้าที่ทั่วไปเห็นเฉพาะของตัวเอง (กรองที่ฝั่งฐานข้อมูล) · บัญชีกลางเห็นทั้งหมด */
+const RENEW_BAND = [
+  { k:'late', max:-1,  label:'เลยกำหนดแล้ว' },
+  { k:'now',  max:30,  label:'ภายใน 30 วัน' },
+  { k:'soon', max:60,  label:'31–60 วัน' },
+  { k:'plan', max:999, label:'61–90 วัน' },
+];
+const renewBand = d => RENEW_BAND.find(b => d <= b.max) || RENEW_BAND[RENEW_BAND.length - 1];
+function renderRenew(){
+  const box = $('renewStrip');
+  box.hidden = !RENEW.length;
+  if(!RENEW.length) return;
+  if(!box.dataset.init){
+    box.dataset.init = '1';
+    try{ box.open = localStorage.getItem('staff_renew_open') === '1'; }catch(e){}
+    box.addEventListener('toggle', ()=>{ try{ localStorage.setItem('staff_renew_open', box.open ? '1' : '0'); }catch(e){} });
+  }
+  const todo = RENEW.filter(r => !r.open_no);                // ยังไม่มีใบในระบบ = ยังต้องทำ
+  const urgent = todo.filter(r => +r.days_left <= 30).length;
+  $('renewSum').textContent = RENEW.length + ' ใบใกล้หมดอายุ · ยังไม่ได้ทำ ' + todo.length
+    + (urgent ? ' · เร่งด่วน ' + urgent : '');
+
+  const rows = RENEW.map(r=>{
+    const day = +r.days_left, b = renewBand(day);
+    const when = day < 0 ? 'เลยมาแล้ว ' + Math.abs(day) + ' วัน'
+               : day === 0 ? 'หมดอายุวันนี้' : 'อีก ' + day + ' วัน';
+    return '<tr class="rw rw-' + b.k + '">'
+      + '<td><b>' + esc(r.emp_name) + '</b>'
+      +   (brandOf(r) === 'toyota' ? '' : ' <span class="rq-tag brand b-hino">' + esc(brandName(r)) + '</span>')
+      +   '<span class="rw-sub">' + esc(r.plate || r.vin || '—')
+      +     (r.agent_name ? ' · ผู้ดูแล ' + esc(r.agent_name) : ' · ยังไม่มีผู้ดูแล') + '</span></td>'
+      + '<td>' + esc(thDay(r.expire_on)) + '<span class="rw-sub">' + esc(when) + '</span></td>'
+      + '<td>' + (r.phone_mobile
+          ? '<a class="rw-tel" href="tel:' + esc(r.phone_mobile) + '">' + esc(r.phone_mobile) + '</a>'
+          : '<span class="rw-sub">ไม่มีเบอร์</span>') + '</td>'
+      + '<td class="rw-act">' + (r.open_no
+          ? '<button type="button" class="btn sm" data-open="' + esc(r.open_no) + '">เปิดใบ ' + esc(r.open_no) + '</button>'
+          : '<button type="button" class="btn sm primary" data-renew="'
+            + esc(r.brand + '|' + r.emp_id + '|' + (r.plate || '') + '|' + (r.vin || '')) + '">สร้างใบต่ออายุ</button>')
+      + '</td></tr>';
+  }).join('');
+  $('renewBody').innerHTML = '<table class="rwtab"><thead><tr><th>พนักงาน / รถ</th><th>วันหมดอายุ</th>'
+    + '<th>เบอร์โทร</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>'
+    + '<p class="agnote">มาจากข้อมูลกรมธรรม์ที่ฝ่ายประกันนำเข้า · กดสร้างใบต่ออายุแล้วระบบเติมชื่อ ที่อยู่ เบอร์ และข้อมูลรถให้'
+    + ' เหลือกรอกเลขบัตรประชาชน วันเกิด อาชีพ ที่ทำงาน รายได้</p>';
+
+  $('renewBody').querySelectorAll('[data-open]').forEach(b => b.onclick = ()=>{
+    const r = LIST.find(x => x.no === b.dataset.open);
+    if(r) openView(r.id); else toast('ไม่พบใบนี้ในรายการที่บัญชีนี้เห็น', 'no');
+  });
+  $('renewBody').querySelectorAll('[data-renew]').forEach(b => b.onclick = ()=> startRenew(b));
+}
+async function startRenew(btn){
+  const [brand, emp, plate, vin] = btn.dataset.renew.split('|');
+  if(!(await ask({ title:'สร้างใบต่ออายุ?',
+      msg:'สร้างใบคำขอใหม่สำหรับรถ ' + (plate || vin) + ' โดยเติมชื่อ ที่อยู่ เบอร์ และข้อมูลรถให้จากระบบ',
+      okText:'สร้างใบ' }))) return;
+  btn.disabled = true;
+  try{
+    const { data, error } = await sb.rpc('ins_renew_start',
+      { p_brand: brand, p_emp: emp, p_plate: plate, p_vin: vin });
+    if(error) throw error;
+    toast('สร้างใบ ' + data.no + ' แล้ว' + (data.hasAddr ? '' : ' — ใบนี้ไม่มีที่อยู่ในระบบ ต้องกรอกเอง'), 'ok');
+    await loadList();
+    const r = LIST.find(x => x.no === data.no);
+    if(r) openView(r.id);
+  }catch(e){ toast(e.message || 'สร้างใบไม่สำเร็จ', 'no'); btn.disabled = false; }
 }
 /* ภาระงาน: แท่งยาวตามยอดสะสม (ไม่นับใบยกเลิก) เทียบกับคนที่มากสุด — เห็นทันทีว่าแจกเท่ากันไหม */
 function renderLoad(){
