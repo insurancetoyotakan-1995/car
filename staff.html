@@ -1231,6 +1231,8 @@ function comSheet(r){
     +   '<h1>' + esc(p.title) + '</h1>'
     +   '<div class="kc-case">' + esc(p.head) + '</div></div>'
     +   '<table class="kc-meta"><tr><th>เลขที่คำขอ</th><td>' + esc(r.no) + '</td></tr>'
+    /* ยังไม่ได้คีย์ = เว้นช่องว่างไว้ให้เขียนมือ ไม่ใส่ "—" เพราะใบนี้เอาไปเบิกจ่ายจริง */
+    +   '<tr><th>เลขที่ใบเสร็จ</th><td>' + (r.receipt_no ? esc(r.receipt_no) : '&nbsp;') + '</td></tr>'
     +   '<tr><th>สถานะ</th><td>ปิดการขายแล้ว</td></tr>'
     +   '<tr><th>วันที่พิมพ์</th><td>' + esc(printed) + '</td></tr></table>'
     + '</div>'
@@ -1815,10 +1817,15 @@ async function stepTo(r, st, btn){
   if(st === 'done' && !(await ask({ title:'ปิดการขาย?', msg:'เปลี่ยนสถานะใบ ' + r.no + ' เป็น "ปิดการขาย"', okText:'ปิดการขาย' }))) return;
   btn.setAttribute('aria-busy', 'true');
   const note = $('vNote') ? $('vNote').value : (r.status_note || '');
+  /* 🔑 ไม่ส่ง p_receipt เมื่อไม่มีช่องอยู่บนหน้าจอ — ฝั่งฐานข้อมูลถือว่า null = ไม่แตะของเดิม
+        (กดขั้นสถานะจากหัวใบตอนไม่ได้เปิดแท็บติดตามงาน จะได้ไม่ล้างเลขใบเสร็จทิ้ง) */
+  const rcpt = $('vRcpt') ? $('vRcpt').value : null;
   try{
-    const { error } = await sb.rpc('ins_set_status', { p_req: r.id, p_status: st, p_note: note });
+    const { error } = await sb.rpc('ins_set_status',
+      { p_req: r.id, p_status: st, p_note: note, p_receipt: rcpt });
     if(error) throw error;
     r.status = st; r.status_note = note;
+    if(rcpt !== null) r.receipt_no = rcpt.trim();
     if($('vSt')){ $('vSt').value = st; $('vSt').dispatchEvent(new Event('change')); }
     paintHead(r); paintPrint(r); renderList();
     toast('เปลี่ยนสถานะเป็น "' + STATUS[st] + '" แล้ว', 'ok');
@@ -1945,6 +1952,7 @@ function openView(id){
     + (isViewer()
         ? '<div class="sec">สถานะการติดตาม</div>'
           + dl([['สถานะ', STATUS[r.status] || r.status], ['บันทึกของเจ้าหน้าที่', r.status_note],
+                r.receipt_no ? ['เลขที่ใบเสร็จ', r.receipt_no] : null,
                 ['ผู้ดูแลลูกค้า', agentName(r.assigned_to)], r.assigned_at ? ['แจกให้เมื่อ', thDate(r.assigned_at)] : null])
           + '</section>'
         : trackPane());
@@ -1956,6 +1964,9 @@ function openView(id){
     +     Object.entries(STATUS).map(([k,v])=>'<option value="'+k+'"'+(k===r.status?' selected':'')+'>'+esc(v)+'</option>').join('')
     +   '</select></label>'
     +   '<label class="f c8">บันทึกของเจ้าหน้าที่<input id="vNote" value="' + esc(r.status_note||'') + '" placeholder="เช่น โทรแล้ว รอส่งสำเนา"></label>'
+    /* เลขที่ใบเสร็จ — ออกตอนปิดการขาย จึงบันทึกพร้อมสถานะ · ติดไปบนหัวใบค่าคอม/ค่าแนะนำ */
+    +   '<label class="f c4">เลขที่ใบเสร็จ<input id="vRcpt" maxlength="40" autocomplete="off" value="'
+    +     esc(r.receipt_no||'') + '" placeholder="เช่น RC-2609-001"></label>'
     + '</div>'
     + '<div style="margin-top:11px"><button class="btn primary" id="vSaveSt">บันทึกสถานะ</button></div>'
     + '<p class="agnote">เปลี่ยนสถานะเร็ว ๆ ได้จากขั้นสถานะด้านบน · ใช้ช่องนี้เมื่อต้องการบันทึกข้อความหรือยกเลิกใบ</p>'
@@ -2017,9 +2028,10 @@ function openView(id){
     $('vSaveSt').disabled = true;
     try{
       const { error } = await sb.rpc('ins_set_status', {
-        p_req: r.id, p_status: $('vSt').value, p_note: $('vNote').value });
+        p_req: r.id, p_status: $('vSt').value, p_note: $('vNote').value, p_receipt: $('vRcpt').value });
       if(error) throw error;
       r.status = $('vSt').value; r.status_note = $('vNote').value;
+      r.receipt_no = $('vRcpt').value.trim();
       paintHead(r);
       paintPrint(r);                                      // ปิดการขายแล้ว → ปุ่มใบค่าคอมกดได้ทันที
       renderList(); toast('บันทึกสถานะแล้ว', 'ok');
