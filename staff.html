@@ -590,7 +590,7 @@ const quoteMeta = r => r.quote_at
 /* ---------- เงื่อนไขส่วนลด (ตามตารางของฝ่ายประกัน) ----------
    ลูกค้าแนะนำจากพนักงาน: คิดจาก "เบี้ยสุทธิ" ภาคสมัครใจ — 12,000–18,000 ลด 500 · มากกว่า 18,000 ลด 800 (refDisc)
    พนักงานต่อประกันเอง: สวัสดิการเลือก 1 อย่าง คิดจาก "เบี้ยสุทธิ" ภาคสมัครใจ
-     15% · ผ่อน 0% หักเงินเดือน 3 งวด 5% · ฟรีค่าธรรมเนียมรูดบัตร 10%
+     15% · ผ่อน 0% 3 งวด 5% · ฟรีค่าธรรมเนียมรูดบัตร 10%
      สิทธิ์ 1 คน 1 คัน · คันที่ 2 ขึ้นไป 10% ชำระเงินสด/โอนเท่านั้น (มีหลักฐานเชื่อมโยงครอบครัว / รถชื่อตัวเองมากกว่า 1 คัน)
    พ.ร.บ.: พนักงานทำเองลด 10% ของ "เบี้ยสุทธิ พ.ร.บ." (ACT_PCT) · ลูกค้าแนะนำไม่มีสิทธิ์นี้
    🔑 ทุกส่วนลดคิดจากเบี้ยสุทธิทั้งหมด (ผู้ใช้ยืนยัน 2026-09-22)
@@ -598,7 +598,11 @@ const quoteMeta = r => r.quote_at
       ไม่ต้องเพิ่มคอลัมน์ในฐานข้อมูล · และติดไปในใบพิมพ์คำขอด้วย · เปลี่ยนอัตรา = แก้ WELFARE ที่เดียว */
 const WELFARE = [
   { k:'w15',  pct:15, label:'ส่วนลดเบี้ย 15%' },
-  { k:'w5',   pct:5,  label:'ผ่อน 0% หักเงินเดือน 3 งวด (ส่วนลด 5%)' },
+  /* 🔑 alt = ป้ายเดิมที่ถูกบันทึกลงฐานข้อมูลไปแล้ว (ก่อน 2026-09-22)
+     ป้ายนี้เก็บเป็น "ข้อความ" ในหมายเหตุ ([สวัสดิการ: ...]) ไม่ใช่รหัส
+     เปลี่ยนคำแล้วต้องเก็บคำเดิมไว้จับคู่ ไม่งั้นใบเก่าเปิดมาเหมือนไม่เคยเลือกสวัสดิการ */
+  { k:'w5',   pct:5,  label:'ผ่อน 0% 3 งวด (ส่วนลด 5%)',
+    alt:['ผ่อน 0% หักเงินเดือน 3 งวด (ส่วนลด 5%)'] },
   { k:'w10',  pct:10, label:'ฟรีค่าธรรมเนียมรูดบัตร (ส่วนลด 10%)' },
   { k:'car2', pct:10, label:'รถคันที่ 2 ขึ้นไป (ส่วนลด 10% · เงินสด/โอนเท่านั้น)' },
 ];
@@ -608,7 +612,9 @@ const WELFARE = [
 const ACT_PCT = 10;
 const WTAG = /^\[สวัสดิการ: ([^\]]*)\]\s*/;
 const round2 = n => Math.round(n * 100) / 100;
-const noteWelfare = note => { const m = WTAG.exec(note || ''); return m ? (WELFARE.find(w => w.label === m[1]) || null) : null; };
+/* จับคู่ป้ายในหมายเหตุกับรายการสวัสดิการ — เทียบทั้งป้ายปัจจุบันและป้ายเดิม (w.alt) */
+const noteWelfare = note => { const m = WTAG.exec(note || ''); if(!m) return null;
+  return WELFARE.find(w => w.label === m[1] || (w.alt || []).includes(m[1])) || null; };
 const noteText = note => String(note || '').replace(WTAG, '');
 const pickedWelfare = () => WELFARE.find(w => w.k === (document.querySelector('input[name="qW"]:checked') || {}).value) || null;
 function composeNote(){
@@ -1420,6 +1426,9 @@ function printSheet(r){
     + '<span>ส่วนลด</span>' + L(m(vals[2]), 1, 'r') + '<span>บาท</span></div>';
   const rels = [['father','บิดา'], ['mother','มารดา'], ['husband','สามี'], ['wife','ภรรยา'], ['child','บุตร']];
   const now = new Date();
+  /* ผ่อนชำระ — ติ๊กและเติมจำนวนงวดให้เอง เมื่อสวัสดิการที่เลือกคือ "ผ่อน 0% 3 งวด" */
+  const wel = noteWelfare(r.quote_note);
+  const inst = !!wel && wel.k === 'w5';
   return '<div class="pf-no"><span>เลขที่</span>' + L(r.no) + '</div>'
     + '<div class="pf-title">แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงาน' + esc(brandName(r)) + '</div>'
     + '<div class="pf-cap">&gt;&gt; ส่วนสำหรับพนักงานกรอกข้อมูล</div>'
@@ -1455,10 +1464,12 @@ function printSheet(r){
     + (r.quote_note ? '<div class="pf-row"><span>หมายเหตุ</span>'
         + L(String(r.quote_note).replace(WTAG, 'สวัสดิการพนักงาน: $1 · ').replace(/ · $/, '')) + '</div>' : '')
     + '<div class="pf-pay"><div>'
-    +   '<div class="pf-row"><span>การชำระเงิน วันที่</span>' + L('') + '<span>เลขที่ใบเสร็จรับเงิน</span>' + L('', 1.3) + '</div>'
+    +   '<div class="pf-row"><span>การชำระเงิน วันที่</span>' + L('') + '<span>เลขที่ใบเสร็จรับเงิน</span>' + L(r.receipt_no, 1.3) + '</div>'
     +   '<div class="pf-row pf-ind">' + cb(false, 'เงินสด จำนวน') + L('') + '<span>บาท</span></div>'
     +   '<div class="pf-row pf-ind">' + cb(false, 'โอนเงินเข้าบัญชีธนาคาร กรุงศรีอยุธยา/กจ. #152-1-13543-6 จำนวนเงิน') + L('', '0 0 22mm') + '<span>บาท</span></div>'
     +   '<div class="pf-row pf-ind">' + cb(false, 'บัตรเครดิต') + L('') + '</div>'
+    +   '<div class="pf-row pf-ind">' + cb(inst, 'ผ่อนชำระ') + L(inst ? '3' : '', '0 0 11mm')
+    +     '<span>งวด งวดละ</span>' + L('', '0 0 20mm') + '<span>บาท</span></div>'
     + '</div><div class="pf-box">ลงชื่อผู้รับเงิน</div></div>'
     + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no)
     +   (r.assigned_to ? ' · ผู้ดูแล ' + esc(agentName(r.assigned_to)) : '') + '</span>'
