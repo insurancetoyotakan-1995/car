@@ -592,6 +592,10 @@ const WELFARE = [
   { k:'w10',  pct:10, label:'ฟรีค่าธรรมเนียมรูดบัตร (ส่วนลด 10%)' },
   { k:'car2', pct:10, label:'รถคันที่ 2 ขึ้นไป (ส่วนลด 10% · เงินสด/โอนเท่านั้น)' },
 ];
+/* สวัสดิการ พ.ร.บ. — พนักงานทำประกันเองได้ลด 10% ของ "เบี้ยสุทธิ พ.ร.บ." ทุกใบ
+   (ผู้ใช้ยืนยัน 2026-09-22) · รวมรถคันที่ 2 ขึ้นไปด้วย · แบบแนะนำลูกค้าไม่ได้สิทธิ์นี้
+   เปลี่ยนอัตรา = แก้ที่เดียวตรงนี้ */
+const ACT_PCT = 10;
 const WTAG = /^\[สวัสดิการ: ([^\]]*)\]\s*/;
 const round2 = n => Math.round(n * 100) / 100;
 const noteWelfare = note => { const m = WTAG.exec(note || ''); return m ? (WELFARE.find(w => w.label === m[1]) || null) : null; };
@@ -930,6 +934,7 @@ function quoteBlock(r){
     + row('1', 'ประกันภัย (ภาคสมัครใจ)', ['qNet','qGross','qDisc'],    [r.quote_net, r.quote_gross, r.quote_disc], 'qStart', r.quote_start, 'qEnd', r.quote_end)
     + discBlock(r)
     + row('2', 'พ.ร.บ. (ภาคบังคับ)',     ['qANet','qAGross','qADisc'], [r.quote_act_net, r.quote_act_gross, r.quote_act_disc], 'qAStart', r.quote_act_start, 'qAEnd', r.quote_act_end)
+    + (r.kind === 'refer' ? '' : '<p class="qdisc-chk" id="qActChk" hidden></p>')
     + '<div class="qpr-tot"><span>รวมทั้งสิ้นที่ต้องชำระ</span><b id="qTotal">—</b></div>'
     + '<div class="grid" style="gap:11px;margin-top:11px">'
     +   '<label class="f c12">หมายเหตุการเสนอราคา<input id="qNote" maxlength="230" autocomplete="off"'
@@ -1006,7 +1011,32 @@ function wireQuote(r){
     c.hidden = !msg;
     if(msg){ c.className = 'qdisc-chk ' + msg[0]; c.textContent = msg[1]; }
   }
-  const onMoney = () => { follow(); recalc(); discUpd(); paintPrint(r); };
+  /* ---- สวัสดิการ พ.ร.บ. (พนักงานทำเอง ลด 10% ของเบี้ยสุทธิ พ.ร.บ.) ----
+     เติมให้อัตโนมัติ แต่ไม่ล็อกช่อง — เจ้าหน้าที่แก้เองได้ถ้าบริษัทประกันไม่ให้ส่วนลด
+     แล้วบรรทัดตรวจจะเตือนว่าไม่ตรงสวัสดิการ (แนวเดียวกับส่วนลดภาคสมัครใจ) */
+  const wantAct = () => { if(isRef) return null; const n = num('qANet'); return n == null ? null : round2(n * ACT_PCT / 100); };
+  const setActDisc = v => { const d = $('qADisc'); d.value = v ? fmtBaht(v) : ''; d.dataset.auto = d.value; };
+  const followAct = () => {
+    const d = $('qADisc'), w = wantAct();
+    if(w == null) return;
+    /* ยังไม่เคยแตะ (ว่างและระบบยังไม่เคยเติม) หรือยังเป็นค่าที่ระบบเติมไว้ → เติม/ตามให้
+       พอเจ้าหน้าที่พิมพ์เองหรือล้างทิ้ง ระบบจะไม่ยัดกลับ */
+    const untouched = d.dataset.auto == null ? d.value.trim() === '' : d.value === d.dataset.auto;
+    if(untouched) setActDisc(w);
+  };
+  function actUpd(){
+    const c = $('qActChk'); if(!c) return;
+    const w = wantAct(), disc = num('qADisc');
+    if(w == null){ c.hidden = true; return; }
+    const ok = Math.abs((disc || 0) - w) < .005;
+    c.hidden = false;
+    c.className = 'qdisc-chk ' + (ok ? 'ok' : 'warn');
+    c.textContent = ok
+      ? '✓ สวัสดิการพนักงาน: ลด พ.ร.บ. ' + ACT_PCT + '% ของเบี้ยสุทธิ · ' + fmtBaht(w) + ' บาท'
+      : 'ส่วนลด พ.ร.บ. ในช่อง ' + fmtBaht(disc || 0) + ' บาท ไม่ตรงสวัสดิการพนักงาน ('
+        + ACT_PCT + '% ของเบี้ยสุทธิ = ' + fmtBaht(w) + ' บาท)';
+  }
+  const onMoney = () => { follow(); followAct(); recalc(); discUpd(); actUpd(); paintPrint(r); };
   ['qNet','qGross','qDisc','qANet','qAGross','qADisc'].forEach(id => bindBaht($(id), onMoney));
   ['qIns','qTyp','qInsOther','qTypOther','qNote'].forEach(id => {
     $(id).addEventListener('input', () => paintPrint(r));
@@ -1083,7 +1113,10 @@ function wireQuote(r){
     dateUpd(); paintPrint(r);
   };
   dateUpd();
+  { const w = wantAct(); if(w != null && Math.abs((num('qADisc') || 0) - w) < .005) $('qADisc').dataset.auto = $('qADisc').value; }
+  followAct();
   discUpd();
+  actUpd();
   recalc();
   csel($('qIns')); csel($('qTyp'));
   const syncOther = ()=>{
