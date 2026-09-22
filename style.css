@@ -210,6 +210,22 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .empchk.ok{background:var(--good-soft);color:var(--good-ink);border-color:#d8e4cf}
 .empchk.no{background:var(--warn-soft);color:var(--warn-ink);border-color:#efdfc0}
 .empchk .sm{font-weight:400;font-size:12.5px}
+
+/* ---------- แถบ "ใช้ข้อมูลเดิม" (รถครอบครัว/รถเชื่อมโยง) ----------
+   เป็นตัวช่วยกรอก ไม่ใช่คำเตือน → โทนข้อมูล (ฟ้าอมเทา) ไม่ใช่เขียว/เหลือง
+   ปุ่มลบข้อมูลที่จำไว้อยู่ในแถบเดียวกัน เพราะเป็นข้อมูลส่วนตัวที่ค้างในเครื่อง */
+.reuse{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin:0 0 15px;padding:11px 13px;
+  border-radius:var(--r-sm);background:var(--info-soft);color:var(--info-ink);border:1px solid #dbe6ee}
+.reuse-ic{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;
+  background:#fff;border:1px solid #dbe6ee}
+.reuse-ic svg{width:16px;height:16px}
+.reuse-t{flex:1;min-width:180px;font-size:12.5px;line-height:1.55}
+.reuse-t b{display:block;font-size:13.5px}
+.reuse-t span{display:block;color:var(--ink-soft);overflow-wrap:anywhere}
+.reuse .btn{flex:none}
+.reuse-x{flex:none;background:none;border:0;padding:6px 4px;min-height:32px;cursor:pointer;
+  font:inherit;font-size:12px;color:var(--ink-soft);text-decoration:underline}
+.reuse-x:hover{color:var(--bad)}
 /* สิทธิ์รถคันที่ 2 — เตือนก่อนส่ง (ส่วนลด 10% · เงินสด/โอนเท่านั้น) */
 .car2{margin-top:10px;display:flex;align-items:flex-start;gap:11px;padding:12px 14px;
   border-radius:var(--r-sm);background:var(--warn-soft);color:var(--warn-ink);border:1px solid #efdfc0;

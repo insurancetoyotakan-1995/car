@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <!-- 🔑 ?v= กันเบราว์เซอร์ใช้ style.css เก่าจาก cache (GitHub Pages cache 10 นาที) — เปลี่ยน CSS ต้องขยับเลขนี้ทั้ง 2 หน้า -->
-<link rel="stylesheet" href="style.css?v=20260921-5">
+<link rel="stylesheet" href="style.css?v=20260922-1">
 <!-- ตั้งค่า Supabase — ต้องโหลดก่อนสคริปต์หลัก (script ธรรมดารันก่อน type=module ซึ่งเป็น defer โดยปริยาย) -->
 <script src="config.js?v=20260919-1"></script>
 
@@ -97,6 +97,14 @@
     <section class="panel" id="pane2" hidden>
       <h2 id="insHead">ผู้ทำประกันภัย</h2>
       <p class="sub" id="insSub">ข้อมูลของผู้ที่จะเอาประกัน — ใช้ติดต่อกลับและออกกรมธรรม์</p>
+      <!-- ใช้ข้อมูลเดิมซ้ำ (รถครอบครัว/รถเชื่อมโยง มักเป็นบ้านเดียวกัน)
+           🔒 ข้อมูลอยู่ในเครื่องนี้เท่านั้น ไม่ได้ดึงจากเซิร์ฟเวอร์ · โผล่เฉพาะเมื่อรหัสพนักงานตรงกับที่บันทึกไว้ -->
+      <div class="reuse" id="reuseBox" hidden>
+        <span class="reuse-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2M21 12a9 9 0 0 1-15.5 6.2"/><path d="M18 3v4h-4M6 21v-4h4"/></svg></span>
+        <div class="reuse-t"><b id="reuseTt">ใช้ข้อมูลเดียวกับครั้งก่อน</b><span id="reuseSub"></span></div>
+        <button type="button" class="btn sm" id="reuseGo">เติมให้</button>
+        <button type="button" class="reuse-x" id="reuseDel">ลบข้อมูลที่จำไว้</button>
+      </div>
       <div class="grid">
         <label class="f c2">คำนำหน้า <span class="req">*</span>
           <select id="fTitle">
@@ -1014,6 +1022,7 @@ function syncKind(){
   $('insSub').textContent  = refer
     ? 'ข้อมูลของลูกค้าที่แนะนำเข้ามา — เจ้าหน้าที่จะใช้ติดต่อกลับ'
     : 'ข้อมูลของผู้ที่จะเอาประกัน — ใช้ติดต่อกลับและออกกรมธรรม์';
+  paintReuse();                                      // แบบแนะนำลูกค้า = ที่อยู่ของลูกค้า ห้ามเสนอที่อยู่พนักงาน
   $('empHead').textContent = refer ? 'พนักงานผู้แนะนำ' : 'ส่วนของพนักงาน';
   document.querySelector('.step[data-s="2"] .t').textContent = refer ? 'ลูกค้า' : 'ผู้เอาประกัน';
   syncRel();
@@ -1034,6 +1043,7 @@ function syncRel(){
   paintConsent();
   syncSelfName();
   syncSelfWork();
+  paintReuse();
 }
 /* ตัวพนักงานเอง → ที่ทำงานคือบริษัทเรา (กติกา dataset.auto เดียวกับ syncSelfName) */
 function syncSelfWork(){
@@ -1233,6 +1243,68 @@ function saveDraft(){
 }
 /* 🔑 ต้องยกเลิกตัวหน่วงเวลาที่ค้างอยู่ด้วย — ติ๊กยินยอม (ยิง input) แล้วกดส่งภายใน 0.4 วิ
    ตัวหน่วงจะมาบันทึกร่างของฟอร์มที่เพิ่งล้าง → เปิดครั้งหน้าขึ้น "กู้ข้อมูลที่กรอกค้างไว้" ทั้งที่ส่งไปแล้ว */
+/* =======================================================================
+   จำ "ที่อยู่ครัวเรือน" ไว้ในเครื่อง เพื่อกรอกรถของคนในครอบครัวครั้งต่อไปไม่ต้องพิมพ์ซ้ำ
+   🔒 อยู่ใน localStorage ของเครื่องนี้เท่านั้น — ไม่ส่งขึ้นเซิร์ฟเวอร์ และไม่มี RPC ให้ใครดึง
+      (ถ้าดึงจากใบเก่าในระบบ ใครรู้รหัสพนักงานก็จะได้ที่อยู่บ้านเขาไป — จึงไม่ทำแบบนั้น)
+   🔒 ไม่เก็บเลขบัตรประชาชนและวันเกิด (กติกาเดียวกับร่าง)
+   🔒 โผล่เฉพาะเมื่อ "รหัสพนักงานตรงกับที่บันทึกไว้" — เครื่องที่ใช้ร่วมกัน คนถัดไปจะไม่เห็นของคนก่อน
+   ======================================================================= */
+const HOUSE_KEY = 'ins_house_v1' + (BRAND === 'toyota' ? '' : '_' + BRAND);
+const HOUSE_FIELDS = ['fAddr','fMoo','fRoad','fTambon','fAmphoe','fProvince','fZip','fMobile'];
+function houseSave(){
+  const id = $('fEmpId').value.replace(/\D/g,'');
+  if(!id || !$('fAddr').value.trim()) return;
+  const d = { empId:id, empName:$('fEmpName').value.trim(), at:Date.now() };
+  HOUSE_FIELDS.forEach(f => d[f] = $(f).value.trim());
+  try{ localStorage.setItem(HOUSE_KEY, JSON.stringify(d)); }catch(e){}
+}
+function houseGet(){
+  try{
+    const d = JSON.parse(localStorage.getItem(HOUSE_KEY) || 'null');
+    if(!d || !d.empId || !d.fAddr) return null;
+    if(Date.now() - (d.at || 0) > 365*24*3600*1000) return null;   // เก่าเกิน 1 ปี ถือว่าใช้ไม่ได้
+    return d;
+  }catch(e){ return null; }
+}
+function houseDel(){ try{ localStorage.removeItem(HOUSE_KEY); }catch(e){} paintReuse(); }
+/* นามสกุลของพนักงาน — ใช้เติมให้คนในครอบครัวที่นามสกุลเดียวกัน
+   ช่องชื่อยังว่าง (ยังไม่ได้ค้นทำเนียบ) → ใช้ชื่อที่จำไว้ในเครื่องแทน
+   แถบนี้โผล่เฉพาะตอนรหัสพนักงานตรงกับที่จำไว้ จึงเป็นคนเดียวกันแน่ */
+const empSurname = () => {
+  const d = houseGet();
+  const nm = ($('fEmpName').value.trim() || (d && d.empName) || '').trim();
+  const t = nm.split(/\s+/);
+  return t.length > 1 ? t[t.length - 1] : '';
+};
+/* แถบนี้โผล่เมื่อ: ไม่ใช่แบบแนะนำลูกค้า · มีข้อมูลจำไว้ · รหัสพนักงานตรงกัน · ที่อยู่ในฟอร์มยังว่าง */
+function paintReuse(){
+  const box = $('reuseBox'); if(!box) return;
+  const d = houseGet(), id = $('fEmpId').value.replace(/\D/g,'');
+  const ok = d && kindNow() !== 'refer' && id && id === d.empId && !$('fAddr').value.trim();
+  box.hidden = !ok;
+  if(!ok) return;
+  const self = relNow() === 'self';
+  $('reuseTt').textContent = self ? 'ใช้ที่อยู่เดิมของคุณ' : 'ใช้ข้อมูลเดียวกับพนักงาน';
+  const parts = [[d.fAddr, d.fMoo && 'หมู่ ' + d.fMoo, d.fTambon, d.fAmphoe, d.fProvince].filter(Boolean).join(' '),
+                 d.fMobile].filter(Boolean);
+  $('reuseSub').textContent = parts.join(' · ') + (self || !empSurname() ? '' : ' · นามสกุล ' + empSurname());
+}
+function reuseFill(){
+  const d = houseGet(); if(!d) return;
+  HOUSE_FIELDS.forEach(f => { const e = $(f); if(e && d[f] && !e.value.trim()){ e.value = d[f]; e.removeAttribute('aria-invalid'); } });
+  /* นามสกุลพนักงาน: เติมให้เฉพาะตอนช่องชื่อยังว่าง แล้ววางเคอร์เซอร์หน้าสุดให้พิมพ์ชื่อต้นต่อ */
+  const nm = $('fName'), sur = empSurname();
+  if(relNow() !== 'self' && sur && !nm.value.trim()){
+    nm.value = sur; nm.removeAttribute('aria-invalid');
+    nm.focus(); try{ nm.setSelectionRange(0, 0); }catch(e){}
+  }
+  syncZip();
+  paintProv();
+  paintReuse();
+  saveDraft();
+  toast('เติมข้อมูลให้แล้ว — ตรวจให้ตรงกับผู้ทำประกันก่อนส่ง');
+}
 function clearDraft(){ clearTimeout(draftTimer); try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
 function restoreDraft(){
   let d = null;
@@ -2414,6 +2486,7 @@ $('btnSave').onclick = async ()=>{
       if(u.failed.length) toast('อัปโหลดไม่สำเร็จ ' + u.failed.length + ' ไฟล์: ' + u.failed[0], 'no');
     }
     showDone(data, v);
+    houseSave();                                      // จำที่อยู่/เบอร์ไว้ในเครื่อง เผื่อยื่นรถคันอื่นของครอบครัว
     clearDraft();
     resetForm(true);                                  // คงช่องพนักงานไว้ เผื่อส่งใบถัดไป
   }catch(e){ toast(e.message, 'no'); }
@@ -2553,6 +2626,7 @@ function resetForm(keepEmp){
   car2Key = null;                                    // เพิ่งส่งไป 1 คัน → นับใหม่
   renderDocRows(); renderChips(); syncKind();
   STEP = 1; paintSteps();
+  paintReuse();
 }
 $('btnReset').onclick = async ()=>{
   if(await ask({title:'เริ่มกรอกใหม่',
@@ -2577,7 +2651,12 @@ const hadDraft = restoreDraft();
 syncCarBox(); vinHint(); okSync();
 cselLabel($('fBranch').closest('.csel'));            // ร่างอาจเปลี่ยนสาขา — ป้ายบนปุ่มต้องตามด้วย
 setBranchByEmp();                                    // ร่างเก่าที่สาขาไม่ตรงกับรหัส → แก้ให้ตรง
+$('reuseGo').onclick = reuseFill;
+$('reuseDel').onclick = houseDel;
+/* แถบ "ใช้ข้อมูลเดิม" ต้องคิดใหม่เมื่อรหัสพนักงานหรือที่อยู่เปลี่ยน (นอกจากตอนเปลี่ยนความสัมพันธ์) */
+['fEmpId','fEmpName','fAddr'].forEach(id => $(id).addEventListener('input', paintReuse));
 syncKind();
+paintReuse();
 paintSteps();
 if(hadDraft){
   toast('กู้ข้อมูลที่กรอกค้างไว้ให้แล้ว — กด "เริ่มใหม่" ถ้าจะเริ่มจากฟอร์มว่าง');
