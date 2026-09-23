@@ -1959,6 +1959,7 @@ function waitText(r){
   return 'รอ ' + Math.floor(h / 24) + ' วัน';
 }
 const STATUS_ORDER = ['new','contacted','quoted','done','cancelled'];
+const notCx = r => r.status !== 'cancelled';               // ใบที่ยังไม่ถูกยกเลิก
 
 /* ---------- ตัวกรองด่วน + การเรียงลำดับ ----------
    ชิปกรองด่วน = คำถามที่เจ้าหน้าที่ถามกับตัวเองทุกเช้า ("ใบไหนต้องรีบ" "ใบไหนเอกสารขาด")
@@ -2012,22 +2013,28 @@ function renderList(){
   });
   const hits = QF ? base.filter(QUICK.find(x => x.k === QF).test) : base;
 
-  const cnt = { '': hits.length };
+  /* แท็บ "ทั้งหมด" = งานที่ยังมีอยู่จริง ไม่รวมใบที่ยกเลิก (ผู้ใช้สั่ง 2026-09-23)
+     ใบยกเลิกดูได้ที่แท็บของมันเอง — ถ้านับรวม ตัวเลขจะพองขึ้นทั้งที่ไม่มีอะไรต้องทำ */
+  const cnt = { '': hits.filter(notCx).length };
   STATUS_ORDER.forEach(k=> cnt[k] = hits.filter(r=>r.status===k).length);
   const tabs = isViewer() ? [['done', STATUS.done]] : [['', 'ทั้งหมด'], ...STATUS_ORDER.map(k=>[k, STATUS[k]])];
   $('stTabs').innerHTML = tabs.map(([k, lb])=>
-    '<button type="button" role="tab" class="stab st-' + (k||'all') + '" data-st="' + k + '" aria-selected="' + (ST === k) + '">'
+    '<button type="button" role="tab" class="stab st-' + (k||'all') + '" data-st="' + k + '" aria-selected="' + (ST === k) + '"'
+    + (k ? '' : ' title="ทุกสถานะ ยกเว้นใบที่ยกเลิก"') + '>'
     + '<span>' + esc(lb) + '</span><b>' + cnt[k] + '</b></button>').join('');
   $('stTabs').querySelectorAll('.stab').forEach(b=> b.onclick = ()=>{ ST = b.dataset.st; renderList(); });
   if(isAdmin()) renderLoad();
   renderStale();                                            // แถบค้างเสนอราคา — อิง LIST ทั้งชุด ไม่ขึ้นกับตัวกรอง
 
-  const rows = sortRows(hits.filter(r=> !ST || r.status === ST));
-  /* บรรทัดสรุป: บอกว่ากำลังดูกี่ใบจากทั้งหมดกี่ใบ — กันสับสนว่า "ใบหายไปไหน" เวลาลืมว่ากรองค้างไว้ */
+  const rows = sortRows(hits.filter(r=> ST ? r.status === ST : notCx(r)));
+  /* บรรทัดสรุป: บอกว่ากำลังดูกี่ใบจากทั้งหมดกี่ใบ — กันสับสนว่า "ใบหายไปไหน" เวลาลืมว่ากรองค้างไว้
+     "ทั้งหมด" ต้องนับแบบเดียวกับแท็บ (ไม่รวมใบยกเลิก) ไม่งั้นตัวเลข 2 ที่ขัดกันเอง */
+  const total = LIST.filter(notCx).length;
   const anyF = !!(q || ag || br || QF || (ST && !isViewer()));
   $('qCount').textContent = !LIST.length ? ''
-    : anyF ? 'แสดง ' + rows.length + ' ใบ จากทั้งหมด ' + LIST.length + ' ใบ'
-    : 'ทั้งหมด ' + LIST.length + ' ใบ';
+    : ST === 'cancelled' ? 'ใบที่ยกเลิก ' + rows.length + ' ใบ'
+    : anyF ? 'แสดง ' + rows.length + ' ใบ จากทั้งหมด ' + total + ' ใบ'
+    : 'ทั้งหมด ' + total + ' ใบ';
   $('qCount').classList.toggle('on', anyF);
   if(!rows.length){
     const filtered = LIST.length && anyF;
