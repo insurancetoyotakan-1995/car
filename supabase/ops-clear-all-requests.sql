@@ -17,8 +17,9 @@
 -- ---------------------------------------------------------------------------
 select 'ใบคำขอ'            as รายการ, count(*) as จำนวน from public.ins_requests
 union all select 'ไฟล์แนบ (แถวข้อมูล)', count(*) from public.ins_files
-union all select 'ไฟล์ใน Storage',      count(*) from storage.objects where bucket_id = 'ins-files'
 union all select 'ตัวนับเลขที่',         count(*) from public.ins_seq;
+-- (อ่าน storage.objects ได้ แต่ลบไม่ได้ — select ดูจำนวนไฟล์ได้ถ้าอยากรู้)
+-- select count(*) as ไฟล์ใน_Storage from storage.objects where bucket_id = 'ins-files';
 
 -- แยกตามบริษัทและสถานะ เผื่ออยากดูละเอียดก่อนตัดสินใจ
 -- select brand, status, count(*) from public.ins_requests group by 1,2 order by 1,2;
@@ -43,16 +44,18 @@ delete from public.ins_seq;
 -- log เพดานกันยิงรัวต่อ IP — ล้างด้วย ไม่งั้นเครื่องที่เพิ่งทดสอบไปอาจโดนกันชั่วคราว
 delete from public.ins_submit_log;
 
--- แถวไฟล์ใน Storage (ตัวไฟล์จริงลบที่ Dashboard ตามขั้นที่ 3)
-delete from storage.objects where bucket_id = 'ins-files';
+/* 🐞 ห้ามใส่ "delete from storage.objects" ตรงนี้ — Supabase มีทริกเกอร์
+   storage.protect_delete() บล็อกไว้ (ERROR 42501 Direct deletion from storage
+   tables is not allowed) แล้วทั้งทรานแซกชันจะย้อนกลับ ไม่ได้ลบอะไรเลย
+   ไฟล์ใน Storage ต้องลบผ่านหน้า Dashboard หรือ Storage API เท่านั้น (ขั้นที่ 3) */
 
 commit;
 
 
 -- ---------------------------------------------------------------------------
--- ขั้นที่ 3) ลบไฟล์จริงใน Storage (ทำที่หน้าเว็บ Supabase)
---   Dashboard → Storage → bucket "ins-files" → เลือกทั้งหมด → Delete
---   ถ้าขั้นที่ 2 รันไปแล้ว หน้านี้อาจไม่แสดงไฟล์ — กด "Empty bucket" ได้เลย
+-- ขั้นที่ 3) ลบไฟล์ใน Storage — ทำที่หน้าเว็บเท่านั้น (SQL ลบไม่ได้ ดูหมายเหตุขั้นที่ 2)
+--   Dashboard → Storage → bucket "ins-files" → ปุ่ม ... ข้างชื่อ bucket → Empty bucket
+--   หรือเลือกโฟลเดอร์ทั้งหมดในหน้านั้นแล้วกด Delete
 -- ---------------------------------------------------------------------------
 
 
@@ -63,6 +66,7 @@ commit;
 -- union all select 'ไฟล์แนบ', count(*) from public.ins_files
 -- union all select 'ไฟล์ใน Storage', count(*) from storage.objects where bucket_id = 'ins-files'
 -- union all select 'ตัวนับเลขที่', count(*) from public.ins_seq;
+--   (แถว "ไฟล์ใน Storage" จะเป็น 0 ก็ต่อเมื่อทำขั้นที่ 3 ที่หน้า Dashboard แล้ว)
 
 -- ข้อมูลหลักต้องยังอยู่ครบ (ห้ามเป็น 0)
 -- select 'พนักงาน' as รายการ, count(*) as คงเหลือ from public.employees
