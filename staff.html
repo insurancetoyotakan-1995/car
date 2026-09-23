@@ -375,26 +375,51 @@
         <span>โหลดใหม่</span></button>
     </div>
 
-    <!-- สถานะ = แท็บพร้อมตัวเลข · เห็นทันทีว่ามีงานรอกี่ใบ ไม่ต้องเปิดดรอปดาวน์ -->
-    <div class="stabs-wrap"><div class="stabs" id="stTabs" role="tablist" aria-label="กรองตามสถานะ"></div></div>
+    <!-- แถบเครื่องมือหนึบหัวจอ — รายการยาว ๆ เลื่อนลงไปแล้วยังเปลี่ยนแท็บ/ค้นหาได้โดยไม่ต้องเลื่อนกลับขึ้น
+         🔑 ตัวจับ #qSentinel อยู่เหนือแถบ ใช้บอกว่า "ติดขอบจอแล้ว" เพื่อใส่เงาแยกชั้นกับรายการ -->
+    <div id="qSentinel" aria-hidden="true"></div>
+    <div class="qsticky" id="qSticky">
+      <!-- สถานะ = แท็บพร้อมตัวเลข · เห็นทันทีว่ามีงานรอกี่ใบ ไม่ต้องเปิดดรอปดาวน์ -->
+      <div class="stabs-wrap"><div class="stabs" id="stTabs" role="tablist" aria-label="กรองตามสถานะ"></div></div>
 
-    <div class="qbar">
-      <label class="qsearch">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="find" type="search" placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขที่" autocomplete="off" aria-label="ค้นหา">
-      </label>
-      <label class="f qagent" id="agentFilterBox" hidden>
-        <select id="fltAgent" aria-label="กรองตามผู้ดูแล"><option value="">ผู้ดูแลทุกคน</option></select>
-      </label>
-      <!-- โผล่เฉพาะตอนมีใบของฮีโน่จริง ๆ (ช่วงแรกยังไม่มี = ไม่ต้องรกหน้าจอ) -->
-      <label class="f qagent" id="brandFilterBox" hidden>
-        <select id="fltBrand" aria-label="กรองตามบริษัท">
-          <option value="">ทั้ง 2 บริษัท</option>
-          <option value="toyota">โตโยต้า</option>
-          <option value="hino">ฮีโน่</option>
-        </select>
-      </label>
+      <div class="qbar">
+        <label class="qsearch">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="find" type="search" placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขที่  ( / )" autocomplete="off" aria-label="ค้นหา">
+        </label>
+        <label class="f qagent qsort">
+          <select id="fltSort" aria-label="เรียงลำดับรายการ">
+            <option value="new">ใหม่สุดก่อน</option>
+            <option value="old">เก่าสุดก่อน</option>
+            <option value="hot">ค้างนานสุดก่อน</option>
+          </select>
+        </label>
+        <label class="f qagent" id="agentFilterBox" hidden>
+          <select id="fltAgent" aria-label="กรองตามผู้ดูแล"><option value="">ผู้ดูแลทุกคน</option></select>
+        </label>
+        <!-- โผล่เฉพาะตอนมีใบของฮีโน่จริง ๆ (ช่วงแรกยังไม่มี = ไม่ต้องรกหน้าจอ) -->
+        <label class="f qagent" id="brandFilterBox" hidden>
+          <select id="fltBrand" aria-label="กรองตามบริษัท">
+            <option value="">ทั้ง 2 บริษัท</option>
+            <option value="toyota">โตโยต้า</option>
+            <option value="hino">ฮีโน่</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- ชิปกรองด่วน — โผล่เฉพาะอันที่มีใบเข้าเงื่อนไขจริง (ไม่มีก็ไม่ต้องรกตา) + สรุปจำนวนที่แสดงอยู่ -->
+      <div class="qchips">
+        <div class="qchip-row" id="qChips"></div>
+        <span class="qcount" id="qCount"></span>
+      </div>
     </div>
+
+    <!-- ค้างเสนอราคา — ใบที่อยู่สถานะ "เสนอราคาแล้ว" เกิน 3 วันแล้วยังไม่ปิดการขาย
+         เตือนให้โทรตาม · กางไว้เป็นค่าเริ่มต้นเพราะเป็นงานที่ต้องทำ ไม่ใช่ข้อมูลไว้ดูเฉย ๆ -->
+    <details class="qload alert" id="staleStrip" hidden>
+      <summary><span class="lb">ค้างเสนอราคา</span><span class="qload-sum" id="staleSum"></span></summary>
+      <div id="staleBody"></div>
+    </details>
 
     <!-- ภาระงานต่อคน (บัญชีกลาง) — พับได้ จำสถานะไว้ในเครื่อง -->
     <details class="qload" id="agentStrip" hidden>
@@ -1681,7 +1706,7 @@ $('btnOut').onclick = async ()=>{
   await sb.auth.signOut();
   LIST = []; FILES = {}; POLICIES = []; TEAMS = {}; MAIN = {}; RENEW = []; ME = null; AGENTS = [];
   $('agentFilterBox').hidden = true; $('brandFilterBox').hidden = true; $('agentStrip').hidden = true;
-  $('renewStrip').hidden = true; ST = '';
+  $('renewStrip').hidden = true; $('staleStrip').hidden = true; ST = '';
   $('listPanel').hidden = true; $('loginBox').hidden = false;
   $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
   toast('ออกจากระบบแล้ว');
@@ -1869,14 +1894,95 @@ function dayLabel(d){
   if(dayKey(d) === dayKey(y)) return 'เมื่อวาน';
   return d.getDate() + ' ' + TH_MON[d.getMonth()] + ' ' + (d.getFullYear()+543);
 }
-/* ใบที่ยังรอตรวจสอบนานเกิน 1 วัน = ต้องรีบโทร */
+/* ---------- ค้างเสนอราคา ----------
+   ใบที่เสนอราคาไปแล้วแต่ยังไม่ปิดการขาย/ยกเลิกเกิน 3 วัน = ลูกค้าเงียบ ต้องโทรตาม
+   นับจากวันที่บันทึกเบี้ยล่าสุด (quote_at) → เจ้าหน้าที่แก้เบี้ยใหม่ = เริ่มนับใหม่
+   🔑 ใบที่ไม่มี quote_at (กดเปลี่ยนสถานะเองโดยไม่กรอกเบี้ย) ใช้เวลาที่ใบถูกแก้ล่าสุดแทน
+      ไม่งั้นใบพวกนี้จะไม่เคยขึ้นเตือนเลย ทั้งที่เป็นกลุ่มที่หลุดมือง่ายที่สุด */
+const STALE_DAYS = 3;
+const STALE_BAD  = 7;                                    // เกินเท่านี้ = แดง (ปล่อยนานเกินไปแล้ว)
+const staleFrom = r => r.quote_at || r.updated_at || r.created_at;
+function staleDays(r){
+  if(r.status !== 'quoted') return 0;
+  const h = (Date.now() - new Date(staleFrom(r)).getTime()) / 36e5;
+  return h > STALE_DAYS * 24 ? Math.floor(h / 24) : 0;   // "เกิน 3 วัน" = ครบ 3 วันแล้วเลยมา
+}
+function renderStale(){
+  const box = $('staleStrip');
+  const rows = LIST.filter(r => staleDays(r)).sort((a, b) => staleDays(b) - staleDays(a));
+  box.hidden = isViewer() || !rows.length;
+  if(box.hidden) return;
+  /* คืนสถานะพับ/กางครั้งเดียว — ดีฟอลต์ "กาง" (ต่างจากแถบอื่นที่ดีฟอลต์พับ) เพราะเป็นงานค้าง */
+  if(!box.dataset.init){
+    box.dataset.init = '1';
+    let open = true;
+    try{ open = localStorage.getItem('staff_stale_open') !== '0'; }catch(e){}
+    box.open = open;
+    box.addEventListener('toggle', ()=>{ try{ localStorage.setItem('staff_stale_open', box.open ? '1' : '0'); }catch(e){} });
+  }
+  const bad = rows.filter(r => staleDays(r) >= STALE_BAD).length;
+  $('staleSum').textContent = rows.length + ' ใบ เสนอราคาไปเกิน ' + STALE_DAYS + ' วันแล้วยังไม่ปิดการขาย'
+    + (bad ? ' · เกิน ' + STALE_BAD + ' วัน ' + bad + ' ใบ' : '');
+
+  $('staleBody').innerHTML = '<table class="rwtab"><thead><tr><th>ลูกค้า / ใบคำขอ</th><th>ค้างมานาน</th>'
+    + '<th>เบอร์โทร</th><th></th></tr></thead><tbody>'
+    + rows.map(r=>{
+        const d = staleDays(r);
+        return '<tr class="rw rw-' + (d >= STALE_BAD ? 'late' : 'now') + '">'
+          + '<td><b>' + esc(r.insured_name) + '</b>'
+          +   ' <span class="rq-tag brand b-' + brandOf(r) + '">' + esc(brandName(r)) + '</span>'
+          +   '<span class="rw-sub">' + esc(r.no) + ' · ' + esc(r.car_plate || r.car_vin || 'ยังไม่ระบุทะเบียน')
+          +     (isAdmin() ? ' · ผู้ดูแล ' + esc(r.assigned_to ? agentName(r.assigned_to) : 'ยังไม่มี') : '')
+          +   '</span></td>'
+          /* วันที่อย่างเดียวพอ — เวลาไม่ช่วยตัดสินใจ และทำให้คอลัมน์ยาวจนอ่านยาก
+             ผ่าน dayKey (เวลาเครื่อง) ก่อน ห้ามตัดจาก ISO ตรง ๆ ไม่งั้นใบที่บันทึกก่อน 7 โมงเช้าเพี้ยนไป 1 วัน */
+          + '<td><span class="rw-days">' + d + ' วัน</span><span class="rw-sub">'
+          +   (r.quote_at ? 'เสนอราคา ' : 'อัปเดตล่าสุด ') + esc(thDay(dayKey(new Date(staleFrom(r))))) + '</span></td>'
+          + '<td>' + (r.phone_mobile
+              ? '<a class="rw-tel" href="tel:' + esc(r.phone_mobile) + '">' + esc(r.phone_mobile) + '</a>'
+              : '<span class="rw-sub">ไม่มีเบอร์</span>') + '</td>'
+          + '<td class="rw-act"><button type="button" class="btn sm" data-sid="' + esc(r.id) + '">เปิดใบ</button></td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table>'
+    + '<p class="agnote">นับจากวันที่บันทึกเบี้ยล่าสุด · ลูกค้าตกลงแล้วให้เปลี่ยนสถานะเป็น "ปิดการขาย"'
+    + ' ลูกค้าไม่เอาแล้วให้กด "ยกเลิก" — แถวจะหายจากแถบนี้เอง</p>';
+
+  $('staleBody').querySelectorAll('[data-sid]').forEach(b => b.onclick = ()=> openView(b.dataset.sid));
+}
+/* ป้ายเตือนบนแถวรายการ: ใบใหม่ที่ยังไม่ตรวจเกิน 1 วัน · ใบที่เสนอราคาแล้วค้างเกิน 3 วัน */
 function waitText(r){
+  if(r.status === 'quoted'){ const d = staleDays(r); return d ? 'ค้าง ' + d + ' วัน' : ''; }
   if(r.status !== 'new') return '';
   const h = (Date.now() - new Date(r.created_at).getTime()) / 36e5;
   if(h < 24) return '';
   return 'รอ ' + Math.floor(h / 24) + ' วัน';
 }
 const STATUS_ORDER = ['new','contacted','quoted','done','cancelled'];
+
+/* ---------- ตัวกรองด่วน + การเรียงลำดับ ----------
+   ชิปกรองด่วน = คำถามที่เจ้าหน้าที่ถามกับตัวเองทุกเช้า ("ใบไหนต้องรีบ" "ใบไหนเอกสารขาด")
+   🔑 ชิปที่ไม่มีใบเข้าเงื่อนไขจะไม่แสดงเลย — แถบจึงบอกงานที่ "มีอยู่จริง" ไม่ใช่เมนูตายตัว */
+const QUICK = [
+  { k:'hot',  label:'ต้องรีบตาม',     test: r => !!waitText(r) },
+  { k:'doc',  label:'เอกสารไม่ครบ',   test: r => r.status !== 'done' && r.status !== 'cancelled' && missDocs(r).length > 0 },
+  { k:'noag', label:'ยังไม่มีผู้ดูแล', test: r => !r.assigned_to && r.status !== 'done' && r.status !== 'cancelled' },
+];
+let QF = '';                                                // ชิปที่เลือกอยู่ (ว่าง = ไม่กรอง)
+let SORT = 'new';
+try{ const s = localStorage.getItem('staff_sort'); if(s && /^(new|old|hot)$/.test(s)) SORT = s; }catch(e){}
+/* คะแนนความเร่งด่วน: ค้างเสนอราคา/รอตรวจสอบนานสุดขึ้นก่อน · ใบที่ไม่ค้างเรียงตามวันที่เหมือนเดิม */
+function hotScore(r){
+  if(r.status === 'quoted') return staleDays(r);
+  if(r.status !== 'new') return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(r.created_at).getTime()) / 864e5));
+}
+function sortRows(rows){
+  const at = r => new Date(r.created_at).getTime();
+  if(SORT === 'old') return rows.sort((a, b) => at(a) - at(b));
+  if(SORT === 'hot') return rows.sort((a, b) => hotScore(b) - hotScore(a) || at(a) - at(b));
+  return rows.sort((a, b) => at(b) - at(a));
+}
 
 function renderList(){
   const q = norm($('find').value), ag = isAdmin() ? $('fltAgent').value : '';
@@ -1892,18 +1998,39 @@ function renderList(){
     return norm([r.no, r.insured_name, r.phone_mobile, r.phone_mobile && r.phone_mobile.replace(/\D/g,''),
                  r.car_plate, r.car_vin, r.emp_name, agentName(r.assigned_to), r.id_card].join(' ')).includes(q);
   });
-  const cnt = { '': base.length };
-  STATUS_ORDER.forEach(k=> cnt[k] = base.filter(r=>r.status===k).length);
+  /* ชิปกรองด่วน: นับจาก base (ก่อนเลือกแท็บสถานะ) แล้วค่อยกรองต่อ
+     ตัวเลขบนแท็บสถานะจึงตรงกับสิ่งที่เห็นจริงหลังเลือกชิป */
+  const qcnt = {};
+  QUICK.forEach(x => qcnt[x.k] = base.filter(x.test).length);
+  if(QF && !qcnt[QF]) QF = '';                              // ชิปที่เลือกไว้ไม่เหลือใบแล้ว → ปลดเอง ไม่ปล่อยให้จอว่างงง
+  const live = QUICK.filter(x => qcnt[x.k] > 0);
+  $('qChips').innerHTML = live.map(x =>
+    '<button type="button" class="qchip qc-' + x.k + (QF === x.k ? ' on' : '') + '" data-qf="' + x.k + '"'
+    + ' aria-pressed="' + (QF === x.k) + '">' + esc(x.label) + '<b>' + qcnt[x.k] + '</b></button>').join('');
+  $('qChips').querySelectorAll('.qchip').forEach(b => b.onclick = ()=>{
+    QF = QF === b.dataset.qf ? '' : b.dataset.qf; renderList();
+  });
+  const hits = QF ? base.filter(QUICK.find(x => x.k === QF).test) : base;
+
+  const cnt = { '': hits.length };
+  STATUS_ORDER.forEach(k=> cnt[k] = hits.filter(r=>r.status===k).length);
   const tabs = isViewer() ? [['done', STATUS.done]] : [['', 'ทั้งหมด'], ...STATUS_ORDER.map(k=>[k, STATUS[k]])];
   $('stTabs').innerHTML = tabs.map(([k, lb])=>
     '<button type="button" role="tab" class="stab st-' + (k||'all') + '" data-st="' + k + '" aria-selected="' + (ST === k) + '">'
     + '<span>' + esc(lb) + '</span><b>' + cnt[k] + '</b></button>').join('');
   $('stTabs').querySelectorAll('.stab').forEach(b=> b.onclick = ()=>{ ST = b.dataset.st; renderList(); });
   if(isAdmin()) renderLoad();
+  renderStale();                                            // แถบค้างเสนอราคา — อิง LIST ทั้งชุด ไม่ขึ้นกับตัวกรอง
 
-  const rows = base.filter(r=> !ST || r.status === ST);
+  const rows = sortRows(hits.filter(r=> !ST || r.status === ST));
+  /* บรรทัดสรุป: บอกว่ากำลังดูกี่ใบจากทั้งหมดกี่ใบ — กันสับสนว่า "ใบหายไปไหน" เวลาลืมว่ากรองค้างไว้ */
+  const anyF = !!(q || ag || br || QF || (ST && !isViewer()));
+  $('qCount').textContent = !LIST.length ? ''
+    : anyF ? 'แสดง ' + rows.length + ' ใบ จากทั้งหมด ' + LIST.length + ' ใบ'
+    : 'ทั้งหมด ' + LIST.length + ' ใบ';
+  $('qCount').classList.toggle('on', anyF);
   if(!rows.length){
-    const filtered = LIST.length && (q || ag || br || (ST && !isViewer()));
+    const filtered = LIST.length && anyF;
     $('listBody').innerHTML = '<div class="empty"><b>' + (filtered ? 'ไม่พบคำขอที่ตรงกับตัวกรอง' : isViewer() ? 'ยังไม่มีใบที่ปิดการขาย' : 'ยังไม่มีคำขอ') + '</b>'
       + (filtered ? (isViewer() ? 'ลองล้างคำค้น' : 'ลองล้างคำค้นหรือเลือกแท็บ "ทั้งหมด"')
          : isViewer() ? 'ใบที่เจ้าหน้าที่ปิดการขายแล้วจะแสดงที่นี่'
@@ -1911,7 +2038,7 @@ function renderList(){
       + (filtered ? '<div style="margin-top:12px"><button class="btn sm" type="button" id="btnClearF">ล้างตัวกรอง</button></div>' : '')
       + '</div>';
     if(filtered) $('btnClearF').onclick = ()=>{
-      $('find').value = ''; ST = '';
+      $('find').value = ''; ST = ''; QF = '';
       if(isAdmin()){ $('fltAgent').value = ''; $('fltAgent').dispatchEvent(new Event('change')); }
       if(!$('brandFilterBox').hidden) setBrandFilter('');
       renderList();
@@ -1919,17 +2046,22 @@ function renderList(){
     return;
   }
 
-  // จัดกลุ่มตามวันที่ส่ง
+  /* จัดกลุ่มตามวันที่ส่ง — เฉพาะตอนเรียงตามวัน
+     🔑 เรียงแบบ "ค้างนานสุดก่อน" แล้วยังหัวข้อวันที่อยู่ = หัวข้อจะสลับไปมาทีละแถว อ่านไม่รู้เรื่อง
+        โหมดนั้นจึงเป็นรายการยาวก้อนเดียว หัวข้อเดียวบอกว่ากำลังเรียงแบบไหน */
+  const byDay = SORT !== 'hot';
   const groups = [];
   rows.forEach(r=>{
-    const d = new Date(r.created_at), k = dayKey(d);
+    const d = new Date(r.created_at), k = byDay ? dayKey(d) : 'hot';
     let g = groups[groups.length-1];
-    if(!g || g.k !== k){ g = { k, label: dayLabel(d), items: [] }; groups.push(g); }
+    if(!g || g.k !== k){ g = { k, label: byDay ? dayLabel(d) : 'เรียงตามที่ค้างนานที่สุด', items: [] }; groups.push(g); }
     g.items.push(r);
   });
 
   $('listBody').innerHTML = groups.map(g=>
-    '<div class="qgroup"><div class="qday"><span>' + esc(g.label) + '</span><span class="qday-n">' + g.items.length + ' ใบ</span></div>'
+    /* ตัวเลขท้ายหัวข้อวันโชว์เฉพาะตอนมีหลายใบ — วันละใบแล้วยังเขียน "1 ใบ" ทุกบรรทัดคือเสียงรบกวนเปล่า ๆ */
+    '<div class="qgroup"><div class="qday"><span>' + esc(g.label) + '</span>'
+    + (g.items.length > 1 ? '<span class="qday-n">' + g.items.length + ' ใบ</span>' : '') + '</div>'
     + g.items.map(r=>{
         const d = new Date(r.created_at), nf = (FILES[r.id] || []).length, wait = waitText(r), pc = priorCars(r).length;
         const pcForced = pc > 0 && forcedCar2(r);            // คันหลัก = ไม่บังคับ 10% → ป้ายไม่ใช้สีเตือน
@@ -1942,7 +2074,9 @@ function renderList(){
            🔑 ติดข้างเดียวไม่พอ — ต้องจำกฎว่า "ไม่มีป้าย = โตโยต้า" ซึ่งพลาดง่ายเวลารีบ
               และแยกด้วยสีไม่ใช่แค่ตัวอักษร (โตโยต้าแดง · ฮีโน่น้ำเงิน) กวาดตาดูรู้ทันที */
         const bTag = '<span class="rq-tag brand b-' + brandOf(r) + '">' + esc(brandName(r)) + '</span>';
-        return '<button type="button" class="rq s-' + esc(r.status) + '" data-id="' + esc(r.id) + '">'
+        /* แถบแดงบาง ๆ ริมซ้ายของใบที่ต้องรีบ (รอตรวจเกิน 1 วัน / ค้างเสนอราคาเกิน 3 วัน)
+           กวาดตาลงคอลัมน์เดียวก็รู้ว่าต้องหยิบใบไหนก่อน โดยไม่ต้องอ่านตัวหนังสือทุกแถว */
+        return '<button type="button" class="rq s-' + esc(r.status) + (wait ? ' hot' : '') + '" data-id="' + esc(r.id) + '">'
           + '<span class="rq-st"><i></i>' + esc(STATUS[r.status] || r.status) + '</span>'
           + '<span class="rq-main">'
           +   '<span class="rq-line"><span class="rq-nm">' + esc(r.insured_name) + '</span>'
@@ -1970,6 +2104,27 @@ let findTimer = null;
 $('find').addEventListener('input', ()=>{ clearTimeout(findTimer); findTimer = setTimeout(renderList, 120); });
 $('fltAgent').addEventListener('change', renderList);
 $('fltBrand').addEventListener('change', renderList);
+$('fltSort').value = SORT;
+csel($('fltSort'));                                       // ดรอปดาวน์เรียงลำดับใช้หน้าตาเดียวกับตัวกรองอื่น
+/* เงาใต้แถบเครื่องมือ เฉพาะตอนที่มันติดขอบจอจริง ๆ — ไม่งั้นมีเส้นเงาลอยอยู่ตลอดเวลาโดยไม่มีเหตุผล */
+if(window.IntersectionObserver){
+  new IntersectionObserver(([e])=> $('qSticky').classList.toggle('stuck', !e.isIntersecting),
+    { threshold: 1 }).observe($('qSentinel'));
+}
+$('fltSort').addEventListener('change', ()=>{
+  SORT = $('fltSort').value;
+  try{ localStorage.setItem('staff_sort', SORT); }catch(e){}
+  renderList();
+});
+/* ปุ่มลัด: "/" กระโดดเข้าช่องค้นหา · Esc ล้างคำค้น — คีย์บอร์ดล้วนทำงานได้เร็วกว่าเอื้อมไปจับเมาส์
+   🔑 ต้องไม่ขโมยปุ่มตอนผู้ใช้กำลังพิมพ์ในช่องอื่น หรือมีกล่องรายละเอียด/ยืนยันเปิดอยู่ */
+document.addEventListener('keydown', e=>{
+  if(e.ctrlKey || e.altKey || e.metaKey) return;
+  const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+  if($('listPanel').hidden || document.querySelector('.ov[open]')) return;
+  if(e.key === '/' && !typing){ e.preventDefault(); $('find').focus(); $('find').select(); }
+  else if(e.key === 'Escape' && t === $('find') && $('find').value){ $('find').value = ''; renderList(); }
+});
 /* ตัวกรองบริษัทโผล่เฉพาะตอนมีใบของแบรนด์อื่นจริง ๆ — ช่วงที่ยังมีแต่โตโยต้าจะไม่รกหน้าจอ */
 function setBrandFilter(v){
   const sel = $('fltBrand');
