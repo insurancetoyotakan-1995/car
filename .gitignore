@@ -11,6 +11,8 @@ supabase/employees-*.sql
 
 # รายชื่อผู้มีสิทธิ์เข้าหลังบ้าน (สร้างใหม่ได้ด้วย scripts/export-ins-staff.cjs)
 supabase/ins-staff.sql
+# เจ้าหน้าที่ฝั่งฮีโน่ (มีชื่อ-รหัสพนักงาน) — ตัวแก้โค้ดอยู่ใน migrate-2026-09-25-staff-brand.sql
+supabase/ins-staff-hino.sql
 
 # hash ของกุญแจผูก LINE (ตัวจริงอยู่ใน backend/.env ของเซิร์ฟเวอร์ในออฟฟิศ)
 supabase/line-bind-secret.sql
