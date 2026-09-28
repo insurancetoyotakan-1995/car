@@ -218,14 +218,21 @@
 }
 
 /* ---------- ปุ่มพิมพ์ใบคำขอ (เฉพาะหน้าเจ้าหน้าที่) ---------- */
-#vPrint svg,#vCom svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#vPrint svg,#vCom svg,#vXlsx svg,#btnXlsx svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #vPrint[aria-disabled="true"],#vCom[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
+/* ปุ่ม Excel: ระหว่างโหลดตัวสร้างไฟล์ครั้งแรก (~900KB) กดซ้ำไม่ได้ + เคอร์เซอร์บอกว่ากำลังทำงาน */
+.qhead-act{display:flex;gap:8px;flex:0 0 auto}
+#btnXlsx{display:inline-flex;align-items:center;gap:6px}
+#vXlsx[aria-busy="true"],#btnXlsx[aria-busy="true"]{opacity:.6;cursor:progress}
 .pr-hint{font-size:12px;color:var(--muted);align-self:center;line-height:1.5}
 .pr-hint:empty{display:none}
 /* มือถือ: ปุ่มพิมพ์ + ปิด อยู่แถวเดียว · คำอธิบายว่าทำไมยังพิมพ์ไม่ได้ ลงบรรทัดล่าง */
 @media (max-width:640px){
   #ovView .ft .grow{display:none}
   #vPrint,#vCom{flex:1 1 auto;padding-left:10px;padding-right:10px}
+  /* ปุ่มล่างมี 4 ตัว (พิมพ์ · ค่าคอม · Excel · ปิด) — Excel เหลือไอคอนให้อยู่แถวเดียวได้ */
+  #vXlsx span,#btnXlsx span{display:none}
+  #vXlsx{padding-left:12px;padding-right:12px}
   .pr-hint{order:3;flex-basis:100%;text-align:center}
 }
 
@@ -370,9 +377,16 @@
         <h2 id="listHead">รายการคำขอทั้งหมด</h2>
         <p class="sub" id="listSub">กดที่รายการเพื่อดูรายละเอียด อัปเดตสถานะ และเปิดเอกสารแนบ</p>
       </div>
-      <button class="btn sm" id="btnReload" type="button" aria-label="โหลดรายการใหม่">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
-        <span>โหลดใหม่</span></button>
+      <div class="qhead-act">
+        <!-- Excel ทุกใบที่แสดงอยู่ (ตามแท็บ/ชิป/ค้นหา/ตัวกรอง) ใบละแถว -->
+        <button class="btn sm" id="btnXlsx" type="button" aria-label="โหลด Excel ทุกใบที่แสดงอยู่"
+                title="โหลด Excel — ทุกใบที่แสดงอยู่ตามแท็บและตัวกรองที่เลือก">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+          <span>Excel</span></button>
+        <button class="btn sm" id="btnReload" type="button" aria-label="โหลดรายการใหม่">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+          <span>โหลดใหม่</span></button>
+      </div>
     </div>
 
     <!-- แถบเครื่องมือหนึบหัวจอ — รายการยาว ๆ เลื่อนลงไปแล้วยังเปลี่ยนแท็บ/ค้นหาได้โดยไม่ต้องเลื่อนกลับขึ้น
@@ -459,6 +473,9 @@
       <button class="btn" id="vCom" type="button" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6.5 9.5v5M17.5 9.5v5"/></svg>
         <span>พิมพ์ใบค่าคอม</span></button>
+      <button class="btn" id="vXlsx" type="button" aria-label="โหลด Excel ใบนี้" title="โหลดข้อมูลใบนี้เป็นไฟล์ Excel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        <span>Excel</span></button>
       <span class="pr-hint" id="vPrintHint"></span>
       <span class="grow"></span><button class="btn" id="vClose">ปิด</button></div>
   </div>
@@ -1970,6 +1987,7 @@ const QUICK = [
   { k:'noag', label:'ยังไม่มีผู้ดูแล', test: r => !r.assigned_to && r.status !== 'done' && r.status !== 'cancelled' },
 ];
 let QF = '';                                                // ชิปที่เลือกอยู่ (ว่าง = ไม่กรอง)
+let VIEW_ROWS = [];                                         // แถวที่เห็นบนจอตอนนี้ (หลังกรอง+เรียง) → ปุ่ม Excel ใช้ชุดนี้
 let SORT = 'new';
 try{ const s = localStorage.getItem('staff_sort'); if(s && /^(new|old|hot)$/.test(s)) SORT = s; }catch(e){}
 /* คะแนนความเร่งด่วน: ค้างเสนอราคา/รอตรวจสอบนานสุดขึ้นก่อน · ใบที่ไม่ค้างเรียงตามวันที่เหมือนเดิม */
@@ -2027,6 +2045,8 @@ function renderList(){
   renderStale();                                            // แถบค้างเสนอราคา — อิง LIST ทั้งชุด ไม่ขึ้นกับตัวกรอง
 
   const rows = sortRows(hits.filter(r=> ST ? r.status === ST : notCx(r)));
+  VIEW_ROWS = rows;
+  $('btnXlsx').disabled = !rows.length;
   /* บรรทัดสรุป: บอกว่ากำลังดูกี่ใบจากทั้งหมดกี่ใบ — กันสับสนว่า "ใบหายไปไหน" เวลาลืมว่ากรองค้างไว้
      "ทั้งหมด" ต้องนับแบบเดียวกับแท็บ (ไม่รวมใบยกเลิก) ไม่งั้นตัวเลข 2 ที่ขัดกันเอง */
   const total = LIST.filter(notCx).length;
@@ -2213,6 +2233,140 @@ function showTab(t){
   });
   document.querySelectorAll('#vBody .vpane').forEach(p => { p.hidden = p.id !== 'vp-' + t; });
 }
+/* ---------- ส่งออก Excel ----------
+   2 แบบ (ผู้ใช้สั่ง 2026-09-28)
+     ใบเดียว  = แนวตั้ง "หัวข้อ | ข้อมูล" แบ่งตามหมวด อ่าน/ส่งต่อง่าย
+     รายการ  = ใบละแถว ตามแท็บ/ชิป/ค้นหา/ตัวกรองที่เลือกอยู่ + ตัวกรองหัวคอลัมน์ ไว้ทำรายงาน
+   🔑 เลขบัตร เบอร์โทร รหัสไปรษณีย์ ทะเบียน ต้องส่งเป็น "ข้อความ" เสมอ
+      ถ้าเป็นตัวเลข Excel จะตัดเลข 0 นำหน้าทิ้ง (081… → 81…) และเลข 13 หลักกลายเป็น 1.1E+12
+   🔒 ตัวสร้างไฟล์ (SheetJS) โหลดตอนกดครั้งแรกเท่านั้น และตรวจ integrity
+      หน้านี้เห็นข้อมูลลูกค้าทั้งหมด — ถ้าไฟล์บน CDN ถูกสลับ เบราว์เซอร์จะไม่ยอมรัน */
+const XLSX_SRC = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+const XLSX_SRI = 'sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw';
+let xlsxP = null;
+function loadXlsx(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  if(!xlsxP) xlsxP = new Promise((ok, no) => {
+    const s = document.createElement('script');
+    s.src = XLSX_SRC; s.integrity = XLSX_SRI; s.crossOrigin = 'anonymous';
+    s.onload = () => window.XLSX ? ok(window.XLSX) : no(new Error('โหลดตัวสร้าง Excel ไม่สำเร็จ'));
+    s.onerror = () => { xlsxP = null; s.remove(); no(new Error('โหลดตัวสร้าง Excel ไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วลองใหม่')); };
+    document.head.appendChild(s);
+  });
+  return xlsxP;
+}
+const xNum = v => (v == null || v === '' || !isFinite(+v)) ? null : +v;
+const xDob = iso => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (+m[3]) + ' ' + TH_MON[+m[2] - 1] + ' ' + (+m[1] + 543) : ''; };
+const xAge = iso => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return null;
+  const now = new Date(); let a = now.getFullYear() - +m[1];
+  if(now.getMonth() + 1 < +m[2] || (now.getMonth() + 1 === +m[2] && now.getDate() < +m[3])) a--;
+  return a; };
+/* [หมวด, หัวคอลัมน์, ดึงค่า, 'n' = ตัวเลข (ที่เหลือเป็นข้อความทั้งหมด)] — แก้คอลัมน์ที่นี่ที่เดียว ใช้ทั้ง 2 แบบ */
+const XSEC = { req:'ใบคำขอ', ins:'ผู้ทำประกันภัย', car:'รถและความคุ้มครอง', emp:'พนักงานผู้ยื่น / ผู้แนะนำ', quo:'เสนอราคา' };
+const XCOLS = [
+  ['req', 'เลขที่คำขอ',            r => r.no],
+  ['req', 'บริษัท',                r => brandName(r)],
+  ['req', 'แบบคำขอ',               r => r.kind === 'refer' ? 'แนะนำลูกค้าทั่วไป' : 'พนักงานทำประกันเอง'],
+  ['req', 'สถานะ',                 r => STATUS[r.status] || r.status],
+  ['req', 'วันที่ส่ง',              r => thDate(r.created_at)],
+  ['req', 'ผู้ดูแล',                r => r.assigned_to ? agentName(r.assigned_to) : ''],
+  ['req', 'เลขที่ใบเสร็จ',          r => r.receipt_no],
+  ['ins', 'คำนำหน้า',              r => r.insured_title],
+  ['ins', 'ชื่อ–นามสกุล',           r => r.insured_name],
+  ['ins', 'เลขบัตรประชาชน',        r => r.id_card],
+  ['ins', 'วันเดือนปีเกิด',         r => xDob(r.birth_date)],
+  ['ins', 'อายุ (ปี)',              r => xAge(r.birth_date), 'n'],
+  ['ins', 'เบอร์มือถือ',           r => r.phone_mobile],
+  ['ins', 'เบอร์บ้าน',             r => r.phone_home],
+  ['ins', 'บ้านเลขที่',            r => r.addr],
+  ['ins', 'หมู่',                  r => r.moo],
+  ['ins', 'ถนน',                   r => r.road],
+  ['ins', 'ตำบล / แขวง',           r => r.tambon],
+  ['ins', 'อำเภอ / เขต',           r => r.amphoe],
+  ['ins', 'จังหวัด',                r => r.province],
+  ['ins', 'รหัสไปรษณีย์',          r => r.zipcode],
+  ['ins', 'อาชีพ',                 r => r.occupation],
+  ['ins', 'ที่ทำงาน',               r => r.workplace],
+  ['ins', 'รายได้ต่อเดือน (บาท)',   r => xNum(r.income), 'n'],
+  ['ins', 'ความสัมพันธ์กับพนักงาน', r => r.kind === 'refer' ? ''
+      : (RELS[r.relation] || r.relation || '') + (r.relation_note ? ' (' + r.relation_note + ')' : '')],
+  ['car', 'ยี่ห้อรถ',               r => r.car_brand],
+  ['car', 'รุ่น',                   r => r.car_model],
+  ['car', 'ปีรถ',                   r => r.car_year],
+  ['car', 'ทะเบียน',                r => r.car_plate],
+  ['car', 'จังหวัดทะเบียน',         r => r.car_province],
+  ['car', 'เลขตัวรถ',               r => r.car_vin],
+  ['car', 'ความคุ้มครองที่ต้องการ',  r => (r.covers || []).map(c => COVERS[c] || c).join(', ')],
+  ['emp', 'ชื่อพนักงาน',            r => r.emp_name],
+  ['emp', 'รหัสพนักงาน',            r => r.emp_id],
+  ['emp', 'แผนก',                  r => r.emp_dept],
+  ['emp', 'สาขา',                  r => r.emp_branch],
+  ['emp', 'รหัสตรงทำเนียบ',          r => r.emp_verified ? 'ตรง' : 'ไม่ตรง — ตรวจสอบ'],
+  ['quo', 'บริษัทประกัน',           r => r.quote_insurer],
+  ['quo', 'ประเภทประกัน',           r => r.quote_type],
+  ['quo', 'เบี้ยสุทธิ ภาคสมัครใจ',   r => xNum(r.quote_net), 'n'],
+  ['quo', 'เบี้ยรวม ภาคสมัครใจ',    r => xNum(r.quote_gross), 'n'],
+  ['quo', 'ส่วนลด ภาคสมัครใจ',      r => xNum(r.quote_disc), 'n'],
+  ['quo', 'เบี้ยรวม พ.ร.บ.',        r => xNum(r.quote_act_gross), 'n'],
+  ['quo', 'ส่วนลด พ.ร.บ.',          r => xNum(r.quote_act_disc), 'n'],
+  ['quo', 'ยอดชำระรวม',            r => xNum(r.quote_total), 'n'],
+  ['quo', 'สวัสดิการ',              r => (noteWelfare(r.quote_note) || {}).label || ''],
+  ['quo', 'เริ่มคุ้มครอง',           r => thDay(r.quote_start)],
+  ['quo', 'สิ้นสุดคุ้มครอง',         r => thDay(r.quote_end)],
+  ['quo', 'หมายเหตุเสนอราคา',       r => noteText(r.quote_note)],
+];
+/* ค่าว่าง = null (ช่องว่างจริงใน Excel ไม่ใช่ข้อความว่าง) · ข้อความ = String เสมอ แม้หน้าตาเป็นตัวเลข */
+const xVal = (c, r) => { const v = c[2](r);
+  if(c[3] === 'n') return v == null ? null : v;
+  const s = v == null ? '' : String(v).trim(); return s || null; };
+const xWidth = (rows, c) => Math.min(48, Math.max(8, ...rows.map(row => String(row[c] == null ? '' : row[c]).length + 2)));
+const xStamp = () => { const d = new Date(); return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()); };
+
+async function xlsxRun(btn, job){
+  if(btn.getAttribute('aria-busy') === 'true') return;
+  btn.setAttribute('aria-busy', 'true');
+  try{ job(await loadXlsx()); }
+  catch(e){ toast(e.message || 'สร้างไฟล์ Excel ไม่สำเร็จ', 'no'); }
+  finally{ btn.removeAttribute('aria-busy'); }
+}
+/* ใบเดียว: หมวดที่ไม่มีข้อมูลสักช่อง (เช่นยังไม่เสนอราคา) ไม่ใส่ ไฟล์จะได้ไม่มีแถวว่างยาว */
+function xlsxOne(r){
+  xlsxRun($('vXlsx'), X => {
+    const aoa = [['ใบคำขอประกันภัยรถยนต์ ' + r.no, null], ['ส่งออกเมื่อ ' + thDate(new Date().toISOString()), null]];
+    const heads = [0];
+    Object.keys(XSEC).forEach(sec => {
+      const rows = XCOLS.filter(c => c[0] === sec).map(c => [c[1], xVal(c, r)]);
+      if(sec !== 'req' && !rows.some(x => x[1] != null)) return;
+      aoa.push([null, null]); heads.push(aoa.length); aoa.push([XSEC[sec], null]);
+      rows.forEach(x => aoa.push([x[0], x[1] == null ? '—' : x[1]]));
+    });
+    const ws = X.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 26 }, { wch: Math.max(30, xWidth(aoa, 1)) }];
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, 'ใบคำขอ');
+    X.writeFile(wb, r.no + '.xlsx', { compression: true });
+  });
+}
+/* ทั้งรายการ: ใช้แถวชุดเดียวกับที่เห็นบนจอ (VIEW_ROWS) — ลำดับ ตัวกรอง แท็บ ตรงกันทุกอย่าง */
+function xlsxList(){
+  const rows = VIEW_ROWS.slice();
+  if(!rows.length){ toast('ไม่มีใบในรายการที่แสดงอยู่', 'no'); return; }
+  xlsxRun($('btnXlsx'), X => {
+    const aoa = [XCOLS.map(c => c[1]), ...rows.map(r => XCOLS.map(c => xVal(c, r)))];
+    const ws = X.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = XCOLS.map((c, i) => ({ wch: xWidth(aoa, i) }));
+    ws['!autofilter'] = { ref: X.utils.encode_range({ s:{ r:0, c:0 }, e:{ r:rows.length, c:XCOLS.length - 1 } }) };
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, 'รายการคำขอ');
+    const tab = isViewer() ? STATUS.done : (ST ? STATUS[ST] : 'ทั้งหมด');
+    X.writeFile(wb, 'คำขอประกัน_' + tab + '_' + xStamp() + '.xlsx', { compression: true });
+    toast('โหลด Excel ' + rows.length + ' ใบแล้ว', 'ok');
+  });
+}
+$('btnXlsx').onclick = xlsxList;
+
 /* แท็บเริ่มต้นตามขั้นงาน: ใบใหม่ = ดูข้อมูลก่อน · ติดต่อแล้ว/เสนอราคาแล้ว = ไปที่เสนอราคาเลย */
 const defaultTab = r => (r.status === 'contacted' || r.status === 'quoted') ? 'quote' : 'info';
 
@@ -2382,6 +2536,7 @@ function openView(id){
   showTab(defaultTab(r));
   $('vPrint').onclick = () => doPrint(r);
   $('vCom').onclick = () => doPrint(r, 'com');
+  $('vXlsx').onclick = () => xlsxOne(r);
   if(isAdmin()){
     csel($('vAg'));
     $('vSaveAg').onclick = async ()=>{
