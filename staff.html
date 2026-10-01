@@ -594,6 +594,20 @@ const QTYPES = Object.values(COVERS);
 /* ---------- ช่องจำนวนเงิน (เบี้ยจริงมีทศนิยม เช่น 45,415.08) ---------- */
 const fmtBaht = n => (n == null || n === '' || isNaN(n)) ? '—'
   : Number(n).toLocaleString('th-TH', { minimumFractionDigits:2, maximumFractionDigits:2 });
+/* ---------- ยอดที่ลูกค้าต้องชำระ: ปัดขึ้นเป็นบาทเต็มเสมอ (ผู้ใช้สั่ง 2026-10-01) ----------
+   ปัดทีละก้อน (ภาคสมัครใจ / พ.ร.บ.) แล้วค่อยรวม → ก้อนย่อยบนใบบวกกันได้เท่ายอดรวมพอดี
+     21,798.01 → 21,799 · 769.65 → 770 · รวม 22,569 (ถ้าปัดแต่ยอดรวมจะได้ 22,568 ซึ่งบวกไม่ลง)
+   🔑 ตัดเป็นสตางค์ก่อนปัด — ลบเลขทศนิยมแบบ float ได้ 21,798.000000000004 แล้วปัดขึ้นผิดเป็น 21,799
+   ฝั่งฐานข้อมูลปัดแบบเดียวกันใน ins_set_quote (migrate-2026-10-01-pay-ceil.sql) → quote_total ตรงกับหน้าจอ
+   เบี้ยสุทธิ/เบี้ยรวม/ส่วนลด ไม่ปัด — เป็นตัวเลขของบริษัทประกัน และค่าคอมคิดจากเบี้ยสุทธิ */
+const payCeil = v => (v == null || v === '' || isNaN(v)) ? null : Math.ceil(Math.round(Number(v) * 100) / 100);
+function payOf(r){
+  const has1 = r.quote_gross != null || r.quote_disc != null;
+  const has2 = r.quote_act_gross != null || r.quote_act_disc != null;
+  const p1 = has1 ? payCeil((Number(r.quote_gross) || 0) - (Number(r.quote_disc) || 0)) : null;
+  const p2 = has2 ? payCeil((Number(r.quote_act_gross) || 0) - (Number(r.quote_act_disc) || 0)) : null;
+  return { p1, p2, total: (has1 || has2) ? (p1 || 0) + (p2 || 0) : null };
+}
 /* คงจุดทศนิยมที่กำลังพิมพ์ไว้ (จุดเดียว ≤2 ตำแหน่ง) แล้วใส่คอมมาหลักพันให้ */
 function bahtMask(v){
   let t = String(v).replace(/[^\d.]/g, '');
@@ -1013,11 +1027,15 @@ function wireQuote(r){
   function recalc(){
     const has1 = num('qGross') != null || num('qDisc') != null || num('qNet') != null;
     const has2 = num('qAGross') != null || num('qADisc') != null || num('qANet') != null;
-    const s1 = (num('qGross') || 0) - (num('qDisc') || 0);
-    const s2 = (num('qAGross') || 0) - (num('qADisc') || 0);
+    /* ยอดที่ต้องชำระปัดขึ้นเป็นบาทเต็ม (payCeil) — บอกตัวเลขก่อนปัดไว้ด้วย
+       เจ้าหน้าที่จะได้ไม่งงว่าทำไมไม่ตรงกับใบเสนอราคาของบริษัทประกัน */
+    const x1 = (num('qGross') || 0) - (num('qDisc') || 0);
+    const x2 = (num('qAGross') || 0) - (num('qADisc') || 0);
+    const s1 = has1 ? payCeil(x1) : 0, s2 = has2 ? payCeil(x2) : 0;
     const t  = s1 + s2;
-    $('qs1').textContent = has1 ? fmtBaht(s1) + ' บาท' : '—';
-    $('qs2').textContent = has2 ? fmtBaht(s2) + ' บาท' : '—';
+    const was = (x, s) => Math.abs(s - x) >= .005 ? ' · ปัดจาก ' + fmtBaht(x) : '';
+    $('qs1').textContent = has1 ? fmtBaht(s1) + ' บาท' + was(x1, s1) : '—';
+    $('qs2').textContent = has2 ? fmtBaht(s2) + ' บาท' + was(x2, s2) : '—';
     $('qTotal').textContent = (has1 || has2) ? fmtBaht(t) + ' บาท' : '—';
     $('qs1').classList.toggle('bad', s1 < 0);
     $('qs2').classList.toggle('bad', s2 < 0);
@@ -1351,8 +1369,7 @@ function comSheet(r){
   const want = refDisc(r.quote_net), got = Number(r.quote_disc) || 0;
   const discOk = Math.abs(want - got) < .005;
   const now = new Date(), printed = thDate(now.toISOString());
-  const act = (r.quote_act_gross == null && r.quote_act_disc == null) ? null
-            : (Number(r.quote_act_gross) || 0) - (Number(r.quote_act_disc) || 0);
+  const pay = payOf(r), act = pay.p2;                       // ยอดชำระปัดขึ้นเป็นบาทเต็ม — ตรงกับใบคำขอ
   const kv = (k, v, cls) => '<dt>' + esc(k) + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(v || '—') + '</dd>';
   const sign = (name, role) => '<div><u>(' + (name ? esc(name) : '&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;') + ')</u>'
     + '<span>' + esc(role) + '</span><small>วันที่ ______ / ______ / ______</small></div>';
@@ -1381,7 +1398,7 @@ function comSheet(r){
     +   '<div><span>เบี้ยรวม (ภาคสมัครใจ)</span><b>' + m(r.quote_gross) + '</b></div>'
     +   '<div><span>ส่วนลด</span><b>' + m(r.quote_disc) + '</b></div>'
     +   '<div><span>พ.ร.บ. (หลังหักส่วนลด)</span><b>' + m(act) + '</b></div>'
-    +   '<div><span>รวมที่ลูกค้าชำระ (บาท)</span><b>' + m(r.quote_total) + '</b></div>'
+    +   '<div><span>รวมที่ลูกค้าชำระ (บาท)</span><b>' + m(pay.total) + '</b></div>'
     + '</div>'
     + '<div class="kc-check' + (discOk ? '' : ' bad') + '">'
     +   '<span class="kc-badge">' + (discOk ? '✓ ส่วนลดตรงเงื่อนไข' : '⚠ ส่วนลดไม่ตรงเงื่อนไข') + '</span>'
@@ -1464,8 +1481,11 @@ function printSheet(r){
   /* เลือก พ.ร.บ. อย่างเดียวแต่กรอกเบี้ยไว้ในแถวภาคสมัครใจ → ย้ายไปแถว พ.ร.บ. ให้ตรงฟอร์ม */
   const actOnly = typ === ACT && !hasAct && hasMain;
   const act = actOnly ? [r.quote_net, r.quote_gross, r.quote_disc] : [r.quote_act_net, r.quote_act_gross, r.quote_act_disc];
-  const sumMain = actOnly || !hasMain ? null : (r.quote_gross || 0) - (r.quote_disc || 0);
-  const sumAct  = (actOnly || hasAct) ? (act[1] || 0) - (act[2] || 0) : null;
+  /* แถว "รวมเงินที่ต้องชำระ" ปัดขึ้นเป็นบาทเต็มทีละก้อน แล้วรวมจาก 2 ก้อนที่ปัดแล้ว (ดู payCeil)
+     🔑 ไม่ใช้ r.quote_total ตรง ๆ — ใบที่บันทึกก่อนเปลี่ยนกติกายังเก็บยอดมีทศนิยม แถวนี้จะบวกไม่ลง */
+  const sumMain = actOnly || !hasMain ? null : payCeil((Number(r.quote_gross) || 0) - (Number(r.quote_disc) || 0));
+  const sumAct  = (actOnly || hasAct) ? payCeil((Number(act[1]) || 0) - (Number(act[2]) || 0)) : null;
+  const sumAll  = (sumMain == null && sumAct == null) ? r.quote_total : (sumMain || 0) + (sumAct || 0);
   const otherTyp = typ && typ !== ACT && TYPES.indexOf(typ) < 0;
   const premRow = (label, vals) =>
       '<div class="pf-row"><span>เบี้ยสุทธิ ' + esc(label) + '</span>' + L(m(vals[0]), 1.1, 'r') + '<span>บาท</span>'
@@ -1506,7 +1526,7 @@ function printSheet(r){
     +   premRow('พรบ.', act)
     + '</div>'
     + '<div class="pf-row pf-sum"><span>รวมเงินที่ต้องการชำระหลังหักส่วนลด ประเภท</span>' + L(m(sumMain), 1, 'r')
-    +   '<span>พรบ</span>' + L(m(sumAct), 1, 'r') + '<span>รวมทั้งสิ้น</span>' + L(m(r.quote_total), 1.2, 'r') + '<span>บาท</span></div>'
+    +   '<span>พรบ</span>' + L(m(sumAct), 1, 'r') + '<span>รวมทั้งสิ้น</span>' + L(m(sumAll), 1.2, 'r') + '<span>บาท</span></div>'
     + (ADD_LABEL[r.add_reason] && r.add_reason !== 'first' ? '<div class="pf-row"><span>สิทธิ์ที่ใช้ยื่น</span>' + L(ADD_LABEL[r.add_reason], 6) + '</div>' : '')
     + (r.quote_note ? '<div class="pf-row"><span>หมายเหตุ</span>'
         + L(String(r.quote_note).replace(WTAG, 'สวัสดิการพนักงาน: $1 · ').replace(/ · $/, '')) + '</div>' : '')
@@ -2324,7 +2344,7 @@ const XCOLS = [
   ['quo', 'ส่วนลด ภาคสมัครใจ',      r => xNum(r.quote_disc), 'n'],
   ['quo', 'เบี้ยรวม พ.ร.บ.',        r => xNum(r.quote_act_gross), 'n'],
   ['quo', 'ส่วนลด พ.ร.บ.',          r => xNum(r.quote_act_disc), 'n'],
-  ['quo', 'ยอดชำระรวม',            r => xNum(r.quote_total), 'n'],
+  ['quo', 'ยอดชำระรวม',            r => { const t = payOf(r).total; return t == null ? xNum(r.quote_total) : t; }, 'n'],
   ['quo', 'สวัสดิการ',              r => (noteWelfare(r.quote_note) || {}).label || ''],
   ['quo', 'เริ่มคุ้มครอง',           r => thDay(r.quote_start)],
   ['quo', 'สิ้นสุดคุ้มครอง',         r => thDay(r.quote_end)],
