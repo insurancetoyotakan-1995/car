@@ -291,6 +291,9 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 
 .docrow .note{grid-column:1 / -1;font-size:13.5px;padding:9px 11px}
 .docrow:not(:has(input.dck:checked)) .note{display:none}
+/* วันหมดอายุกรมธรรม์เดิม — อยู่ในแถว "สำเนากรมธรรม์เดิม" เต็มแถว ช่องกว้างพอดีวันที่ ไม่ยืดสุดจอ */
+.docrow .oldend{grid-column:1 / -1;max-width:320px;margin-top:2px}
+.docrow .oldend .oe-hint{font-weight:500;color:var(--muted);margin-left:4px}
 
 .pick{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;
   border:1px solid #d8d0d1;border-radius:var(--r-sm);padding:9px 14px;cursor:pointer;

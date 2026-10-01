@@ -220,6 +220,8 @@
 /* ---------- ปุ่มพิมพ์ใบคำขอ (เฉพาะหน้าเจ้าหน้าที่) ---------- */
 #vPrint svg,#vCom svg,#vXlsx svg,#btnXlsx svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #vPrint[aria-disabled="true"],#vCom[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
+.q-oldend{font-size:12.5px;line-height:1.55;color:var(--info-ink);background:var(--info-soft);
+  border-radius:8px;padding:7px 11px;margin:0 0 12px}
 /* ปุ่ม Excel: ระหว่างโหลดตัวสร้างไฟล์ครั้งแรก (~900KB) กดซ้ำไม่ได้ + เคอร์เซอร์บอกว่ากำลังทำงาน */
 .qhead-act{display:flex;gap:8px;flex:0 0 auto}
 #btnXlsx{display:inline-flex;align-items:center;gap:6px}
@@ -973,6 +975,9 @@ function quoteBlock(r){
     +   '</div>'
     + '</div>';
   return '<div class="sec">ข้อมูลเสนอราคา <span class="secx">เจ้าหน้าที่กรอก</span></div>'
+    /* ผู้กรอก/ใบต่ออายุบอกวันหมดอายุเล่มเดิมมา → ตั้งวันเริ่มคุ้มครองได้เลย ไม่ต้องเปิดไฟล์กรมธรรม์เก่า */
+    + (r.old_policy_end ? '<p class="q-oldend">กรมธรรม์เดิมหมดอายุ ' + esc(oldEndTxt(r.old_policy_end))
+        + ' — ความคุ้มครองใหม่ควรเริ่มวันนี้ ไม่ให้มีช่วงที่รถไม่มีประกัน</p>' : '')
     + '<div class="grid" style="gap:11px">'
     +   '<label class="f c6">บริษัทประกัน<select id="qIns">'
     +     opt('', '— ยังไม่ระบุ —', insSel)
@@ -1821,10 +1826,17 @@ function renderRenew(){
     const day = +r.days_left, b = renewBand(day);
     const when = day < 0 ? 'เลยมาแล้ว ' + Math.abs(day) + ' วัน'
                : day === 0 ? 'หมดอายุวันนี้' : 'อีก ' + day + ' วัน';
+    /* แถวที่มาจากใบในระบบ (migrate-2026-09-30-renewal-v2) รู้ชื่อผู้เอาประกันจริง
+       → โชว์คนที่ต้องโทรหาเป็นหลัก · ถ้าไม่ใช่ตัวพนักงาน บอกด้วยว่าเป็นของใคร/ใครแนะนำ
+       ยังไม่รัน migration = ไม่มี insured_name/kind/src_no → หน้าตาเหมือนเดิมทุกอย่าง */
+    const other = r.insured_name && r.insured_name !== r.emp_name;
+    const who = other ? r.insured_name : r.emp_name;
+    const rel = r.kind === 'refer' ? 'แนะนำโดย ' + r.emp_name : other ? 'รถในสิทธิ์ของ ' + r.emp_name : '';
     return '<tr class="rw rw-' + b.k + '">'
-      + '<td><b>' + esc(r.emp_name) + '</b>'
+      + '<td><b>' + esc(who) + '</b>'
+      +   (r.kind === 'refer' ? ' <span class="rq-tag">ลูกค้าแนะนำ</span>' : '')
       +   (brandOf(r) === 'toyota' ? '' : ' <span class="rq-tag brand b-hino">' + esc(brandName(r)) + '</span>')
-      +   '<span class="rw-sub">' + esc(r.plate || r.vin || '—')
+      +   '<span class="rw-sub">' + esc([r.plate || r.vin || '—', rel, r.src_no && ('ต่อจากใบ ' + r.src_no)].filter(Boolean).join(' · '))
       +     (r.agent_name ? ' · ผู้ดูแล ' + esc(r.agent_name) : ' · ยังไม่มีผู้ดูแล') + '</span></td>'
       + '<td>' + esc(thDay(r.expire_on)) + '<span class="rw-sub">' + esc(when) + '</span></td>'
       + '<td>' + (r.phone_mobile
@@ -1836,10 +1848,10 @@ function renderRenew(){
             + esc(r.brand + '|' + r.emp_id + '|' + (r.plate || '') + '|' + (r.vin || '')) + '">สร้างใบต่ออายุ</button>')
       + '</td></tr>';
   }).join('');
-  $('renewBody').innerHTML = '<table class="rwtab"><thead><tr><th>พนักงาน / รถ</th><th>วันหมดอายุ</th>'
+  $('renewBody').innerHTML = '<table class="rwtab"><thead><tr><th>ผู้เอาประกัน / รถ</th><th>วันหมดอายุ</th>'
     + '<th>เบอร์โทร</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>'
-    + '<p class="agnote">มาจากข้อมูลกรมธรรม์ที่ฝ่ายประกันนำเข้า · กดสร้างใบต่ออายุแล้วระบบเติมชื่อ ที่อยู่ เบอร์ และข้อมูลรถให้'
-    + ' เหลือกรอกเลขบัตรประชาชน วันเกิด อาชีพ ที่ทำงาน รายได้</p>';
+    + '<p class="agnote">มาจากกรมธรรม์ที่ฝ่ายประกันนำเข้า และใบที่ปิดการขายในระบบ (ใช้วันสิ้นสุดความคุ้มครองที่กรอกตอนเสนอราคา)'
+    + ' · ต่อจากใบในระบบ = คัดลอกข้อมูลลูกค้าเดิมให้ครบ · ต่อจากข้อมูลนำเข้า = เหลือกรอกเลขบัตร วันเกิด อาชีพ ที่ทำงาน รายได้</p>';
 
   $('renewBody').querySelectorAll('[data-open]').forEach(b => b.onclick = ()=>{
     const r = LIST.find(x => x.no === b.dataset.open);
@@ -2299,6 +2311,7 @@ const XCOLS = [
   ['car', 'จังหวัดทะเบียน',         r => r.car_province],
   ['car', 'เลขตัวรถ',               r => r.car_vin],
   ['car', 'ความคุ้มครองที่ต้องการ',  r => (r.covers || []).map(c => COVERS[c] || c).join(', ')],
+  ['car', 'กรมธรรม์เดิมหมดอายุ',     r => thDay(r.old_policy_end)],
   ['emp', 'ชื่อพนักงาน',            r => r.emp_name],
   ['emp', 'รหัสพนักงาน',            r => r.emp_id],
   ['emp', 'แผนก',                  r => r.emp_dept],
@@ -2367,6 +2380,13 @@ function xlsxList(){
 }
 $('btnXlsx').onclick = xlsxList;
 
+/* วันหมดอายุกรมธรรม์เดิม + นับวันจากวันนี้ (เวลาเครื่อง ไม่ใช่ UTC — ใบที่หมดพรุ่งนี้ต้องไม่ขึ้นว่าวันนี้) */
+function oldEndTxt(iso){
+  if(!iso) return '';
+  const d = Math.round((Date.parse(String(iso).slice(0, 10) + 'T00:00:00') - new Date().setHours(0, 0, 0, 0)) / 864e5);
+  return thDay(iso) + (d > 0 ? ' · อีก ' + d + ' วัน' : d === 0 ? ' · หมดวันนี้' : ' · หมดไปแล้ว ' + (-d) + ' วัน');
+}
+
 /* แท็บเริ่มต้นตามขั้นงาน: ใบใหม่ = ดูข้อมูลก่อน · ติดต่อแล้ว/เสนอราคาแล้ว = ไปที่เสนอราคาเลย */
 const defaultTab = r => (r.status === 'contacted' || r.status === 'quoted') ? 'quote' : 'info';
 
@@ -2389,7 +2409,8 @@ function openView(id){
   const dl = rows => '<dl class="dl">' + rows.filter(Boolean).map(([k,v])=>
     '<dt>' + esc(k) + '</dt><dd>' + (v && v.html ? v.html : esc(v || '—')) + '</dd>').join('') + '</dl>';
   const tel = n => n ? { html: '<a class="tel" href="tel:' + esc(String(n).replace(/[^0-9+]/g,'')) + '">' + esc(n) + '</a>' } : '';
-  const hasCar = r.car_brand || r.car_model || r.car_plate || r.car_year || r.car_province || r.car_vin || (r.covers||[]).length;
+  const hasCar = r.car_brand || r.car_model || r.car_plate || r.car_year || r.car_province || r.car_vin
+    || (r.covers||[]).length || r.old_policy_end;
   const docs = Object.entries(DOC_LABEL)
     .filter(([k])=> r['doc_' + k.replace(/[A-Z]/g, m=>'_'+m.toLowerCase())])
     .map(([,v])=>v);
@@ -2449,6 +2470,7 @@ function openView(id){
         ['ทะเบียน', [r.car_plate, r.car_province].filter(Boolean).join(' · ')],
         r.car_vin ? ['เลขตัวรถ', r.car_vin] : null,
         (r.covers||[]).length ? ['ความคุ้มครอง', (r.covers||[]).map(c=>COVERS[c]||c).join(' · ')] : null,
+        r.old_policy_end ? ['กรมธรรม์เดิมหมดอายุ', oldEndTxt(r.old_policy_end)] : null,
       ]))
     + '<div class="sec">' + (r.kind==='refer' ? 'ผู้แนะนำ' : 'พนักงานผู้ยื่น') + '</div>'
     + dl([

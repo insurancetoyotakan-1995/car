@@ -367,7 +367,7 @@ const DRAFT_KEY = 'ins_form_draft_v1' + (BRAND === 'toyota' ? '' : '_' + BRAND);
 /* 🔒 ไม่เก็บเลขบัตรประชาชนลงร่าง — เครื่องที่ใช้ร่วมกันคนถัดไปจะเห็นเลขของคนก่อน */
 const TEXT_FIELDS = ['fEmpId','fEmpName','fName','fMobile','fHome','fAddr','fMoo','fRoad',
   'fTambon','fAmphoe','fProvince','fZip','fOcc','fWork','fIncome','fDob','fTitleOther','fRelNote','fNote',
-  'fPlate','fPlateProv','fVin'];
+  'fPlate','fPlateProv','fVin','fOldEnd'];
 const COMPANY = BR.company;
 
 let PENDING = [];                                   // ไฟล์ที่เลือกไว้ แต่ใบยังไม่ถูกสร้าง
@@ -874,6 +874,52 @@ function paintDob(){
   setNote('dobNote', 'อายุ ' + p.age + ' ปี', 'ok');
 }
 const TH_MON_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+/* ---------- วันหมดอายุกรมธรรม์เดิม (ไม่บังคับ) — 2026-09-30 ----------
+   อยู่ในแถว "สำเนากรมธรรม์เดิม" เพราะตรงนั้นผู้กรอกถือเล่มกรมธรรม์อยู่พอดี
+   เจ้าหน้าที่ใช้กำหนดวันเริ่มคุ้มครองของเล่มใหม่ ไม่ต้องเปิดไฟล์แนบไล่หาเอง
+   รูปแบบเดียวกับวันเกิด: พิมพ์ตัวเลขล้วน ใส่ / ให้เอง · ปี พ.ศ. (พิมพ์ ค.ศ. มาก็แปลงให้)
+   🔑 ช่องนี้ถูกสร้างใหม่ทุกครั้งที่ renderDocRows (รวมตอนล้างฟอร์ม) → ต้องผูกตัวจับใหม่ทุกครั้ง */
+const OLD_END_BOX = '<label class="f oldend">วันหมดอายุกรมธรรม์เดิม <span class="oe-hint">ไม่บังคับ · ดูจากหน้ากรมธรรม์</span>'
+  + '<span class="fld"><input id="fOldEnd" inputmode="numeric" autocomplete="off" placeholder="วว/ดด/ปปปป (พ.ศ.)"'
+  +   ' aria-describedby="oldEndAdorn oldEndNote"><span class="adorn" id="oldEndAdorn" hidden>'
+  +   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+  +   '<span class="t"></span></span></span>'
+  + '<span class="fnote" id="oldEndNote" hidden></span></label>';
+/* จำนวนวันจากวันนี้ถึงวันที่นั้น — เทียบแบบ "วันตามปฏิทิน" (UTC ทั้งคู่) ไม่ให้เวลาในวันทำให้คลาด 1 วัน */
+function daysFromToday(p){
+  const t = new Date();
+  return Math.round((Date.UTC(+p.iso.slice(0, 4), p.mm - 1, p.dd)
+                   - Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())) / 864e5);
+}
+function oldEndProblem(s){
+  const v = String(s || '').trim();
+  if(!v) return '';                                   // ไม่บังคับ — เว้นว่างได้
+  if(!/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return 'กรอกวันหมดอายุให้ครบ เช่น 15/10/2569 หรือลบออกให้ว่าง';
+  const p = dobParse(v);
+  if(!p) return 'วันหมดอายุไม่ถูกต้อง กรุณาตรวจอีกครั้ง';
+  const d = daysFromToday(p);
+  if(d < -730 || d > 730) return 'วันหมดอายุห่างจากวันนี้เกิน 2 ปี — ตรวจปี พ.ศ. อีกครั้ง';
+  return '';
+}
+function paintOldEnd(){
+  const el = $('fOldEnd'); if(!el) return;
+  const v = el.value.trim();
+  if(v.length < 10) return setNote('oldEndNote', '');
+  const bad = oldEndProblem(v);
+  if(bad) return setNote('oldEndNote', bad, 'no');
+  const d = daysFromToday(dobParse(v));
+  setNote('oldEndNote', d > 0 ? 'อีก ' + d + ' วัน' : d === 0 ? 'หมดวันนี้' : 'หมดไปแล้ว ' + (-d) + ' วัน', 'ok');
+}
+function wireOldEnd(){
+  const el = $('fOldEnd'); if(!el) return;
+  bindMask('fOldEnd', 8, fmtDob);
+  el.addEventListener('input', paintOldEnd);
+  el.addEventListener('blur', ()=>{
+    const m = el.value.trim().match(/^(\d{2}\/\d{2}\/)(\d{4})$/);
+    if(m && +m[2] >= 1900 && +m[2] <= 2100){ el.value = m[1] + (+m[2] + 543); paintOldEnd(); saveDraft(); }
+  });
+}
 $('fDob').addEventListener('input', paintDob);
 $('fDob').addEventListener('blur', ()=>{
   const m = $('fDob').value.trim().match(/^(\d{2}\/\d{2}\/)(\d{4})$/);
@@ -1142,6 +1188,9 @@ function stepFail(n){
       if(row) row.classList.add('miss');
       return {msg:'กรุณาแนบไฟล์' + label, el: row ? row.querySelector('input[type=file]') : 'docRows'};
     }
+    /* วันหมดอายุกรมธรรม์เดิม: ไม่บังคับ แต่ถ้ากรอกต้องถูกรูปแบบ (ส่งค่าผิดไป = เจ้าหน้าที่ตั้งวันคุ้มครองผิด) */
+    const oldEndBad = $('fOldEnd') && oldEndProblem($('fOldEnd').value);
+    if(oldEndBad) return {msg: oldEndBad, el:'fOldEnd'};
     /* ---- ต้องติ๊กยืนยันข้อมูลที่อ่านจากสำเนาทะเบียนรถ ---- */
     for(const id of CAR_FIELDS){
       const c = $(OK_OF[id]);
@@ -1438,8 +1487,10 @@ function renderDocRows(){
     + (tag==='relDoc' ? '<input class="note" id="fRelDocNote" placeholder="ระบุชนิดเอกสาร เช่น สูติบัตร ทะเบียนสมรส">' : '')
     + '<ul class="dfiles" data-chips="' + tag + '"></ul>'
     + (tag==='carReg' ? CAR_BOX : '')
+    + (tag==='oldPolicy' ? OLD_END_BOX : '')
     + '</div>').join('');
   wireCarBox();
+  wireOldEnd();
 
   $('docRows').querySelectorAll('input[type=file]').forEach(inp=>{
     inp.addEventListener('change', ()=>{ addFiles(inp.dataset.tag, [...inp.files]); inp.value = ''; });
@@ -2444,6 +2495,8 @@ function renderReview(){
           (docs.length ? docs.map(([k,v])=> row(k, v)).join('') : row('เอกสาร', '', 'ยังไม่มี — ส่งคำขอได้ แนบเพิ่มทีหลังได้'))
         + ((val('fPlate') || val('fPlateProv')) ? row('ทะเบียนรถ', [val('fPlate'), val('fPlateProv')].filter(Boolean).join(' · ')) : '')
         + (val('fVin') ? row('เลขตัวรถ', val('fVin')) : '')
+        + (val('fOldEnd') ? row('กรมธรรม์เดิมหมดอายุ', (()=>{ const p = dobParse(val('fOldEnd'));
+            return p ? p.dd + ' ' + TH_MON_FULL[p.mm - 1] + ' ' + p.be : val('fOldEnd'); })()) : '')
         + (val('fNote') ? row('หมายเหตุ', val('fNote')) : ''));
   $('review').querySelectorAll('[data-go]').forEach(b=> b.onclick = ()=> goStep(+b.dataset.go));
 }
@@ -2479,6 +2532,8 @@ function collect(){
     docOldPolicy: $('docRows').querySelector('.dck[data-tag=oldPolicy]').checked,
     docRelDoc:    kindNow()!=='refer' && $('docRows').querySelector('.dck[data-tag=relDoc]').checked,
     docRelDocNote: kindNow()!=='refer' && relDocNote ? relDocNote.value : '',
+    /* วันหมดอายุกรมธรรม์เดิม ISO (ค.ศ.) · ยังไม่รัน migrate-2026-09-30-renewal-v2.sql = เซิร์ฟเวอร์ไม่อ่านคีย์นี้ ไม่ error */
+    oldPolicyEnd: $('fOldEnd') && !oldEndProblem($('fOldEnd').value) ? ((dobParse($('fOldEnd').value) || {}).iso || '') : '',
     note: $('fNote').value,
     consent: $('fConsent').checked, consentVersion: CONSENT_VER,   // ไม่เก็บลงร่าง — ต้องติ๊กใหม่ทุกครั้งที่ส่ง
     hp: $('fHp').value,                              // กับดักบอท — คนกรอกจะว่างเสมอ
@@ -2713,6 +2768,7 @@ if(hadDraft){
   lookupEmp();                                       // ยืนยันชื่อพนักงานให้ด้วย ไม่ต้องให้พิมพ์ซ้ำ
   if($('fAmphoe').value.trim()) syncZip();
   paintDob();
+  paintOldEnd();
 }
 if(!cfgReady){
   $('tabForm').hidden = true;
