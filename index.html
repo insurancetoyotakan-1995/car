@@ -226,8 +226,9 @@
 
     <!-- ---------- แถบปุ่ม (ติดล่างจอตลอด) ---------- -->
     <div class="savebar">
-      <button class="btn" id="btnPrev" hidden>← ย้อนกลับ</button>
+      <button class="btn" id="btnPrev" hidden aria-label="ย้อนกลับ">←<span class="lbl"> ย้อนกลับ</span></button>
       <button class="btn ghost" id="btnReset">เริ่มใหม่</button>
+      <button class="btn" id="btnDraft" type="button" title="เก็บข้อมูลและไฟล์แนบไว้ในเครื่องนี้ กลับมากรอกต่อได้ภายใน 7 วัน">บันทึกร่าง</button>
       <span class="grow"></span>
       <span class="note" id="saveNote"></span>
       <button class="btn primary" id="btnNext">ถัดไป →</button>
@@ -1137,7 +1138,7 @@ $('relOpts').addEventListener('change', ()=>{ syncRel(); saveDraft(); });
    🔑 ด่านจริงยังเป็น ins_submit ฝั่ง Supabase เสมอ ตรงนี้มีไว้ให้กรอกง่าย
    ======================================================================= */
 const STEP_NOTE = {
-  1: 'บันทึกร่างในเครื่องให้อัตโนมัติ',
+  1: 'บันทึกร่างในเครื่องให้อัตโนมัติ · เก็บ 7 วัน',
   2: 'ช่องที่มี * ต้องกรอก · หมู่ / ถนน / เบอร์บ้าน เว้นว่างได้',
   3: 'แนบเอกสารที่มี * ให้ครบ · ตรวจข้อมูล แล้วติ๊กยินยอมก่อนกดส่ง',
 };
@@ -1249,6 +1250,7 @@ function paintSteps(){
   $('btnSave').hidden = STEP !== 3;
   $('saveNote').textContent = (STEP === 3 && activeFiles().length)
     ? 'แนบไฟล์ไว้ ' + activeFiles().length + ' ไฟล์ — จะอัปโหลดหลังส่งคำขอ'
+    : STEP === 1 && DRAFT_AT ? 'บันทึกร่างในเครื่องล่าสุด ' + hhmm(DRAFT_AT)
     : STEP_NOTE[STEP];
   if(STEP === 3) renderReview();
 }
@@ -1289,18 +1291,93 @@ $('tabForm').addEventListener('keydown', e=>{
 });
 
 /* ---------- บันทึกร่างในเครื่อง ----------
-   🔑 อยู่ใน localStorage ของเครื่องผู้กรอกเท่านั้น ไม่ได้ส่งขึ้นเซิร์ฟเวอร์
-      (ไฟล์แนบเก็บไม่ได้ — File object แปลงเป็น JSON ไม่ได้) */
-let draftTimer = null;
+   🔑 อยู่ในเครื่องผู้กรอกเท่านั้น ไม่ได้ส่งขึ้นเซิร์ฟเวอร์ · เก็บ 7 วัน
+      ข้อความ → localStorage · ไฟล์แนบ → IndexedDB (File แปลงเป็น JSON ไม่ได้)
+   🔑 บันทึกเองอัตโนมัติทุกครั้งที่พิมพ์/แนบ — ปุ่ม "บันทึกร่าง" มีไว้ให้ผู้กรอกมั่นใจ และบอกเงื่อนไขการกลับมาเปิด
+   🔒 ไม่เก็บเลขบัตรประชาชน และไม่เก็บไฟล์สำเนาบัตรประชาชน — เครื่องที่ใช้ร่วมกันคนถัดไปจะเห็นของคนก่อน */
+const DRAFT_DAYS = 7;
+const DRAFT_SKIP_FILES = ['idCard'];                 // เอกสารที่ไม่เก็บลงร่าง ต้องแนบใหม่ตอนกลับมา
+let draftTimer = null, DRAFT_AT = 0;
+const hhmm = t => { const d = new Date(t); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ' น.'; };
+function writeDraft(){
+  draftTimer = null;
+  try{
+    const d = { kind: kindNow(), rel: relNow(), branch: $('fBranch').value, dept: $('fDept').value, title: $('fTitle').value, at: Date.now() };
+    TEXT_FIELDS.forEach(id=>{ const e = $(id); if(e && e.value) d[id] = e.value; });
+    d.docs = [...$('docRows').querySelectorAll('.dck:checked')].map(c => c.dataset.tag);
+    const rn = $('fRelDocNote'); if(rn && rn.value) d.relDocNote = rn.value;
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    DRAFT_AT = d.at;
+    if(STEP === 1) $('saveNote').textContent = 'บันทึกร่างในเครื่องล่าสุด ' + hhmm(DRAFT_AT);
+    return true;
+  }catch(e){ return false; /* โหมดส่วนตัว/พื้นที่เต็ม → ข้ามไป ฟอร์มยังใช้ได้ */ }
+}
 function saveDraft(){
   clearTimeout(draftTimer);
-  draftTimer = setTimeout(()=>{
+  draftTimer = setTimeout(writeDraft, 400);
+}
+
+/* ---- ไฟล์แนบของร่าง (IndexedDB) ----
+   🔑 FILES_READY = กู้ไฟล์จากร่างเสร็จแล้ว — ก่อนหน้านั้นห้ามเขียน ไม่งั้นรายการว่างตอนเปิดหน้าจะไปทับไฟล์ที่เก็บไว้
+   🔑 เก็บไฟล์ "หลังย่อ" (ที่จะอัปโหลดจริง) · ไฟล์ที่ยังย่อไม่เสร็จข้ามไปก่อน เสร็จแล้ว renderChips เรียกซ้ำเอง */
+let FILES_READY = false, fileTimer = null, idbP = null;
+function idb(){
+  return idbP || (idbP = new Promise((res, rej)=>{
     try{
-      const d = { kind: kindNow(), rel: relNow(), branch: $('fBranch').value, dept: $('fDept').value, title: $('fTitle').value, at: Date.now() };
-      TEXT_FIELDS.forEach(id=>{ const e = $(id); if(e && e.value) d[id] = e.value; });
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
-    }catch(e){ /* โหมดส่วนตัว/พื้นที่เต็ม → ข้ามไป ฟอร์มยังใช้ได้ */ }
-  }, 400);
+      const q = indexedDB.open('ins_form_draft', 1);
+      q.onupgradeneeded = () => q.result.createObjectStore('files');
+      q.onsuccess = () => res(q.result);
+      q.onerror = () => rej(q.error);
+    }catch(e){ rej(e); }
+  }));
+}
+async function idbDo(mode, fn){
+  const db = await idb();
+  return new Promise((res, rej)=>{
+    const tx = db.transaction('files', mode), rq = fn(tx.objectStore('files'));
+    tx.oncomplete = () => res(rq && rq.result);
+    tx.onerror = tx.onabort = () => rej(tx.error);
+  });
+}
+const draftFileItems = () => PENDING.filter(p => !p.busy && !DRAFT_SKIP_FILES.includes(p.tag))
+  .map(p => ({ tag: p.tag, file: p.file, origSize: p.file.origSize || 0 }));
+async function writeDraftFiles(){
+  if(!FILES_READY) return true;
+  try{
+    const items = draftFileItems();
+    await idbDo('readwrite', st => items.length ? st.put({ at: Date.now(), items }, DRAFT_KEY) : st.delete(DRAFT_KEY));
+    return true;
+  }catch(e){ return false; }
+}
+function saveDraftFiles(){
+  if(!FILES_READY) return;
+  clearTimeout(fileTimer);
+  fileTimer = setTimeout(writeDraftFiles, 300);
+}
+async function clearDraftFiles(){
+  clearTimeout(fileTimer);
+  try{ await idbDo('readwrite', st => st.delete(DRAFT_KEY)); }catch(e){}
+}
+/* กู้ไฟล์แนบ — เรียกครั้งเดียวตอนเปิดหน้า · live = ร่างข้อความยังอยู่และไม่หมดอายุ (ไม่งั้นไฟล์ก็ทิ้งด้วย) */
+async function restoreDraftFiles(live){
+  let n = 0;
+  try{
+    const rec = live ? await idbDo('readonly', st => st.get(DRAFT_KEY)) : null;
+    if(rec && rec.items && Date.now() - (rec.at || 0) <= DRAFT_DAYS*24*3600*1000){
+      for(const it of rec.items){
+        if(!it.file || PENDING.length >= MAX_FILES || !DOC_TYPES.some(([t]) => t === it.tag)) continue;
+        if(it.origSize){ try{ it.file.origSize = it.origSize; }catch(e){} }
+        /* ocrDone: ค่าที่อ่านจากสำเนาทะเบียนรถกู้มากับร่างข้อความแล้ว ไม่ต้องอ่านซ้ำ */
+        PENDING.push({ file: it.file, orig: null, tag: it.tag, url: isImg(it.file) ? URL.createObjectURL(it.file) : '', busy: false, ocrDone: true });
+        const ck = $('docRows').querySelector('.dck[data-tag="' + it.tag + '"]');
+        if(ck) ck.checked = true;
+        n++;
+      }
+    } else if(!live) await clearDraftFiles();
+  }catch(e){ /* เบราว์เซอร์ไม่ให้ใช้ IndexedDB → ร่างข้อความยังใช้ได้ตามเดิม */ }
+  FILES_READY = true;
+  if(n) renderChips();
+  return n;
 }
 /* 🔑 ต้องยกเลิกตัวหน่วงเวลาที่ค้างอยู่ด้วย — ติ๊กยินยอม (ยิง input) แล้วกดส่งภายใน 0.4 วิ
    ตัวหน่วงจะมาบันทึกร่างของฟอร์มที่เพิ่งล้าง → เปิดครั้งหน้าขึ้น "กู้ข้อมูลที่กรอกค้างไว้" ทั้งที่ส่งไปแล้ว */
@@ -1404,13 +1481,15 @@ function reuseFill(){
   toast(n ? 'เติมให้ ' + n + ' ช่อง — ตรวจให้ตรงกับผู้ทำประกันก่อนส่ง'
           : 'ช่องเหล่านี้กรอกไว้แล้วทั้งหมด — ระบบไม่เขียนทับของที่พิมพ์เอง');
 }
-function clearDraft(){ clearTimeout(draftTimer); try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
+function clearDraft(){ clearTimeout(draftTimer); draftTimer = null; DRAFT_AT = 0; try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} clearDraftFiles(); }
+let DRAFT_LIVE = false;                              // มีร่างข้อความที่ยังไม่หมดอายุ → กู้ไฟล์แนบตามได้
 function restoreDraft(){
   let d = null;
   try{ d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); }catch(e){}
   if(!d) return false;
   /* ร่างเก่ากว่า 7 วันถือว่าไม่เกี่ยวกับงานตอนนี้แล้ว */
-  if(d.at && Date.now() - d.at > 7*24*3600*1000){ clearDraft(); return false; }
+  if(d.at && Date.now() - d.at > DRAFT_DAYS*24*3600*1000){ clearDraft(); return false; }
+  DRAFT_LIVE = true; DRAFT_AT = d.at || 0;
   TEXT_FIELDS.forEach(id=>{ const e = $(id); if(e && d[id] != null) e.value = d[id]; });
   const k = document.querySelector('input[name=kind][value="' + (d.kind||'self') + '"]');
   if(k) k.checked = true;
@@ -1419,9 +1498,28 @@ function restoreDraft(){
   if(d.branch) $('fBranch').value = d.branch;
   if(d.dept) setDept(d.dept);
   if(d.title) setTitle(d.title);
+  (d.docs || []).forEach(t => { const c = $('docRows').querySelector('.dck[data-tag="' + t + '"]'); if(c) c.checked = true; });
+  if(d.relDocNote && $('fRelDocNote')) $('fRelDocNote').value = d.relDocNote;
   return TEXT_FIELDS.some(id=> d[id]);
 }
 $('tabForm').addEventListener('input', saveDraft);
+/* ปิดแท็บ/สลับแอปภายใน 0.4 วิหลังพิมพ์ → เขียนทันที ไม่รอตัวหน่วง */
+addEventListener('pagehide', ()=>{ if(draftTimer){ clearTimeout(draftTimer); writeDraft(); } });
+$('btnDraft').onclick = async ()=>{
+  clearTimeout(draftTimer); clearTimeout(fileTimer);
+  const b = $('btnDraft');
+  b.disabled = true;
+  const okT = writeDraft(), okF = await writeDraftFiles();
+  b.disabled = false;
+  if(!okT){ toast('เครื่องนี้บันทึกร่างไม่ได้ (โหมดไม่ระบุตัวตน หรือพื้นที่เก็บข้อมูลเต็ม) — กรุณากรอกให้จบในครั้งเดียว', 'no'); return; }
+  const nf = draftFileItems().length, skip = PENDING.some(p => DRAFT_SKIP_FILES.includes(p.tag));
+  b.textContent = 'บันทึกแล้ว ✓'; b.classList.add('saved');
+  setTimeout(()=>{ b.textContent = 'บันทึกร่าง'; b.classList.remove('saved'); }, 1800);
+  toast('บันทึกแบบร่างในเครื่องนี้แล้ว' + (okF && nf ? ' พร้อมไฟล์แนบ ' + nf + ' ไฟล์' : '')
+    + ' — กลับมาเปิดด้วยเครื่องและเบราว์เซอร์เดิมภายใน ' + DRAFT_DAYS + ' วัน'
+    + ' · เลขบัตรประชาชน วันเกิด' + (skip ? ' และไฟล์สำเนาบัตรประชาชน' : '') + ' ต้องใส่ใหม่ตอนกลับมา', 'ok');
+  if(!okF) toast('เก็บไฟล์แนบลงร่างไม่ได้ — ข้อมูลที่พิมพ์บันทึกแล้ว แต่ไฟล์ต้องแนบใหม่ตอนกลับมา', 'no');
+};
 $('fNote').addEventListener('input', ()=>{ if(STEP === 3) renderReview(); });
 $('fConsent').addEventListener('change', ()=>{
   $('consentBox').classList.remove('miss');
@@ -1495,7 +1593,7 @@ function renderDocRows(){
   $('docRows').querySelectorAll('input[type=file]').forEach(inp=>{
     inp.addEventListener('change', ()=>{ addFiles(inp.dataset.tag, [...inp.files]); inp.value = ''; });
   });
-  $('docRows').querySelectorAll('.dck').forEach(ck=> ck.addEventListener('change', renderChips));
+  $('docRows').querySelectorAll('.dck').forEach(ck=> ck.addEventListener('change', ()=>{ renderChips(); saveDraft(); }));
   /* ลากไฟล์มาวางที่แถว */
   $('docRows').querySelectorAll('.docrow').forEach(row=>{
     let depth = 0;
@@ -1554,6 +1652,7 @@ function renderChips(){
   $('docCount').hidden = !n;
   syncCarBox();
   if(STEP === 3) paintSteps();
+  saveDraftFiles();
 }
 
 /* =====================================================================
@@ -2763,7 +2862,9 @@ $('reuseDel').onclick = houseDel;
 syncKind();
 paintReuse();
 paintSteps();
+restoreDraftFiles(DRAFT_LIVE).then(n => { if(n) toast('กู้ไฟล์แนบจากร่าง ' + n + ' ไฟล์ — สำเนาบัตรประชาชนต้องแนบใหม่'); });
 if(hadDraft){
+  renderChips();                                     // ติ๊ก "มีเอกสาร" ที่กู้มา → ข้อความสถานะของแถวต้องตาม
   toast('กู้ข้อมูลที่กรอกค้างไว้ให้แล้ว — กด "เริ่มใหม่" ถ้าจะเริ่มจากฟอร์มว่าง');
   lookupEmp();                                       // ยืนยันชื่อพนักงานให้ด้วย ไม่ต้องให้พิมพ์ซ้ำ
   if($('fAmphoe').value.trim()) syncZip();

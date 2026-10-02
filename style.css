@@ -433,6 +433,7 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .savebar .grow{flex:1;min-width:8px}
 .savebar .note{font-size:12.5px;color:var(--muted);font-weight:600}
 .savebar .note b{color:var(--ink-soft)}
+.savebar #btnDraft.saved{color:var(--good-ink);border-color:currentColor}
 @supports not (backdrop-filter:blur(4px)){ .savebar{background:var(--panel)} }
 
 /* ---------- รายการคำขอ (staff) ---------- */
@@ -797,6 +798,7 @@ label.f .csel{width:100%}
   .savebar .note{display:none}
   .savebar .btn{flex:0 1 auto;padding:11px 12px;white-space:nowrap}
   .savebar .btn.primary{flex:1 1 auto}
+  .savebar #btnPrev .lbl{display:none}            /* จอแคบมีปุ่ม 4 ปุ่ม — ย้อนกลับเหลือแค่ลูกศร */
   .dl{grid-template-columns:1fr;gap:2px 0}
   .dl dd{margin-bottom:9px}
   #toasts{left:12px;right:12px;align-items:stretch}
