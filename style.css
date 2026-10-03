@@ -241,6 +241,19 @@ input[type=radio]:checked{border:5.5px solid var(--accent)}
 .cust .car2{animation:rise .3s var(--ease)}
 .car2.lock{background:var(--bad-soft,#fdeaea);color:var(--bad-ink,#8a2020);border-color:#f0cccc}
 /* เมนูเหตุผลขอเพิ่มรถ */
+/* ต่ออายุคันเดิม / ทำประกันรถอีกคัน — ปุ่มเต็มความกว้าง แตะง่ายบนมือถือ */
+.carpicks{display:grid;gap:7px;margin-top:9px}
+.carpick{display:grid;grid-template-columns:1fr auto;align-items:center;gap:1px 10px;width:100%;min-height:48px;
+  padding:9px 12px;text-align:left;font:inherit;color:var(--ink);background:var(--panel);
+  border:1px solid #e3d3b4;border-radius:var(--r-sm);cursor:pointer;transition:border-color .15s,background .15s}
+.carpick:hover,.carpick:focus-visible{border-color:var(--accent);background:var(--accent-soft)}
+.carpick .cp-plate{font-weight:700;font-size:15px}
+.carpick .cp-sub{grid-column:1;font-size:12.5px;color:var(--muted)}
+.carpick .cp-act{grid-column:2;grid-row:1 / span 2;font-size:13px;font-weight:700;color:var(--accent-ink);white-space:nowrap}
+.carpick.new{border-style:dashed}
+.carpick.new .cp-sub{grid-column:1 / -1}
+.car2 .linkbtn{margin-top:8px;padding:6px 0;background:none;border:0;font:inherit;font-size:13px;font-weight:600;
+  color:var(--accent-ink);text-decoration:underline;cursor:pointer}
 .addopts{display:grid;gap:7px;margin-top:8px}
 .addopt{display:flex;align-items:center;gap:9px;padding:9px 12px;border:1px solid #e3d3b4;border-radius:var(--r-sm);
   background:var(--panel);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;min-height:44px}

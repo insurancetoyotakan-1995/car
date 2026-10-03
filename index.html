@@ -609,6 +609,11 @@ async function lookupEmp(){
    ยังไม่ได้รัน migrate-2026-09-19-car2.sql → RPC error → เงียบ ไม่แจ้ง ไม่ขวางการกรอก
    ======================================================================= */
 let CAR2 = 0, GATE = null, ADD_REASON = '', car2Key = '', car2Timer = null;
+/* CAR_PICK: ผู้กรอกตอบแล้วว่า "ทำประกันรถอีกคัน" (= 'new') → ค่อยถามเหตุผลขอเพิ่มรถ
+   ยังไม่ตอบ + ระบบส่งรายการรถมา (GATE.list) → ถามก่อนว่าต่ออายุคันไหน หรือเป็นรถอีกคัน (ผู้ใช้สั่ง 2026-10-03) */
+let CAR_PICK = '';
+const carList = g => (g && g.state === 'add' && Array.isArray(g.list)) ? g.list.filter(c => c && c.plate) : [];
+const carAsk  = g => carList(g).length > 0 && CAR_PICK !== 'new';
 /* เหตุผลขอเพิ่มรถ — ต้องตรงกับ add_reason ในฐานข้อมูล (migrate-2026-09-21-car-lock.sql) */
 const ADD_LABEL = { own2:'ขอเพิ่มรถคันที่ 2 ชื่อตัวเอง', family:'รถครอบครัวเชื่อมโยง' };
 const TH_MON_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -637,7 +642,7 @@ async function checkCar2(){
   const same = JSON.stringify(g) === JSON.stringify(GATE);
   GATE = g;
   CAR2 = Math.max(0, (g && +g.cars) || 0);
-  if(!(g && g.state === 'add')) ADD_REASON = '';                 // ไม่ใช่การขอเพิ่มรถแล้ว = ล้างเหตุผล
+  if(!(g && g.state === 'add')){ ADD_REASON = ''; CAR_PICK = ''; } // ไม่ใช่การขอเพิ่มรถแล้ว = ล้างเหตุผล/คำตอบ
   if(same) return;
   paintCar2();
   if(STEP === 3) renderReview();
@@ -664,6 +669,29 @@ function paintCar2(){
       + '<p class="sm">ถ้าต้องการแก้ไขข้อมูล ติดต่อเจ้าหน้าที่ประกันได้เลย</p></div>';
     return;
   }
+  /* มีรถในระบบ แต่ยังไม่รู้ว่ามาต่ออายุคันเดิมหรือเป็นรถอีกคัน → ถามก่อน ไม่บังคับเลือกเหตุผลขอเพิ่มรถ */
+  if(carAsk(g)){
+    const list = carList(g);
+    box.className = 'car2 ask';
+    box.innerHTML = warn + '<div><b>คุณมีรถในระบบ ' + list.length + ' คัน</b>'
+      + '<p>มาต่ออายุรถคันเดิม หรือทำประกันรถอีกคัน</p>'
+      + '<div class="carpicks">'
+      + list.map(c => '<button type="button" class="carpick" data-plate="' + esc(c.plate) + '">'
+          + '<span class="cp-plate">' + esc(c.plate) + '</span>'
+          + '<span class="cp-sub">' + (c.expireOn ? 'ประกันหมดอายุ ' + esc(thDay(c.expireOn)) : 'มีคำขออยู่ในระบบ') + '</span>'
+          + '<span class="cp-act">ต่ออายุคันนี้</span></button>').join('')
+      + '<button type="button" class="carpick new" data-new="1"><span class="cp-plate">ทำประกันรถอีกคัน</span>'
+      + '<span class="cp-sub">รถที่ไม่อยู่ในรายการด้านบน · คันที่ 2 ขึ้นไปได้ส่วนลด 10% ชำระเงินสด/โอนเท่านั้น</span></button>'
+      + '</div></div>';
+    box.querySelectorAll('.carpick').forEach(b => b.onclick = ()=>{
+      if(b.dataset.new){ CAR_PICK = 'new'; paintCar2(); if(STEP === 3) renderReview(); return; }
+      const e = $('fPlate'); if(!e) return;
+      e.value = b.dataset.plate; delete e.dataset.auto;
+      e.dispatchEvent(new Event('input', { bubbles: true }));   // ตัวตรวจสิทธิ์/ร่าง/ช่องยืนยันทำงานตามปกติ
+      toast('เลือกต่ออายุรถทะเบียน ' + b.dataset.plate + ' — แนบสำเนาทะเบียนรถในขั้นที่ 3 ตามเดิม', 'ok');
+    });
+    return;
+  }
   const opt = (k) => '<label class="addopt"><input type="radio" name="addWhy" value="' + k + '"'
     + (ADD_REASON === k ? ' checked' : '') + '><span>' + esc(ADD_LABEL[k]) + '</span></label>';
   box.innerHTML = warn + '<div><b>' + (g.state === 'renew' ? 'รถคันที่ ' + (CAR2 + 1) + ' ของคุณ' : 'คุณมีรถที่ใช้สิทธิ์อยู่แล้ว ' + CAR2 + ' คัน') + '</b>'
@@ -673,8 +701,10 @@ function paintCar2(){
         ? '<p class="sm">เลือกเหตุผลที่ขอเพิ่มรถ แล้วจึงส่งคำขอได้</p>'
           + '<div class="addopts" role="radiogroup" aria-label="เหตุผลที่ขอเพิ่มรถ">' + opt('own2') + opt('family') + '</div>'
           + (ADD_REASON === 'family' ? '<p class="sm">รถครอบครัว: ต้องแนบเอกสารแสดงความสัมพันธ์ในขั้นที่ 3</p>' : '')
+          + (carList(g).length ? '<button type="button" class="linkbtn" id="carPickBack">← ไม่ใช่ ฉันมาต่ออายุรถคันเดิม</button>' : '')
         : '<p class="sm">ถ้าเป็นการต่ออายุรถคันเดิม กรอกทะเบียนหรือเลขตัวถังให้ตรงแล้วข้อความนี้จะหายไปเอง</p>')
     + '</div>';
+  if($('carPickBack')) $('carPickBack').onclick = ()=>{ CAR_PICK = ''; ADD_REASON = ''; paintCar2(); if(STEP === 3) renderReview(); };
   box.querySelectorAll('input[name=addWhy]').forEach(r => r.addEventListener('change', ()=>{
     ADD_REASON = r.value; paintCar2(); saveDraft();
     if(STEP === 3) renderReview();
@@ -1202,6 +1232,7 @@ function stepFail(n){
     if(GATE && kindNow() !== 'refer'){
       if(GATE.state === 'early') return {msg:'รถทะเบียน ' + (GATE.plate || '') + ' ยื่นต่ออายุได้ตั้งแต่ ' + thDay(GATE.openFrom), el:'fPlate', step:3};
       if(GATE.state === 'pending') return {msg:'รถคันนี้มีคำขออยู่ในระบบแล้ว (ยื่นเมื่อ ' + thDay(GATE.since) + ') ไม่ต้องยื่นซ้ำ', el:'fPlate', step:3};
+      if(GATE.state === 'add' && carAsk(GATE)) return {msg:'กรุณาเลือกในขั้นที่ 1 ว่าต่ออายุรถคันเดิม หรือทำประกันรถอีกคัน', el:'car2Note', step:1};
       if(GATE.state === 'add' && !ADD_REASON) return {msg:'กรุณาเลือกเหตุผลที่ขอเพิ่มรถ (ขั้นที่ 1)', el:'car2Note', step:1};
       if(ADD_REASON === 'family' && !activeFiles().some(f => f.tag === 'relDoc'))
         return {msg:'รถครอบครัวเชื่อมโยง — กรุณาแนบเอกสารแสดงความสัมพันธ์', el: $('docRows').querySelector('.docrow[data-tag="relDoc"] input[type=file]') || 'docRows'};
@@ -2826,7 +2857,7 @@ function resetForm(keepEmp){
   PENDING.forEach(p=>{ if(p.url) URL.revokeObjectURL(p.url); });   // คืนหน่วยความจำรูปตัวอย่าง
   PENDING = [];
   carStop(true);
-  ADD_REASON = ''; GATE = null;
+  ADD_REASON = ''; CAR_PICK = ''; GATE = null;
   car2Key = null;                                    // เพิ่งส่งไป 1 คัน → นับใหม่
   renderDocRows(); renderChips(); syncKind();
   STEP = 1; paintSteps();
