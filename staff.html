@@ -385,6 +385,7 @@
   <a class="hbtn" href="index.html">📝 ฟอร์มโตโยต้า</a>
   <a class="hbtn" href="index.html?b=hino">📝 ฟอร์มฮีโน่</a>
   <button class="hbtn" id="btnLine" type="button" hidden>🔗 แจ้งเตือน LINE</button>
+  <button class="hbtn" id="btnPw" type="button" hidden>🔑 เปลี่ยนรหัสผ่าน</button>
   <button class="hbtn" id="btnOut" hidden>ออกจากระบบ</button>
 </header>
 
@@ -393,7 +394,7 @@
     <div class="login-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="15" r="1.4"/></svg></div>
     <h2>เข้าสู่ระบบ</h2>
     <p class="sub">สำหรับเจ้าหน้าที่ประกันเท่านั้น — ใบคำขอมีที่อยู่และเบอร์โทรของลูกค้า
-      (ลืมรหัสผ่าน ติดต่อผู้ดูแลระบบให้ตั้งใหม่)</p>
+      (ลืมรหัสผ่าน ติดต่อผู้ดูแลระบบให้ตั้งใหม่ · เปลี่ยนรหัสเองได้หลังเข้าระบบ)</p>
     <div class="err" id="loginErr"></div>
     <div class="grid">
       <label class="f c12">รหัสพนักงาน<input id="lgEmail" inputmode="numeric" autocomplete="username" placeholder="เช่น 11001234"></label>
@@ -552,6 +553,26 @@
     <div class="bd" id="lnBody"></div>
     <div class="ft"><button class="btn danger" id="lnUnlink" hidden>ยกเลิกการผูก</button>
       <span class="grow"></span><button class="btn" id="lnClose">ปิด</button></div>
+  </div>
+</div>
+
+<!-- เปลี่ยนรหัสผ่านของบัญชีที่ล็อกอินอยู่ — ต้องใส่รหัสเดิมยืนยันก่อน (กันคนอื่นเปลี่ยนให้ตอนเปิดจอทิ้งไว้) -->
+<div class="ov" id="ovPw">
+  <div class="card" style="max-width:420px">
+    <div class="hd"><h3>🔑 เปลี่ยนรหัสผ่าน</h3>
+      <p id="pwSub">ของบัญชีที่เข้าระบบอยู่ตอนนี้</p></div>
+    <div class="bd">
+      <div class="err" id="pwErr"></div>
+      <div class="grid">
+        <label class="f c12">รหัสผ่านเดิม<input id="pwOld" type="password" autocomplete="current-password"></label>
+        <label class="f c12">รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)<input id="pwNew" type="password" autocomplete="new-password"></label>
+        <label class="f c12">พิมพ์รหัสผ่านใหม่อีกครั้ง<input id="pwNew2" type="password" autocomplete="new-password"></label>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="pwShow" style="width:17px;height:17px"> แสดงรหัสผ่าน</label>
+    </div>
+    <div class="ft"><button class="btn" id="pwNo" type="button">ยกเลิก</button>
+      <button class="btn primary" id="pwOk" type="button">เปลี่ยนรหัสผ่าน</button></div>
   </div>
 </div>
 
@@ -1889,6 +1910,58 @@ async function signIn(){
 $('btnIn').onclick = signIn;
 $('lgPw').addEventListener('keydown', e=>{ if(e.key==='Enter') signIn(); });
 $('lgEmail').addEventListener('keydown', e=>{ if(e.key==='Enter') $('lgPw').focus(); });
+/* ---------- เปลี่ยนรหัสผ่าน ----------
+   🔑 ยืนยันรหัสเดิมด้วยการล็อกอินซ้ำก่อน — updateUser อย่างเดียวไม่ถามรหัสเดิม
+      ใครมานั่งหน้าจอที่เปิดค้างไว้จะเปลี่ยนรหัสแล้วยึดบัญชีได้
+   🔒 ไม่เก็บ/ไม่ log รหัสผ่าน · ปิดกล่องแล้วล้างช่องทุกครั้ง */
+const PW_MIN = 8;
+function pwErr(msg){ const e = $('pwErr'); e.textContent = msg || ''; e.style.display = msg ? 'block' : 'none'; }
+function closePw(){
+  $('ovPw').removeAttribute('open');
+  ['pwOld','pwNew','pwNew2'].forEach(id => { $(id).value = ''; $(id).type = 'password'; });
+  $('pwShow').checked = false; pwErr('');
+}
+function openPw(){
+  closePw();
+  $('pwSub').textContent = 'ของบัญชี ' + ((ME && (ME.name || ME.empId)) || 'ที่เข้าระบบอยู่ตอนนี้');
+  $('ovPw').setAttribute('open','');
+  setTimeout(() => $('pwOld').focus(), 60);
+}
+async function changePw(){
+  const oldPw = $('pwOld').value, a = $('pwNew').value, b = $('pwNew2').value;
+  pwErr('');
+  if(!oldPw) return pwErr('กรอกรหัสผ่านเดิม'), $('pwOld').focus();
+  if(a.length < PW_MIN) return pwErr('รหัสผ่านใหม่ต้องยาวอย่างน้อย ' + PW_MIN + ' ตัว'), $('pwNew').focus();
+  if(a !== b) return pwErr('รหัสผ่านใหม่ 2 ช่องไม่ตรงกัน'), $('pwNew2').focus();
+  if(a === oldPw) return pwErr('รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม'), $('pwNew').focus();
+  const btn = $('pwOk');
+  btn.disabled = true; btn.classList.add('is-loading');
+  try{
+    const { data: u } = await sb.auth.getUser();
+    const email = u && u.user && u.user.email;
+    if(!email) throw new Error('หมดเวลาเข้าระบบ — กรุณาออกจากระบบแล้วเข้าใหม่');
+    const { error: e1 } = await sb.auth.signInWithPassword({ email, password: oldPw });
+    if(e1) throw new Error(e1.message === 'Invalid login credentials' ? 'รหัสผ่านเดิมไม่ถูกต้อง' : e1.message);
+    const { error: e2 } = await sb.auth.updateUser({ password: a });
+    if(e2) throw new Error(/weak|at least|should be/i.test(e2.message) ? 'รหัสผ่านใหม่ง่ายเกินไป — ใช้ให้ยาวขึ้นหรือผสมตัวเลข/ตัวอักษร'
+      : /different from the old/i.test(e2.message) ? 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม' : e2.message);
+    closePw();
+    toast('เปลี่ยนรหัสผ่านแล้ว — ครั้งหน้าใช้รหัสใหม่เข้าระบบ', 'ok');
+  }catch(e){ pwErr(e.message); }
+  finally{ btn.disabled = false; btn.classList.remove('is-loading'); }
+}
+$('btnPw').onclick = openPw;
+$('pwNo').onclick = closePw;
+$('pwOk').onclick = changePw;
+$('pwShow').onchange = () => ['pwOld','pwNew','pwNew2'].forEach(id => { $(id).type = $('pwShow').checked ? 'text' : 'password'; });
+['pwOld','pwNew','pwNew2'].forEach((id, i, all) => $(id).addEventListener('keydown', e => {
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  if(i < all.length - 1) $(all[i + 1]).focus(); else changePw();
+}));
+$('ovPw').addEventListener('mousedown', e=>{ if(e.target === $('ovPw')) closePw(); });
+addEventListener('keydown', e=>{ if(e.key === 'Escape' && $('ovPw').hasAttribute('open')) closePw(); });
+
 $('btnOut').onclick = async ()=>{
   await sb.auth.signOut();
   LIST = []; FILES = {}; POLICIES = []; TEAMS = {}; MAIN = {}; RENEW = []; ME = null; AGENTS = [];
@@ -1896,6 +1969,7 @@ $('btnOut').onclick = async ()=>{
   $('renewStrip').hidden = true; $('staleStrip').hidden = true; ST = '';
   $('listPanel').hidden = true; $('loginBox').hidden = false;
   $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
+  $('btnPw').hidden = true; closePw();
   toast('ออกจากระบบแล้ว');
 };
 
@@ -2971,6 +3045,7 @@ async function start(){
     await sb.auth.signOut();
     $('loginBox').hidden = false; $('listPanel').hidden = true;
     $('whoChip').hidden = true; $('btnOut').hidden = true; $('btnLine').hidden = true; closeLine();
+    $('btnPw').hidden = true;
     showErr(chk.error ? 'ตรวจสิทธิ์ไม่สำเร็จ: ' + (chk.error.message || '') : 'บัญชีนี้ไม่มีสิทธิ์เข้าหลังบ้าน (เฉพาะเจ้าหน้าที่ประกัน)');
     return;
   }
@@ -2979,6 +3054,7 @@ async function start(){
      : { empId: String(u.email||'').replace('@' + STAFF_DOMAIN, ''), role: 'agent', name: u.email || '' };
   $('loginBox').hidden = true; $('listPanel').hidden = false;
   $('whoChip').hidden = false; $('btnOut').hidden = false; $('btnLine').hidden = isViewer();
+  $('btnPw').hidden = false;
   if(!isViewer()) lineStatus().then(paintLineBtn).catch(()=>{});   // ปุ่มบอกสถานะ ✅ ถ้าผูกแล้ว
   $('whoChip').textContent = ME.name + (isAdmin() ? ' · ผู้ดูแล' : isViewer() ? ' · ดูอย่างเดียว' : '');
   $('whoChip').title = u.email || '';   // จอแคบตัดด้วย ellipsis — ต้องมี title ให้อ่านเต็ม
