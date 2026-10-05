@@ -280,6 +280,35 @@
   font-size:9.5pt;padding-bottom:4pt}
 #printSheet .pf-foot{margin-top:10pt;font-size:8.5pt;color:#444;display:flex;justify-content:space-between;gap:10pt}
 
+/* ---------- ใบคำขอของฮีโน่ — ตามฟอร์มกระดาษ "แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงานฮีโน่กาญจนบุรี" ----------
+   ต่างจากของโตโยต้า: 3 กรอบ (พนักงาน / เจ้าหน้าที่ประกัน / การชำระเงิน) · มีเอกสารแนบ · ช่องลงชื่อ 2 ช่อง
+   แถวเยอะกว่า → ตัวอักษรและระยะแถวเล็กลงนิด ให้จบใน A4 แผ่นเดียว */
+#printSheet .pfh{font-size:10pt;line-height:1.38}
+#printSheet .pfh .pf-row{margin:3pt 0}
+#printSheet .pfh .pf-title{margin-bottom:5pt;padding:3pt 0}
+#printSheet .pfh .pf-no{margin-bottom:3pt}
+#printSheet .pfh .pf-frame{border:1.2pt solid #000;padding:2pt 7pt 3pt;margin-bottom:6pt}
+#printSheet .pfh .pf-frame.flush{padding-bottom:0}
+#printSheet .pfh .pf-docs{display:grid;grid-template-columns:33mm 1fr;border-top:1.2pt solid #000;margin:5pt -7pt 0}
+#printSheet .pfh .pf-docs > b{display:flex;align-items:center;justify-content:center;border-right:1.2pt solid #000;font-weight:600}
+#printSheet .pfh .pf-docs > div{padding:1pt 8pt}
+#printSheet .pfh .pf-signs{display:flex;justify-content:space-between;border-top:1.2pt solid #000;margin:0 -7pt}
+#printSheet .pfh .pf-sign{width:66mm;display:flex;flex-direction:column}
+#printSheet .pfh .pf-sign:first-child{border-right:1.2pt solid #000}
+#printSheet .pfh .pf-sign:last-child{border-left:1.2pt solid #000}
+#printSheet .pfh .pf-sign i{display:block;height:12mm}
+#printSheet .pfh .pf-sign span{border-top:1.2pt solid #000;text-align:center;font-weight:600;padding:2pt 0;font-size:9.5pt}
+#printSheet .pfh .pf-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14mm;margin:6pt 6mm 2pt;text-align:center}
+#printSheet .pfh .pf-3 .pl{display:block;text-align:center}
+#printSheet .pfh .pf-3 small{display:block;font-size:9.5pt;margin-top:2pt;font-weight:600}
+#printSheet .pfh .pf-prem{margin:4pt -7pt 0;padding:1pt 7pt}
+#printSheet .pfh .pf-total{display:flex;align-items:flex-end;gap:6pt;justify-content:center;font-size:12.5pt;font-weight:700;
+  margin:0 -7pt;padding:5pt 14mm 6pt}
+#printSheet .pfh .pf-pay{margin:0}
+#printSheet .pfh .pf-box{min-height:20mm}
+#printSheet .pfh .pf-fine{font-size:8.5pt;margin-top:3pt}
+#printSheet .pfh .pf-foot{margin-top:5pt}
+
 /* ---------- ใบค่าคอมมิชชั่น / ค่าแนะนำ ----------
    เอกสารการเงิน: ข้อมูลจากระบบพิมพ์เป็น "ตาราง/กล่อง" (ไม่ใช่เส้นประแบบเขียนมือ) · พิมพ์ขาวดำอ่านง่าย
    เน้นลำดับ: หัวเอกสาร → ข้อมูลการขาย → ผลตรวจส่วนลด → ยอดจ่าย (ใหญ่สุด) → ลงชื่อ */
@@ -1468,7 +1497,116 @@ function comSheet(r){
              'พนักงานบริษัทต่อประกันเอง ไม่ถือเป็นการแนะนำลูกค้า (NO COM)',
              'ค่าคอมมิชชั่นของเจ้าหน้าที่ประกัน อยู่ในใบแผ่นที่ 1 แยกต่างหาก'] });
 }
+/* ใบคำขอของฮีโน่ — เลย์เอาต์ตามฟอร์มกระดาษของฮีโน่ (ผู้ใช้ส่งไฟล์มา 2026-10-05)
+   🔑 ช่องที่ระบบไม่ได้เก็บ (สี · แบบตัวถัง · ขนาดเครื่องยนต์ · เลขเครื่อง · ทุนประกัน · เลขที่ พรบ./สติกเกอร์ · ลักษณะการใช้รถ ·
+      วันที่แจ้ง/เลขที่รับแจ้ง) เว้นเป็นเส้นว่างให้เขียนมือ เหมือนฟอร์มกระดาษ
+   🔑 ยอดเงินคิดแบบเดียวกับใบของโตโยต้า (payCeil ทีละก้อน) — แก้กติกาเงินต้องแก้ทั้ง 2 ฟังก์ชัน */
+function printSheetHino(r){
+  const L  = (v, flex, cls) => '<span class="pl' + (cls ? ' ' + cls : '') + '"' + (flex ? ' style="' + (typeof flex === 'number' ? 'flex-grow:' + flex : 'flex:' + flex) + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
+  const cb = (on, label) => '<span><span class="pc' + (on ? ' on' : '') + '"></span>' + esc(label) + '</span>';
+  const m  = v => (v == null || v === '') ? '' : fmtBaht(v);
+  const self = r.kind !== 'refer' && r.relation === 'self';
+  const typ = r.quote_type || '', ACT = COVERS.act, T1 = COVERS.type1, T3 = COVERS.type3;
+  const hasMain = [r.quote_net, r.quote_gross, r.quote_disc].some(v => v != null);
+  const hasAct  = [r.quote_act_net, r.quote_act_gross, r.quote_act_disc].some(v => v != null);
+  const actOnly = typ === ACT && !hasAct && hasMain;
+  const act = actOnly ? [r.quote_net, r.quote_gross, r.quote_disc] : [r.quote_act_net, r.quote_act_gross, r.quote_act_disc];
+  const sumMain = actOnly || !hasMain ? null : payCeil((Number(r.quote_gross) || 0) - (Number(r.quote_disc) || 0));
+  const sumAct  = (actOnly || hasAct) ? payCeil((Number(act[1]) || 0) - (Number(act[2]) || 0)) : null;
+  const sumAll  = (sumMain == null && sumAct == null) ? r.quote_total : (sumMain || 0) + (sumAct || 0);
+  /* ประเภทที่ทำ: เสนอราคาแล้วยึดตามที่เสนอ · ยังไม่เสนอใช้สิ่งที่ผู้กรอกเลือกมา */
+  const cov = r.covers || [];
+  const main = typ && typ !== ACT ? typ : !typ ? (cov.includes('type1') ? T1 : cov.includes('type3') ? T3
+             : COVERS[cov.find(c => c !== 'act')] || '') : '';
+  const withAct = typ ? (hasAct || typ === ACT) : cov.includes('act');
+  const otherMain = main && main !== T1 && main !== T3;
+  const premRow = (label, vals) =>
+      '<div class="pf-row"><span>เบี้ยสุทธิ ' + esc(label) + '</span>' + L(m(vals[0]), 1.1, 'r') + '<span>บาท</span>'
+    + '<span>เบี้ยรวม ' + esc(label) + '</span>' + L(m(vals[1]), 1.1, 'r') + '<span>บาท</span>'
+    + '<span>ส่วนลด</span>' + L(m(vals[2]), 1, 'r') + '<span>บาท</span></div>';
+  const mainVals = v => (typ === v && !actOnly) ? [r.quote_net, r.quote_gross, r.quote_disc] : [];
+  const rels = [['father','บิดา'], ['mother','มารดา'], ['husband','สามี'], ['wife','ภรรยา'], ['child','บุตร']];
+  const MAKES = ['TOYOTA','ISUZU','MITSUBISHI','HONDA','NISSAN','CHEVROLET'];
+  const make = String(r.car_brand || '').trim(), makeUp = make.toUpperCase();
+  const makeOther = make && !MAKES.includes(makeUp);
+  /* วันคุ้มครอง: ภาคสมัครใจก่อน · ทำ พรบ. อย่างเดียวใช้วันของ พรบ. */
+  const dStart = r.quote_start || r.quote_act_start, dEnd = r.quote_end || r.quote_act_end;
+  const now = new Date();
+  return '<div class="pfh">'
+    + '<div class="pf-no"><span>เลขที่</span>' + L(r.no) + '</div>'
+    + '<div class="pf-title">แบบฟอร์มขอทำประกันภัยรถยนต์สำหรับพนักงานฮีโน่กาญจนบุรี</div>'
+    // ---- กรอบ 1: พนักงาน ----
+    + '<div class="pf-frame flush">'
+    + '<div class="pf-cap">&gt;&gt; ส่วนสำหรับพนักงานกรอกข้อมูล</div>'
+    + '<div class="pf-row">' + cb(self, 'ชื่อพนักงาน') + L(r.emp_name, 2) + '<span>แผนก</span>' + L(r.emp_dept, 1.4) + '<span>สาขา</span>' + L(r.emp_branch, 1.2) + '</div>'
+    + '<div class="pf-row"><b>' + cb(!self, 'ผู้ทำประกันภัย') + '</b></div>'
+    + '<div class="pf-row pf-ind"><span>ชื่อ</span>' + L([r.insured_title, r.insured_name].filter(Boolean).join(' '), 2.4)
+    +   '<span>ที่อยู่</span>' + L(r.addr, 1.2) + '<span>หมู่</span>' + L(r.moo, .5) + '<span>ถนน</span>' + L(r.road, 1.3) + '</div>'
+    + '<div class="pf-row pf-ind"><span>ตำบล</span>' + L(r.tambon) + '<span>อำเภอ</span>' + L(r.amphoe) + '<span>จังหวัด</span>' + L([r.province, r.zipcode].filter(Boolean).join(' ')) + '</div>'
+    + '<div class="pf-row pf-ind"><span>เบอร์โทรศัพท์บ้าน</span>' + L(r.phone_home) + '<span>เบอร์โทรศัพท์ มือถือ</span>' + L(r.phone_mobile) + '</div>'
+    + '<div class="pf-row"><span style="margin-right:8pt">' + cb(r.kind !== 'refer' && !self, 'ความสัมพันธ์') + '</span><span class="pf-opts">'
+    +   rels.map(([k, lb]) => cb(r.kind !== 'refer' && r.relation === k, lb)).join('')
+    +   (r.kind !== 'refer' && r.relation === 'other' ? cb(true, 'อื่น ๆ ' + (r.relation_note || '')) : '')
+    + '</span></div>'
+    + '<div class="pf-row">' + cb(!!(main || withAct), 'ประเภทรถที่ทำประกันภัย') + '</div>'
+    + '<div class="pf-row pf-ind"><span class="pf-opts">'
+    +   cb(main === T1 && !withAct, 'ประเภท 1') + cb(main === T1 && withAct, 'ประเภท 1+ พรบ.')
+    +   cb(main === T3 && !withAct, 'ประเภท 3') + cb(main === T3 && withAct, 'ประเภท 3+ พรบ.')
+    +   cb(!main && withAct, 'พรบ.')
+    +   (otherMain ? cb(true, main + (withAct ? ' + พรบ.' : '')) : '')
+    + '</span></div>'
+    + '<div class="pf-docs"><b>เอกสารแนบ</b><div>'
+    +   '<div class="pf-row"><span class="pf-opts">' + cb(!!r.doc_car_reg, 'สำเนาทะเบียนรถ')
+    +     cb(!!r.doc_id_card, 'สำเนาบัตรประชาชน ผู้ทำประกัน') + cb(!!r.doc_old_policy, 'สำเนากรมธรรม์เดิม') + '</span></div>'
+    +   '<div class="pf-row">' + cb(!!r.doc_rel_doc, 'เอกสารแสดงความสัมพันธ์ (ระบุ)') + L(r.doc_rel_note, 1) + '</div>'
+    + '</div></div>'
+    + '<div class="pf-signs"><div class="pf-sign"><i></i><span>ลงชื่อพนักงานผู้ขอทำประกันภัย</span></div>'
+    +   '<div class="pf-sign"><i></i><span>ผู้ช่วยกรรมการผู้จัดการ</span></div></div>'
+    + '</div>'
+    // ---- กรอบ 2: เจ้าหน้าที่ประกันภัย ----
+    + '<div class="pf-frame flush">'
+    + '<div class="pf-cap">&gt;&gt; สำหรับเจ้าหน้าที่ประกันภัย</div>'
+    + '<div class="pf-row"><span style="margin-right:8pt">ยี่ห้อรถ</span><span class="pf-opts">'
+    +   MAKES.map(k => cb(makeUp === k, k)).join('') + '</span></div>'
+    + '<div class="pf-row pf-ind">' + cb(makeOther, 'อื่น ๆ (ระบุ)') + L(makeOther ? make : '', '0 0 45mm') + '</div>'
+    + '<div class="pf-row"><span>รุ่น</span>' + L(r.car_model, 1.6) + '<span>ปีรถ</span>' + L(r.car_year, .7) + '<span>สี</span>' + L('', .8)
+    +   '<span>ทะเบียนรถ</span>' + L([r.car_plate, r.car_province].filter(Boolean).join(' '), 1.6) + '</div>'
+    + '<div class="pf-row"><span style="margin-right:8pt">แบบตัวถัง</span><span class="pf-opts">'
+    +   cb(false, 'รถเก๋ง 2 ตอน') + cb(false, 'รถตู้โดยสารส่วนบุคคล') + cb(false, 'กระบะบรรทุก') + cb(false, 'รถยนต์อื่น ๆ') + '</span></div>'
+    + '<div class="pf-row"><span>ขนาดเครื่องยนต์ (cc.)</span>' + L('', '0 0 30mm') + '<span>cc</span></div>'
+    + '<div class="pf-row"><span>หมายเลขตัวถัง</span>' + L(r.car_vin, 1.3) + '<span>หมายเลขเครื่องยนต์</span>' + L('', 1) + '</div>'
+    + '<div class="pf-row"><span>ทุนประกัน</span>' + L('', .8, 'r') + '<span>บาท</span><span>เลขที่ พรบ.</span>' + L('', 1.2) + '<span>เลขที่สติกเกอร์</span>' + L('', 1.2) + '</div>'
+    + '<div class="pf-row"><span>วันที่คุ้มครอง</span>' + L(dStart ? thDay(dStart) : '', 1) + '<span>วันคุ้มครองสิ้นสุด</span>' + L(dEnd ? thDay(dEnd) : '', 1) + '</div>'
+    + (r.quote_insurer ? '<div class="pf-row"><span>บริษัทประกันภัย</span>' + L(r.quote_insurer, 1) + '</div>' : '')
+    + '<div class="pf-row"><span style="margin-right:8pt">ลักษณะการใช้รถ</span><span class="pf-opts">'
+    +   cb(false, 'ส่วนบุคคลไม่ใช้รับจ้างหรือให้เช่า') + cb(false, 'ส่วนบุคคลใช้รับจ้างหรือให้เช่า') + '</span></div>'
+    + '<div class="pf-3"><div>' + L('') + '<small>วันที่แจ้งประกันภัย</small></div>'
+    +   '<div>' + L('') + '<small>เลขที่รับแจ้ง</small></div>'
+    +   '<div>' + L(r.assigned_to ? agentName(r.assigned_to) : '') + '<small>เจ้าหน้าที่ประกันภัย (ผู้แจ้ง)</small></div></div>'
+    + '<div class="pf-prem">'
+    +   premRow('ประเภท 1', mainVals(T1)) + premRow('ประเภท 3', mainVals(T3))
+    +   (typ && typ !== ACT && typ !== T1 && typ !== T3
+          ? '<div class="pf-oth">ประเภทอื่น: <b>' + esc(typ) + '</b></div>' + premRow('อื่น ๆ', [r.quote_net, r.quote_gross, r.quote_disc]) : '')
+    +   premRow('พรบ.', act)
+    + '</div>'
+    + '<div class="pf-total"><span>รวมเงินที่ต้องชำระหลังหักส่วนลด</span>' + L(m(sumAll), 1, 'r') + '<span>บาท</span></div>'
+    + '</div>'
+    // ---- กรอบ 3: การชำระเงิน ----
+    + '<div class="pf-frame"><div class="pf-pay"><div>'
+    +   '<div class="pf-row"><span>การชำระเงิน วันที่</span>' + L('', '0 0 42mm') + '</div>'
+    +   '<div class="pf-row">' + cb(false, 'เงินสด จำนวน') + L('', .8, 'r') + '<span>บาท เลขที่ใบเสร็จรับเงิน</span>' + L(r.receipt_no, 1.2) + '</div>'
+    +   '<div class="pf-row">' + cb(false, 'บัตรเครดิต (หากชำระด้วยบัตรเครดิตผู้ทำประกันยินดีชำระค่าธรรมเนียมของบัตรนั้น ๆ)') + '</div>'
+    +   (r.quote_note ? '<div class="pf-row"><span>บันทึก</span>'
+          + L(String(r.quote_note).replace(WTAG, 'สวัสดิการพนักงาน: $1 · ').replace(/ · $/, '')) + '</div>' : '')
+    +   '<div class="pf-fine"><u>หมายเหตุ</u> : ชำระทันทีเมื่อเจ้าหน้าที่แผนกการเงินแจ้งยอดตามใบวางบิลของบริษัทประกันภัยนั้น ๆ (ไม่มีเครดิต)</div>'
+    + '</div><div class="pf-box">ผู้รับเงิน</div></div></div>'
+    + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no)
+    +   (r.assigned_to ? ' · ผู้ดูแล ' + esc(agentName(r.assigned_to)) : '') + '</span>'
+    +   '<span>พิมพ์เมื่อ ' + esc(thDate(now.toISOString())) + '</span></div>'
+    + '</div>';
+}
 function printSheet(r){
+  if(brandOf(r) === 'hino') return printSheetHino(r);       // ฮีโน่ใช้ฟอร์มกระดาษคนละแบบ
   const L  = (v, flex, cls) => '<span class="pl' + (cls ? ' ' + cls : '') + '"' + (flex ? ' style="' + (typeof flex === 'number' ? 'flex-grow:' + flex : 'flex:' + flex) + '"' : '') + '>' + esc(v == null ? '' : v) + '</span>';
   const cb = (on, label) => '<span><span class="pc' + (on ? ' on' : '') + '"></span>' + esc(label) + '</span>';
   const m  = v => (v == null || v === '') ? '' : fmtBaht(v);
@@ -1591,6 +1729,13 @@ function fitSheet(ps){
     const min = fs * .8;
     while(over(pl) && fs > min){ fs -= .25; pl.style.fontSize = fs + 'px'; }
   });
+  /* ใบของฮีโน่แถวเยอะ — ถ้ามีแถวเสริม (ประเภทอื่น / บันทึก) แล้วสูงเกินหน้า A4 (275 มม. หลังหักขอบ) ให้ย่อทั้งใบลงพอดีแผ่นเดียว */
+  const h = ps.querySelector('.pfh');
+  if(h){
+    h.style.zoom = '';
+    const mm = h.offsetHeight / 96 * 25.4, max = 270;
+    if(mm > max) h.style.zoom = Math.max(.85, max / mm).toFixed(3);
+  }
   ps.style.cssText = '';
 }
 const PAGE_TITLE = document.title;
