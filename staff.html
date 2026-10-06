@@ -141,7 +141,89 @@
 .qdate-th.ok{color:var(--good-ink)}
 .qdate-th.warn{color:var(--warn-ink)}
 .qdate-th.bad{color:var(--bad-ink)}
-.qdate-th.empty{color:var(--muted);font-weight:400}
+.qdate-th.idle{color:var(--muted);font-weight:400}   /* ⚠️ ห้ามใช้ชื่อ .empty — ชนกับกล่อง "ยังไม่มีรายการ" (padding 38px) ทำให้เกิดที่ว่างก้อนใหญ่ใต้ช่องวันที่ */
+.qdate-quick{display:flex;gap:6px;flex-wrap:wrap}
+/* ---------- แท็บเสนอราคา: ลำดับขั้น · ป้ายค่าที่ระบบคิดให้ · แถบยอดรวม+บันทึกติดล่าง (2026-10-06) ---------- */
+.qn{display:inline-grid;place-items:center;flex:none;width:20px;height:20px;margin-right:8px;border-radius:50%;
+  background:var(--ink);color:#fff;font-size:11.5px;font-weight:700;font-style:normal;line-height:1}
+.qauto{font-style:normal;font-size:10.5px;font-weight:700;color:var(--good-ink);background:var(--good-soft);
+  border-radius:999px;padding:1px 7px;margin-left:6px;white-space:nowrap}
+/* ---------- หน้าตาแท็บเสนอราคา (2026-10-06) ----------
+   การ์ดขาวมีหัว แทนกล่องเทาเรียบ · ตัวเลขใหญ่ขึ้นและชิดขวาเป็นคอลัมน์ · ค่าที่ระบบคิดให้ = ช่องพื้นเขียวอ่อน
+   บรรทัดตรวจที่ "ผ่าน" เงียบลง (ไม่มีพื้น) ให้บรรทัดเตือนสีอำพันเด่นขึ้นมาแทน
+   ⚠️ ห้ามใส่ overflow:hidden ที่ .qpr — เมนูเลือกบริษัท/ประเภท (csel) กางออกนอกการ์ด จะโดนตัด */
+#vp-quote .qpr{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:0 0 14px;margin-bottom:12px;
+  box-shadow:0 1px 2px rgba(34,28,29,.04),0 8px 18px -14px rgba(34,28,29,.22)}
+#vp-quote .qpr-h{align-items:center;margin:0 0 12px;padding:10px 14px;background:var(--panel-2);
+  border-bottom:1px solid var(--line-soft);border-radius:13px 13px 0 0}
+#vp-quote .qpr-h b{display:flex;align-items:center;font-size:14px}
+#vp-quote .qpr-h span{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;white-space:normal}
+#vp-quote .qpr-h span::after{content:attr(data-note);font-size:11px;color:var(--muted)}
+#vp-quote .qpr-h i{padding:3px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);
+  font-size:13.5px;color:var(--ink);white-space:nowrap}
+#vp-quote .qpr-h i.bad{color:var(--bad-ink);border-color:var(--red-100)}
+#vp-quote .qpr > .grid{padding:0 14px}
+#vp-quote .qpr > .qdisc-chk{margin:9px 14px 0}
+#vp-quote .qpr .qdate{margin:13px 14px 0;padding-top:12px;border-top:1px solid var(--line-soft)}
+#vp-quote .qpr input.baht{font-size:16px;font-weight:600;letter-spacing:.01em}
+#vp-quote .qpr input.baht::placeholder{font-weight:400;color:#b3a8aa}
+#vp-quote .qpr label.f:has(.qauto:not([hidden])) input{background:#f6fbf5;border-color:#cfe4cb}
+#vp-quote .qpr label.f:has(.qauto:not([hidden])) input:focus{border-color:var(--accent)}
+#vp-quote .qn{background:var(--accent-soft);color:var(--accent-ink);border:1px solid var(--red-100);width:22px;height:22px}
+#vp-quote .qhint{margin:-4px 2px 12px;font-size:12px}
+/* บรรทัดตรวจ: ผ่าน = ตัวหนังสือเขียวเฉย ๆ · ไม่ผ่าน = แถบอำพันมีขอบซ้าย */
+#vp-quote .qdisc-chk{font-size:12px;font-weight:600;padding:0;border-radius:0;background:none;font-variant-numeric:tabular-nums}
+#vp-quote .qdisc-chk.ok{color:var(--good-ink)}
+#vp-quote .qdisc-chk.warn{padding:8px 11px;border-radius:8px;background:var(--warn-soft);box-shadow:inset 3px 0 0 #d99a2b}
+#vp-quote .qdisc-chk.info{padding:8px 11px;border-radius:8px;background:var(--panel-2)}
+#vp-quote > .qdisc-chk{margin:-4px 2px 12px}
+/* ช่วงคุ้มครอง: ป้ายสถานะแทนตัวหนังสือลอย */
+#vp-quote .qdate-s{margin-top:10px}
+#vp-quote .qdate-th{flex:0 1 auto;margin-right:auto;padding:4px 11px;border-radius:999px;font-size:12px;background:var(--panel-2)}
+#vp-quote .qdate-th.ok{background:var(--good-soft)}
+#vp-quote .qdate-th.warn{background:var(--warn-soft)}
+#vp-quote .qdate-th.bad{background:var(--bad-soft)}
+/* สวัสดิการ: การ์ดแบบเดียวกัน · ตัวเลือกที่เลือกอยู่เด่นด้วยขอบ+เงา ยอดส่วนลดเป็นป้าย */
+#vp-quote .qdisc{border-radius:14px;padding:0 14px 13px;margin:0 0 12px;
+  box-shadow:0 1px 2px rgba(34,28,29,.04),0 8px 18px -14px rgba(34,28,29,.22)}
+#vp-quote .qdisc-h{align-items:center;margin:0 -14px 12px;padding:10px 14px;background:var(--panel-2);
+  border-bottom:1px solid var(--line-soft);border-radius:13px 13px 0 0}
+#vp-quote .qdisc-h b{font-size:14px}
+#vp-quote .qdisc-opts{gap:8px}
+#vp-quote .qopt{border-radius:11px;min-height:48px;transition:border-color .16s var(--ease),background .16s var(--ease),box-shadow .16s var(--ease)}
+#vp-quote .qopt .v{padding:2px 9px;border-radius:999px;background:var(--panel-2);font-size:12.5px;color:var(--ink-soft)}
+#vp-quote .qopt:has(input:checked){box-shadow:0 0 0 1px var(--accent) inset,0 6px 14px -10px rgba(229,28,35,.55)}
+#vp-quote .qopt:has(input:checked) .v{background:var(--panel);color:var(--accent-ink)}
+#vp-quote .qopt:has(input:focus-visible){box-shadow:var(--ring)}
+@media (prefers-reduced-motion:reduce){ #vp-quote .qopt{transition:none} }
+@media (max-width:640px){
+  #vp-quote .qpr-h{flex-direction:row;flex-wrap:wrap;gap:6px 10px}
+  #vp-quote .qpr-h span{align-self:auto;margin-left:auto}
+  #vp-quote .qdisc-opts{grid-template-columns:1fr}
+}
+/* การ์ดเลื่อนทั้งใบ และแถบปุ่มท้ายการ์ด (.ft) ติดล่างอยู่แล้ว → แถบนี้ต้องลอยเหนือ .ft (--fth = ความสูง .ft วัดตอนเปิด) */
+.qbar{position:sticky;bottom:var(--fth,70px);z-index:1;display:flex;align-items:center;justify-content:space-between;
+  gap:8px 16px;flex-wrap:wrap;margin:14px -22px -16px;padding:10px 22px 11px;background:var(--panel);
+  border-top:1px solid var(--line);box-shadow:0 -12px 20px -16px rgba(34,28,29,.4);
+  background:linear-gradient(180deg,#fffafa,var(--panel) 70%)}
+.qbar-sum{display:flex;flex-direction:column;min-width:0}
+.qbar-sum span{font-size:11.5px;font-weight:600;color:var(--muted)}
+.qbar-sum b{font-size:23px;line-height:1.2;font-weight:700;letter-spacing:-.01em;color:var(--accent-ink);font-variant-numeric:tabular-nums}
+.qbar-sum b.bad{color:var(--bad-ink)}
+.qbar-sum small{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.qbar-act{display:flex;align-items:center;gap:12px;margin-left:auto}
+.qbar .qmeta{max-width:230px;text-align:right;line-height:1.45}
+.qmeta.dirty{color:var(--warn-ink);font-weight:700}
+.vpane.ro .qbar-act{display:none}
+@media (max-width:640px){
+  /* จอแคบ: ยอดรวมกับปุ่มอยู่บรรทัดเดียว สถานะลงบรรทัดล่าง — แถบนี้ซ้อนบนแถบปุ่มท้ายการ์ดอีกชั้น ต้องเตี้ยที่สุด */
+  .qbar{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding-top:8px;padding-bottom:8px}
+  .qbar-act{display:contents}
+  .qbar-act .btn{white-space:nowrap}
+  .qbar .qmeta{grid-column:1 / -1;grid-row:2;text-align:left;max-width:none}
+  .qbar-sum b{font-size:18px}
+  .qbar-sum small{display:none}
+}
 @media (max-width:640px){ .qdate-f{grid-template-columns:1fr} .qdate-same{width:100%} }
 
 /* ---------- เงื่อนไขส่วนลดในบล็อกเสนอราคา ---------- */
@@ -1023,8 +1105,9 @@ function quoteBlock(r){
   const insSel = insOther ? OTHER_VAL : (r.quote_insurer || '');
   const typSel = typOther ? OTHER_VAL : (r.quote_type || '');
   const opt = (v, lb, cur) => '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(lb) + '</option>';
-  const money = (id, lb, v) => '<label class="f c4">' + lb
-    + '<input id="' + id + '" class="baht" inputmode="decimal" autocomplete="off" placeholder="0.00"'
+  /* ป้าย "คำนวณให้" — โผล่เมื่อค่าในช่องเป็นค่าที่ระบบเติม (ไม่ใช่ที่เจ้าหน้าที่พิมพ์) ดู paintAuto ใน wireQuote */
+  const money = (id, lb, v) => '<label class="f c4">' + lb + '<i class="qauto" data-auto="' + id + '" hidden>คำนวณให้</i>'
+    + '<input id="' + id + '" class="baht" inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="0.00"'
     + ' value="' + esc(v == null || v === '' ? '' : fmtBaht(v)) + '"></label>';
   /* ช่องวันที่ = input hidden (ค่าจริง YYYY-MM-DD) + ปุ่มเปิดปฏิทินของเรา · near = เปิดปฏิทินใกล้ "วันเริ่ม + 1 ปี" ตอนยังว่าง */
   const dateField = (id, lb, val, near) => '<label class="f">' + lb
@@ -1035,7 +1118,7 @@ function quoteBlock(r){
     + '</button></label>';
   const row = (k, title, ids, vals, dId, dVal, eId, eVal) =>
       '<div class="qpr">'
-    +   '<div class="qpr-h"><b>' + esc(title) + '</b>'
+    +   '<div class="qpr-h"><b><em class="qn">' + (k === '1' ? 2 : 3) + '</em>' + esc(title) + '</b>'
     +     '<span>สุทธิที่ต้องชำระ <i id="qs' + k + '">—</i></span></div>'
     +   '<div class="grid" style="gap:10px">'
     +     money(ids[0], 'เบี้ยสุทธิ', vals[0])
@@ -1048,6 +1131,10 @@ function quoteBlock(r){
     +   '<div class="qdate">'
     +     '<div class="qdate-f">' + dateField(dId, 'วันเริ่มคุ้มครอง', dVal) + dateField(eId, 'วันสิ้นสุดความคุ้มครอง', eVal, dId) + '</div>'
     +     '<div class="qdate-s"><span class="qdate-th" id="' + dId + 'Th"></span>'
+    /* ทางลัดวันเริ่มคุ้มครอง: 2 ค่าที่ใช้บ่อยสุด ไม่ต้องเปิดปฏิทินไล่หา */
+    +       (k === '1' ? '<span class="qdate-quick" id="qQuick">'
+              + (r.old_policy_end ? '<button type="button" class="btn sm" data-d="' + esc(r.old_policy_end) + '">เริ่มวันที่เล่มเดิมหมด</button>' : '')
+              + '<button type="button" class="btn sm" data-d="today">เริ่มวันนี้</button></span>' : '')
     +       (k === '2' ? '<button type="button" class="btn sm qdate-same" id="qASame">ใช้วันเดียวกับประกันภัย</button>' : '')
     +     '</div>'
     +   '</div>'
@@ -1056,6 +1143,7 @@ function quoteBlock(r){
     /* ผู้กรอก/ใบต่ออายุบอกวันหมดอายุเล่มเดิมมา → ตั้งวันเริ่มคุ้มครองได้เลย ไม่ต้องเปิดไฟล์กรมธรรม์เก่า */
     + (r.old_policy_end ? '<p class="q-oldend">กรมธรรม์เดิมหมดอายุ ' + esc(oldEndTxt(r.old_policy_end))
         + ' — ความคุ้มครองใหม่ควรเริ่มวันนี้ ไม่ให้มีช่วงที่รถไม่มีประกัน</p>' : '')
+    + '<div class="qpr qpr-top"><div class="qpr-h"><b><em class="qn">1</em>บริษัทและประเภทประกัน</b></div>'
     + '<div class="grid" style="gap:11px">'
     +   '<label class="f c6">บริษัทประกัน<select id="qIns">'
     +     opt('', '— ยังไม่ระบุ —', insSel)
@@ -1071,19 +1159,20 @@ function quoteBlock(r){
     +     '<input id="qInsOther" maxlength="120" autocomplete="off" value="' + esc(insOther ? r.quote_insurer : '') + '"></label>'
     +   '<label class="f c6" id="qTypOtherBox"' + (typOther ? '' : ' hidden') + '>ระบุประเภทประกัน'
     +     '<input id="qTypOther" maxlength="120" autocomplete="off" value="' + esc(typOther ? r.quote_type : '') + '"></label>'
-    + '</div>'
-    + '<p class="qhint">กรอกเบี้ยสุทธิ ระบบคิดเบี้ยรวมให้ (สุทธิ + อากร 0.4% + VAT 7%) · แก้ตัวเลขเองได้ถ้าใบของบริษัทประกันไม่ตรง · ช่องที่ไม่มีเว้นว่างได้</p>'
+    + '</div></div>'
+    + '<p class="qhint">กรอกแค่เบี้ยสุทธิ — เบี้ยรวมและส่วนลดระบบคิดให้ แก้เองได้ทุกช่อง · ไม่มีรายการไหนเว้นว่างได้</p>'
     + row('1', 'ประกันภัย (ภาคสมัครใจ)', ['qNet','qGross','qDisc'],    [r.quote_net, r.quote_gross, r.quote_disc], 'qStart', r.quote_start, 'qEnd', r.quote_end)
     + discBlock(r)
     + row('2', 'พ.ร.บ. (ภาคบังคับ)',     ['qANet','qAGross','qADisc'], [r.quote_act_net, r.quote_act_gross, r.quote_act_disc], 'qAStart', r.quote_act_start, 'qAEnd', r.quote_act_end)
     + (r.kind === 'refer' ? '' : '<p class="qdisc-chk" id="qActChk" hidden></p>')
-    + '<div class="qpr-tot"><span>รวมทั้งสิ้นที่ต้องชำระ</span><b id="qTotal">—</b></div>'
     + '<div class="grid" style="gap:11px;margin-top:11px">'
     +   '<label class="f c12">หมายเหตุการเสนอราคา<input id="qNote" maxlength="230" autocomplete="off"'
     +     ' placeholder="เช่น ทุน 200,000 · ซ่อมอู่" value="' + esc(noteText(r.quote_note)) + '"></label>'
     + '</div>'
-    + '<div class="qact"><button class="btn primary" id="qSave">บันทึกข้อมูลเสนอราคา</button>'
-    +   '<span class="qmeta" id="qMeta">' + esc(quoteMeta(r)) + '</span></div>';
+    /* ยอดรวม + ปุ่มบันทึก ติดล่างตลอด — เดิมอยู่ท้ายแท็บ ต้องเลื่อนลงไปหาทุกครั้ง และไม่เห็นยอดระหว่างกรอก */
+    + '<div class="qbar"><div class="qbar-sum"><span>รวมทั้งสิ้นที่ต้องชำระ</span><b id="qTotal">—</b><small id="qParts"></small></div>'
+    +   '<div class="qbar-act"><span class="qmeta" id="qMeta" role="status">' + esc(quoteMeta(r)) + '</span>'
+    +   '<button class="btn primary" id="qSave">บันทึกเสนอราคา</button></div></div>';
 }
 
 function wireQuote(r){
@@ -1097,10 +1186,14 @@ function wireQuote(r){
     const x2 = (num('qAGross') || 0) - (num('qADisc') || 0);
     const s1 = has1 ? payCeil(x1) : 0, s2 = has2 ? payCeil(x2) : 0;
     const t  = s1 + s2;
-    const was = (x, s) => Math.abs(s - x) >= .005 ? ' · ปัดจาก ' + fmtBaht(x) : '';
-    $('qs1').textContent = has1 ? fmtBaht(s1) + ' บาท' + was(x1, s1) : '—';
-    $('qs2').textContent = has2 ? fmtBaht(s2) + ' บาท' + was(x2, s2) : '—';
+    const was = (x, s) => Math.abs(s - x) >= .005 ? 'ปัดขึ้นจาก ' + fmtBaht(x) : '';
+    [['qs1', has1, s1, x1], ['qs2', has2, s2, x2]].forEach(([id, has, sv, xv]) => {
+      $(id).textContent = has ? fmtBaht(sv) + ' บาท' : '—';
+      $(id).title = has ? was(xv, sv) : '';
+      $(id).parentNode.dataset.note = has ? was(xv, sv) : '';
+    });
     $('qTotal').textContent = (has1 || has2) ? fmtBaht(t) + ' บาท' : '—';
+    $('qParts').textContent = (has1 && has2) ? 'ประกันภัย ' + fmtBaht(s1) + ' + พ.ร.บ. ' + fmtBaht(s2) : '';
     $('qs1').classList.toggle('bad', s1 < 0);
     $('qs2').classList.toggle('bad', s2 < 0);
     $('qTotal').classList.toggle('bad', t < 0);
@@ -1205,8 +1298,34 @@ function wireQuote(r){
     const b = h.querySelector('button');
     if(b) b.onclick = () => { setGross($(gid), c.gross); onMoney(); };
   });
-  const onMoney = () => { followGross(); follow(); followAct(); recalc(); discUpd(); actUpd(); grossUpd(); paintPrint(r); };
+  const paintAuto = () => document.querySelectorAll('#vp-quote .qauto').forEach(t => {
+    const e = $(t.dataset.auto);
+    t.hidden = !(e && e.value !== '' && e.dataset.auto != null && e.value === e.dataset.auto);
+  });
+  const onMoney = () => { followGross(); follow(); followAct(); recalc(); discUpd(); actUpd(); grossUpd(); paintAuto(); paintPrint(r); };
   ['qNet','qGross','qDisc','qANet','qAGross','qADisc'].forEach(id => bindBaht($(id), onMoney));
+  /* Enter = ไปช่องเงินถัดไป (ข้ามช่องที่ล็อก) · ช่องสุดท้ายไปหมายเหตุ — กรอกจากใบเสนอราคาได้โดยไม่ต้องจับเมาส์ */
+  { const order = ['qNet','qGross','qDisc','qANet','qAGross','qADisc','qNote'];
+    order.forEach((id, i) => $(id).addEventListener('keydown', e => {
+      if(e.key !== 'Enter' || e.isComposing) return;
+      e.preventDefault();
+      const nx = order.slice(i + 1).map(x => $(x)).find(x => !x.readOnly && !x.disabled);
+      if(nx){ nx.focus(); if(nx.select) nx.select(); } else $('qSave').focus();
+    })); }
+  /* ทางลัดวันเริ่มคุ้มครอง */
+  document.querySelectorAll('#qQuick button').forEach(b => b.onclick = () => {
+    const d = new Date();
+    const iso = b.dataset.d === 'today'
+      ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+      : b.dataset.d;
+    $('qStart').value = iso;
+    $('qStart').dispatchEvent(new Event('change'));
+  });
+  /* แถบยอดรวมต้องลอยเหนือแถบปุ่มท้ายการ์ด — วัดความสูงจริง (จอแคบปุ่มตกบรรทัด สูงไม่เท่ากัน) */
+  { const ft = document.querySelector('#ovView .ft'), pane = $('vp-quote');
+    const fit = () => { if(ft && pane.isConnected) pane.style.setProperty('--fth', ft.offsetHeight + 'px'); };
+    fit();
+    if(window.ResizeObserver && ft){ if(wireQuote.ro) wireQuote.ro.disconnect(); wireQuote.ro = new ResizeObserver(fit); wireQuote.ro.observe(ft); } }
   ['qIns','qTyp','qInsOther','qTypOther','qNote'].forEach(id => {
     $(id).addEventListener('input', () => paintPrint(r));
     $(id).addEventListener('change', () => paintPrint(r));
@@ -1247,7 +1366,7 @@ function wireQuote(r){
   /* วันสิ้นสุด: เลือกวันเริ่มแล้วเติม "วันเริ่ม + 1 ปี" ให้เอง (dataset.auto) — ถ้าเจ้าหน้าที่เลือกวันสิ้นสุดเอง ไม่ทับ */
   const PAIRS = [['qStart', 'qEnd', 'qStartTh'], ['qAStart', 'qAEnd', 'qAStartTh']];
   const period = (s, e) => {
-    if(!s && !e) return ['empty', 'ยังไม่ได้เลือกวัน'];
+    if(!s && !e) return ['idle', 'ยังไม่ได้เลือกวันคุ้มครอง'];
     if(!s) return ['warn', 'ยังไม่ได้เลือกวันเริ่มคุ้มครอง'];
     if(!e) return ['warn', 'ยังไม่ได้เลือกวันสิ้นสุด'];
     if(e <= s) return ['bad', 'วันสิ้นสุดต้องหลังวันเริ่มคุ้มครอง'];
@@ -1291,6 +1410,7 @@ function wireQuote(r){
   discUpd();
   actUpd();
   grossUpd();
+  paintAuto();
   recalc();
   csel($('qIns')); csel($('qTyp'));
   const syncOther = ()=>{
@@ -1348,7 +1468,6 @@ function wireQuote(r){
         $('vSt').dispatchEvent(new Event('change'));      /* ให้ป้ายบนดรอปดาวน์ของเราเองตามด้วย */
       }
       renderList();
-      $('qMeta').textContent = quoteMeta(r);
       paintHead(r);                                       // บันทึกเบี้ยแล้วเซิร์ฟเวอร์เลื่อนเป็น "เสนอราคาแล้ว" → ขั้นสถานะด้านบนตามทันที
       paintPrint(r);
       toast(res.cleared ? 'ล้างข้อมูลเสนอราคาแล้ว'
@@ -1398,6 +1517,11 @@ function paintPrint(r){
   $('vCom').setAttribute('aria-disabled', comWhy ? 'true' : 'false');
   $('vCom').title = comWhy;
   $('vPrintHint').textContent = why || (isRef && comWhy ? 'ใบค่าคอม: ' + comWhy : '');
+  /* สถานะข้างปุ่มบันทึก: แก้แล้วยังไม่กดบันทึก = เตือนสีอำพัน (เดิมไม่บอกอะไร ปิดหน้าต่างแล้วงานหาย) */
+  const qm = $('qMeta');
+  if(qm){ const dirty = quoteDirty(r);
+    qm.textContent = dirty ? 'แก้ไขแล้ว ยังไม่ได้บันทึก' : quoteMeta(r);
+    qm.classList.toggle('dirty', dirty); }
   const qt = $('vt-quote');                              // แท็บเสนอราคา: ✓ เมื่อบันทึกแล้ว
   if(qt) qt.classList.toggle('ok', !!r.quote_at);
 }
