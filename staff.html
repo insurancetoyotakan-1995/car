@@ -166,6 +166,7 @@
 .qdisc-chk.ok{background:var(--good-soft);color:var(--good-ink)}
 .qdisc-chk.warn{background:var(--warn-soft);color:var(--warn-ink)}
 .qdisc-chk.info{background:var(--panel-2);color:var(--ink-soft)}
+.qdisc-chk .linkbtn{background:none;border:0;padding:0 0 0 4px;font:inherit;font-weight:700;color:inherit;text-decoration:underline;cursor:pointer}
 /* รถคันที่ 2 — แถบเตือนในบล็อกสวัสดิการ · เลือกสวัสดิการอื่นอยู่ = ขอบเข้ม */
 .qcar2{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:10px 12px;border-radius:8px;
   background:var(--warn-soft);color:var(--warn-ink);border:1px solid #efdfc0;font-size:12.5px;line-height:1.55}
@@ -720,6 +721,18 @@ const WELFARE = [
 const ACT_PCT = 10;
 const WTAG = /^\[สวัสดิการ: ([^\]]*)\]\s*/;
 const round2 = n => Math.round(n * 100) / 100;
+/* เบี้ยรวม = เบี้ยสุทธิ + อากรแสตมป์ + VAT (ผู้ใช้สั่ง 2026-10-06)
+     อากร = 0.4% ของเบี้ยสุทธิ เศษของบาทปัดขึ้นเป็น 1 บาท (ประมวลรัษฎากร — กรมธรรม์ประกันวินาศภัย 1 บาท ต่อเบี้ย 250 บาทหรือเศษ)
+     VAT  = 7% ของ (เบี้ยสุทธิ + อากร)
+   ตรวจกับใบจริงในระบบแล้ว: 23,583.00 → อากร 95 → 25,335.46 · พ.ร.บ. 600.00 → อากร 3 → 645.21
+   🔑 เป็นค่า "ตั้งต้น" — บริษัทประกันบางแห่งปัดต่างกัน 1 สตางค์ เจ้าหน้าที่พิมพ์ทับได้ ระบบไม่เขียนทับของที่พิมพ์เอง */
+const STAMP_PCT = 0.4, VAT_PCT = 7;
+function grossOf(net){
+  if(net == null || isNaN(net) || net < 0) return null;
+  const stamp = Math.ceil(round2(net * STAMP_PCT * 10) / 1000 - 1e-9);   // คูณเป็นจำนวนเต็มก่อนหาร กันทศนิยมเพี้ยน
+  const vat = round2((net + stamp) * VAT_PCT / 100);
+  return { stamp, vat, gross: round2(net + stamp + vat) };
+}
 /* จับคู่ป้ายในหมายเหตุกับรายการสวัสดิการ — เทียบทั้งป้ายปัจจุบันและป้ายเดิม (w.alt) */
 const noteWelfare = note => { const m = WTAG.exec(note || ''); if(!m) return null;
   return WELFARE.find(w => w.label === m[1] || (w.alt || []).includes(m[1])) || null; };
@@ -1029,6 +1042,7 @@ function quoteBlock(r){
     +     money(ids[1], 'เบี้ยรวม',  vals[1])
     +     money(ids[2], 'ส่วนลด',    vals[2])
     +   '</div>'
+    +   '<p class="qdisc-chk" id="qg' + k + '" hidden></p>'
     /* วันเริ่มคุ้มครอง — ปฏิทินของเราเอง (dpOpen) · ค่าจริงอยู่ใน input hidden รูปแบบ YYYY-MM-DD
        ข้าง ๆ แสดงช่วงคุ้มครองเป็น พ.ศ. (ครบ 1 ปี) */
     +   '<div class="qdate">'
@@ -1058,7 +1072,7 @@ function quoteBlock(r){
     +   '<label class="f c6" id="qTypOtherBox"' + (typOther ? '' : ' hidden') + '>ระบุประเภทประกัน'
     +     '<input id="qTypOther" maxlength="120" autocomplete="off" value="' + esc(typOther ? r.quote_type : '') + '"></label>'
     + '</div>'
-    + '<p class="qhint">เบี้ยสุทธิ = ก่อนอากรแสตมป์และภาษี · เบี้ยรวม = ยอดก่อนหักส่วนลด · ช่องที่ไม่มีเว้นว่างได้</p>'
+    + '<p class="qhint">กรอกเบี้ยสุทธิ ระบบคิดเบี้ยรวมให้ (สุทธิ + อากร 0.4% + VAT 7%) · แก้ตัวเลขเองได้ถ้าใบของบริษัทประกันไม่ตรง · ช่องที่ไม่มีเว้นว่างได้</p>'
     + row('1', 'ประกันภัย (ภาคสมัครใจ)', ['qNet','qGross','qDisc'],    [r.quote_net, r.quote_gross, r.quote_disc], 'qStart', r.quote_start, 'qEnd', r.quote_end)
     + discBlock(r)
     + row('2', 'พ.ร.บ. (ภาคบังคับ)',     ['qANet','qAGross','qADisc'], [r.quote_act_net, r.quote_act_gross, r.quote_act_disc], 'qAStart', r.quote_act_start, 'qAEnd', r.quote_act_end)
@@ -1169,7 +1183,29 @@ function wireQuote(r){
       : 'ส่วนลด พ.ร.บ. ในช่อง ' + fmtBaht(disc || 0) + ' บาท ไม่ตรงสวัสดิการพนักงาน ('
         + ACT_PCT + '% ของเบี้ยสุทธิ = ' + fmtBaht(w) + ' บาท)';
   }
-  const onMoney = () => { follow(); followAct(); recalc(); discUpd(); actUpd(); paintPrint(r); };
+  /* ---- เบี้ยรวมอัตโนมัติ (ดู grossOf) ----
+     ช่องเบี้ยรวมยังว่าง/ยังเป็นค่าที่ระบบเติม → คิดตามเบี้ยสุทธิให้ · เจ้าหน้าที่พิมพ์เองแล้ว ไม่ทับ แต่บอกว่าต่างจากที่คำนวณ + ปุ่มใช้ค่าที่คำนวณ */
+  const GROSS = [['qNet', 'qGross', 'qg1'], ['qANet', 'qAGross', 'qg2']];
+  const setGross = (g, v) => { g.value = v == null ? '' : fmtBaht(v); g.dataset.auto = g.value; };
+  const followGross = () => GROSS.forEach(([n, gid]) => {
+    const g = $(gid), c = grossOf(num(n));
+    const untouched = g.dataset.auto == null ? g.value.trim() === '' : g.value === g.dataset.auto;
+    if(untouched) setGross(g, c ? c.gross : null);
+  });
+  const grossUpd = () => GROSS.forEach(([n, gid, hid]) => {
+    const h = $(hid), c = grossOf(num(n)), cur = num(gid);
+    if(!c || !num(n)){ h.hidden = true; return; }
+    const parts = 'สุทธิ ' + fmtBaht(num(n)) + ' + อากร ' + fmtBaht(c.stamp) + ' + VAT ' + fmtBaht(c.vat) + ' = ' + fmtBaht(c.gross);
+    const ok = cur != null && Math.abs(cur - c.gross) < .005;
+    h.hidden = false;
+    h.className = 'qdisc-chk ' + (ok ? 'ok' : 'warn');
+    h.innerHTML = ok ? '✓ เบี้ยรวม: ' + esc(parts)
+      : 'เบี้ยรวมในช่อง ' + (cur == null ? 'ยังว่าง' : fmtBaht(cur) + ' บาท') + ' ไม่ตรงกับที่คำนวณ (' + esc(parts) + ') '
+        + '<button type="button" class="linkbtn" data-g="' + gid + '">ใช้ค่าที่คำนวณ</button>';
+    const b = h.querySelector('button');
+    if(b) b.onclick = () => { setGross($(gid), c.gross); onMoney(); };
+  });
+  const onMoney = () => { followGross(); follow(); followAct(); recalc(); discUpd(); actUpd(); grossUpd(); paintPrint(r); };
   ['qNet','qGross','qDisc','qANet','qAGross','qADisc'].forEach(id => bindBaht($(id), onMoney));
   ['qIns','qTyp','qInsOther','qTypOther','qNote'].forEach(id => {
     $(id).addEventListener('input', () => paintPrint(r));
@@ -1248,8 +1284,13 @@ function wireQuote(r){
   dateUpd();
   { const w = wantAct(); if(w != null && Math.abs((num('qADisc') || 0) - w) < .005) $('qADisc').dataset.auto = $('qADisc').value; }
   followAct();
+  /* เบี้ยรวมที่บันทึกไว้ตรงกับที่คำนวณ = ถือเป็นค่าที่ระบบเติม → แก้เบี้ยสุทธิแล้วตามให้ · ใบเก่าที่ตัวเลขต่าง ไม่แตะ */
+  GROSS.forEach(([n, gid]) => { const c = grossOf(num(n)), g = $(gid);
+    if(c && num(gid) != null && Math.abs(num(gid) - c.gross) < .005) g.dataset.auto = g.value; });
+  followGross();
   discUpd();
   actUpd();
+  grossUpd();
   recalc();
   csel($('qIns')); csel($('qTyp'));
   const syncOther = ()=>{
