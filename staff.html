@@ -2691,7 +2691,21 @@ const xAge = iso => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2}
   if(now.getMonth() + 1 < +m[2] || (now.getMonth() + 1 === +m[2] && now.getDate() < +m[3])) a--;
   return a; };
 /* [หมวด, หัวคอลัมน์, ดึงค่า, 'n' = ตัวเลข (ที่เหลือเป็นข้อความทั้งหมด)] — แก้คอลัมน์ที่นี่ที่เดียว ใช้ทั้ง 2 แบบ */
-const XSEC = { req:'ใบคำขอ', ins:'ผู้ทำประกันภัย', car:'รถและความคุ้มครอง', emp:'พนักงานผู้ยื่น / ผู้แนะนำ', quo:'เสนอราคา' };
+const XSEC = { req:'ใบคำขอ', ins:'ผู้ทำประกันภัย', car:'รถและความคุ้มครอง', emp:'พนักงานผู้ยื่น / ผู้แนะนำ', quo:'เสนอราคา',
+               com:'ค่าแนะนำลูกค้า' };
+/* ค่าแนะนำของพนักงานผู้แนะนำ (ผู้ใช้สั่ง 2026-11-17) — กติกาเดียวกับใบค่าคอม (comBlock / COM_REFERRER)
+     ใบแนะนำลูกค้า + ปิดการขาย + เบี้ยสุทธิภาคสมัครใจถึง COM_MIN → จ่าย COM_REFERRER · ไม่ถึง → 0
+     ยังไม่ปิดการขาย → ช่องเงินว่าง (ยังไม่รู้) · พนักงานทำประกันเอง = ไม่มีผู้แนะนำ ทุกช่องว่าง
+   🔑 ไม่ผูกกับการมีผู้ดูแล — ผู้ดูแลเป็นเงื่อนไขของค่าคอมเจ้าหน้าที่ ไม่ใช่ของค่าแนะนำ */
+function refFee(r){
+  if(r.kind !== 'refer') return null;
+  if(r.status === 'cancelled') return { fee: null, note: 'ยกเลิก — ไม่จ่าย' };
+  if(r.status !== 'done') return { fee: null, note: 'รอปิดการขาย' };
+  const n = Number(r.quote_net);
+  if(!(n > 0)) return { fee: null, note: 'ยังไม่ได้บันทึกเบี้ยสุทธิ' };
+  return n >= COM_MIN ? { fee: COM_REFERRER, note: 'จ่าย' }
+                      : { fee: 0, note: 'ไม่จ่าย — เบี้ยสุทธิไม่ถึง ' + COM_MIN_TXT };
+}
 const XCOLS = [
   ['req', 'เลขที่คำขอ',            r => r.no],
   ['req', 'บริษัท',                r => brandName(r)],
@@ -2744,6 +2758,9 @@ const XCOLS = [
   ['quo', 'เริ่มคุ้มครอง',           r => thDay(r.quote_start)],
   ['quo', 'สิ้นสุดคุ้มครอง',         r => thDay(r.quote_end)],
   ['quo', 'หมายเหตุเสนอราคา',       r => noteText(r.quote_note)],
+  ['com', 'ผู้แนะนำ',               r => r.kind === 'refer' ? [r.emp_name, r.emp_id && '(' + r.emp_id + ')'].filter(Boolean).join(' ') : ''],
+  ['com', 'ค่าแนะนำ (บาท)',         r => { const f = refFee(r); return f ? f.fee : null; }, 'n'],
+  ['com', 'สถานะค่าแนะนำ',          r => { const f = refFee(r); return f ? f.note : ''; }],
 ];
 /* ค่าว่าง = null (ช่องว่างจริงใน Excel ไม่ใช่ข้อความว่าง) · ข้อความ = String เสมอ แม้หน้าตาเป็นตัวเลข */
 const xVal = (c, r) => { const v = c[2](r);
