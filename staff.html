@@ -455,6 +455,39 @@
 #printSheet .kc-sign div{border:.8pt solid #000;padding:34pt 6pt 6pt;display:flex;flex-direction:column;gap:1.5pt}
 #printSheet .kc-sign u{text-decoration:none;border-top:.8pt solid #000;padding-top:3pt;margin:0 4pt;font-weight:600}
 #printSheet .kc-sign small{font-size:8.5pt;color:#333}
+
+/* ---------- ใบสำคัญจ่ายค่าแนะนำ (แผ่นที่ 3 ของใบค่าคอม · ผู้ใช้สั่ง 2026-11-18) ----------
+   เลย์เอาต์ยกมาจาก openPdf ของระบบใบสำคัญจ่าย (backups/backend/public/app.html) ให้หน้าตาเหมือนใบที่ฝ่ายการเงินใช้อยู่
+   ตัดช่องเลขที่เอกสารออก (ใบนี้ไม่ได้ออกเลขจากระบบใบสำคัญจ่าย) */
+#printSheet .kc + .pv{break-before:page;page-break-before:always}
+#printSheet .pv{font-family:"Sarabun",sans-serif;color:#000;font-size:12px;line-height:1.45;max-width:700px;margin:0 auto}
+#printSheet .pv table{width:100%;border-collapse:collapse}
+#printSheet .pv td{border:1px solid #1a1a4a;padding:5px 8px;vertical-align:top}
+#printSheet .pv > table + table{margin-top:-1px}
+#printSheet .pv .htitle{font-size:18px;font-weight:700;text-align:center;vertical-align:middle;position:relative}
+#printSheet .pv .htxt{position:relative;top:5mm;display:inline-block}
+#printSheet .pv .haddr{position:absolute;top:3px;left:0;right:0;text-align:left;font-size:12.5px;font-weight:400;line-height:1.35;
+  border-bottom:1px solid #1a1a4a;padding:0 6px 3px}
+#printSheet .pv .haddr > span{display:block}
+#printSheet .pv .haddr .hco{font-weight:600}
+#printSheet .pv .haddr .w{white-space:nowrap}
+#printSheet .pv .hmeta{width:49.15%;padding:0}
+#printSheet .pv .hmeta table{height:100%}
+#printSheet .pv .hmeta .lab{width:70px;font-weight:600;white-space:nowrap;font-size:13px}
+#printSheet .pv .hmeta tr:first-child td{border-top:none}
+#printSheet .pv .hmeta tr:last-child td{border-bottom:none}
+#printSheet .pv .hmeta td:first-child{border-left:none}
+#printSheet .pv .hmeta td:last-child{border-right:none}
+#printSheet .pv .ihead td{text-align:center;font-weight:700;font-size:13px}
+#printSheet .pv td.no{width:56px;text-align:center}
+#printSheet .pv td.amt{width:150px;text-align:right}
+#printSheet .pv .lbl{font-weight:600;white-space:nowrap;font-size:13px}
+#printSheet .pv .netrow td{font-weight:700;font-size:13px}
+#printSheet .pv .chk{display:inline-block;margin-right:18px;white-space:nowrap}
+#printSheet .pv .signs td{width:25%;height:96px;text-align:center;vertical-align:bottom;padding:8px 6px 10px}
+#printSheet .pv .sigbox{height:50px}
+#printSheet .pv .dots{border-top:1px dotted #000;margin-top:4px;padding-top:4px}
+#printSheet .pv .dots .srl{font-weight:600;margin-top:1px;font-size:11px}
 </style>
 
 <body class="ops">
@@ -1576,9 +1609,10 @@ function bahtText(n){
   const v = Math.round(Math.abs(Number(n) || 0) * 100), b = Math.floor(v / 100), st = v % 100;
   return (b ? read(String(b)) + 'บาท' : (st ? '' : 'ศูนย์บาท')) + (st ? read(String(st)) + 'สตางค์' : 'ถ้วน');
 }
-/* ใบค่าคอม — พิมพ์ 2 แผ่นต่อ 1 คำขอ (ผู้ใช้สั่ง 2026-09-21)
+/* ใบค่าคอม — พิมพ์ 3 แผ่นต่อ 1 คำขอ (ผู้ใช้สั่ง 2026-09-21 · แผ่นที่ 3 เพิ่ม 2026-11-18)
      แผ่นที่ 1 ใบสรุปค่าคอมมิชชั่น    → ผู้รับเงิน = เจ้าหน้าที่ประกัน
      แผ่นที่ 2 ใบสรุปค่าแนะนำลูกค้า   → ผู้รับเงิน = พนักงานผู้แนะนำ
+     แผ่นที่ 3 ใบสำคัญจ่ายค่าแนะนำ    → แบบฟอร์มฝ่ายการเงิน (pvSheet)
    🔑 แยกแผ่นเพราะเป็นการจ่ายเงินคนละคน ต้องแยกลายเซ็นผู้รับและแยกเก็บเข้าแฟ้มของใครของมัน
       (ของเดิมรวมใบเดียว 2 คนเซ็นแผ่นเดียวกัน แยกเอกสารตามผู้รับไม่ได้)
    ทั้ง 2 แผ่นใช้หัวเรื่อง/ข้อมูลการขาย/ตัวตรวจส่วนลด ชุดเดียวกัน ต่างกันที่รายการจ่ายกับลายเซ็น */
@@ -1657,7 +1691,7 @@ function comSheet(r){
     +   sign(p.who, p.signRole)
     +   sign(chkName, chkRole)
     + '</div>'
-    + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no) + ' · แผ่นที่ ' + n + ' / 2</span>'
+    + '<div class="pf-foot"><span>พิมพ์จากระบบคำขอประกันภัย · ' + esc(r.no) + ' · แผ่นที่ ' + n + ' / 3</span>'
     +   '<span>พิมพ์เมื่อ ' + esc(printed) + '</span></div>'
     + '</div>';
 
@@ -1685,7 +1719,61 @@ function comSheet(r){
              'จ่ายเมื่อเบี้ยสุทธิภาคสมัครใจตั้งแต่ ' + COM_MIN_TXT + ' บาทขึ้นไป — ต่ำกว่านี้ไม่จ่ายทั้งค่าคอมและค่าแนะนำ',
              'ส่วนลดพิเศษลูกค้า: เบี้ยสุทธิ 12,000–18,000 ลด 500 บาท · มากกว่า 18,000 ลด 800 บาท',
              'พนักงานบริษัทต่อประกันเอง ไม่ถือเป็นการแนะนำลูกค้า (NO COM)',
-             'ค่าคอมมิชชั่นของเจ้าหน้าที่ประกัน อยู่ในใบแผ่นที่ 1 แยกต่างหาก'] });
+             'ค่าคอมมิชชั่นของเจ้าหน้าที่ประกัน อยู่ในใบแผ่นที่ 1 แยกต่างหาก'] })
+    + pvSheet(r);
+}
+/* แผ่นที่ 3 — ใบสำคัญจ่ายค่าแนะนำ ตามแบบฟอร์มของฝ่ายการเงิน (ตัวอย่าง TKCHO-2611-273 · ผู้ใช้สั่ง 2026-11-18)
+     ตัดเลขที่เอกสาร · จ่ายให้ = พนักงานผู้แนะนำ · รายการ = ค่าแนะนำ + ทะเบียนรถ + เลขตัวถัง
+   🔑 ช่องที่เหลือใช้ค่าตามตัวอย่าง (แผนกขาย · ไม่มี PR/PO · บันทึกภายใน 006/2569 · จ่ายเงินสด) — เปลี่ยนเมื่อไรแก้ PV_FIX ที่เดียว
+   🔑 ที่อยู่หัวใบ = สาขาของเจ้าหน้าที่ผู้ดูแล (หลักแรกของรหัส) เหมือนระบบใบสำคัญจ่ายที่ใช้สาขาของผู้ส่ง
+      ฮีโน่ไม่มีที่อยู่ในระบบ → แสดงชื่อบริษัทอย่างเดียว */
+const PV_FIX = { dept: 'แผนกขาย', payType: 'ไม่มี PR/PO', remark: 'บันทึกภายใน 006/2569' };
+const PV_ADDR = {
+  '1': '22 หมู่ 1 ต.ท่าล้อ อ.ท่าม่วง จ.กาญจนบุรี 71000 (สำนักงานใหญ่)',
+  '2': '39 หมู่ 7 ต.ดอนขมิ้น อ.ท่ามะกา จ.กาญจนบุรี 71120 (ท่ามะกา)',
+  '3': '333 หมู่ 9 ต.รางหวาย อ.พนมทวน จ.กาญจนบุรี 71170 (พนมทวน)',
+};
+function pvSheet(r){
+  const cell = s => (s == null || s === '') ? '&nbsp;' : esc(s);
+  const nb = s => String(s || '').split(' ').filter(Boolean).map(w => '<span class="w">' + esc(w) + '</span>').join(' ');
+  const hino = brandOf(r) === 'hino';
+  const addr = hino ? '' : (PV_ADDR[String(r.assigned_to || '').charAt(0)] || PV_ADDR['1']);
+  const d = new Date(), p2 = x => String(x).padStart(2, '0');
+  const today = p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + (d.getFullYear() + 543);
+  const amt = fmtBaht(COM_REFERRER);
+  const plate = [r.car_plate, r.car_province].filter(Boolean).join(' ');
+  const row = (no, desc, money) => '<tr><td class="no">' + no + '</td><td>' + cell(desc) + '</td><td class="amt">' + (money || '&nbsp;') + '</td></tr>';
+  const sig = role => '<td><div class="sigbox"></div><div class="dots"><div class="srl">' + esc(role) + '</div></div></td>';
+  return '<div class="pv">'
+    + '<table><tr>'
+    +   '<td class="htitle"><div class="haddr"><span class="hco">' + nb(BRAND_CO[brandOf(r)]) + '</span>'
+    +     (addr ? '<span>' + nb(addr) + '</span>' : '') + '</div><span class="htxt">ใบสำคัญจ่าย</span></td>'
+    +   '<td class="hmeta"><table>'
+    +     '<tr><td class="lab">วันที่สร้างเอกสาร</td><td>' + today + '</td></tr>'
+    +     '<tr><td class="lab">จ่ายให้</td><td>' + cell(r.emp_name) + '</td></tr>'
+    +     '<tr><td class="lab">แผนก</td><td>' + cell(PV_FIX.dept) + '</td></tr>'
+    +     '<tr><td class="lab">ประเภทเบิกเงิน</td><td>' + cell(PV_FIX.payType) + '</td></tr>'
+    +     '<tr><td class="lab">ชื่อบัญชี</td><td>&nbsp;</td></tr>'
+    +   '</table></td>'
+    + '</tr></table>'
+    + '<table>'
+    +   '<tr class="ihead"><td class="no">ลำดับ</td><td>รายการ</td><td class="amt">จำนวนเงิน</td></tr>'
+    +   row(1, 'ค่าแนะนำ', amt)
+    +   row('', 'เลขทะเบียนรถยนต์ ' + (plate || '-'))
+    +   row('', 'เลขตัวถัง ' + (r.car_vin || '-'))
+    +   row('', '') + row('', '')
+    +   '<tr class="netrow"><td class="lbl">รวมเงิน</td><td>(' + esc(bahtText(COM_REFERRER)) + ')</td><td class="amt">' + amt + '</td></tr>'
+    + '</table>'
+    + '<table><tr><td class="lbl" style="width:80px">หมายเหตุ</td><td>' + cell(PV_FIX.remark) + '</td></tr></table>'
+    + '<table>'
+    +   '<tr><td class="lbl" style="width:80px">โอนให้</td><td>&nbsp; สาขา &nbsp; เลขบัญชี</td></tr>'
+    +   '<tr><td class="lbl">จ่ายโดย</td><td><span class="chk">☑ เงินสด</span><span class="chk">☐ เงินโอน</span><span class="chk">☐ เช็คธนาคาร</span></td></tr>'
+    +   '<tr><td class="lbl">เลขที่เช็ค</td><td>&nbsp;</td></tr>'
+    +   '<tr><td class="lbl">เลขบัญชี</td><td>&nbsp;</td></tr>'
+    +   '<tr><td class="lbl">ลงวันที่</td><td>&nbsp;</td></tr>'
+    + '</table>'
+    + '<table class="signs"><tr>' + sig('ผู้รับเงิน') + sig('ผู้จ่ายเงิน') + sig('ผู้จัดการ') + sig('กรรมการผู้จัดการ / ประธานกรรมการ') + '</tr></table>'
+    + '</div>';
 }
 /* ใบคำขอของฮีโน่ — เลย์เอาต์ตามฟอร์มกระดาษของฮีโน่ (ผู้ใช้ส่งไฟล์มา 2026-10-05)
    🔑 ช่องที่ระบบไม่ได้เก็บ (สี · แบบตัวถัง · ขนาดเครื่องยนต์ · เลขเครื่อง · ทุนประกัน · เลขที่ พรบ./สติกเกอร์ · ลักษณะการใช้รถ ·
