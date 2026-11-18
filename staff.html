@@ -1669,7 +1669,7 @@ function comSheet(r){
     +     (discOk ? '' : ' — <b>ตรวจสอบก่อนจ่าย</b>') + '</p>'
     + '</div>';
 
-  /* p = { title, head, who, whoSub, whoWarn, item, amount, cond, signRole } */
+  /* p = { title, head, who, whoSub, whoWarn, item, amount, cond, signRole, sentAt } */
   const sheet = (n, p) =>
       '<div class="kc">'
     + '<div class="kc-head"><div>'
@@ -1677,6 +1677,8 @@ function comSheet(r){
     +   '<h1>' + esc(p.title) + '</h1>'
     +   '<div class="kc-case">' + esc(p.head) + '</div></div>'
     +   '<table class="kc-meta"><tr><th>เลขที่คำขอ</th><td>' + esc(r.no) + '</td></tr>'
+    /* วันเวลาที่ส่งคำขอ (created_at) — เฉพาะใบค่าแนะนำ ใช้ยืนยันว่าพนักงานแนะนำลูกค้าเข้ามาเมื่อไร (ผู้ใช้สั่ง 2026-11-18) */
+    +   (p.sentAt ? '<tr><th>วันที่ส่งคำขอ</th><td>' + esc(thDate(r.created_at)) + '</td></tr>' : '')
     /* ยังไม่ได้คีย์ = เว้นช่องว่างไว้ให้เขียนมือ ไม่ใส่ "—" เพราะใบนี้เอาไปเบิกจ่ายจริง */
     +   '<tr><th>เลขที่ใบเสร็จ</th><td>' + (r.receipt_no ? esc(r.receipt_no) : '&nbsp;') + '</td></tr>'
     +   '<tr><th>สถานะ</th><td>ปิดการขายแล้ว</td></tr>'
@@ -1722,7 +1724,7 @@ function comSheet(r){
       head: 'ค่าแนะนำลูกค้าของพนักงานบริษัท',
       who: r.emp_name, whoSub: empSub,
       whoWarn: r.emp_verified ? '' : '⚠ รหัสไม่ตรงทำเนียบพนักงาน — ตรวจสอบก่อนจ่าย',
-      item: 'ค่าแนะนำลูกค้า', amount: COM_REFERRER,
+      item: 'ค่าแนะนำลูกค้า', amount: COM_REFERRER, sentAt: true,
       signRole: 'พนักงานผู้แนะนำ · ผู้รับเงิน',
       cond: ['พนักงานบริษัทแนะนำลูกค้า: ได้ค่าแนะนำ ' + fmtBaht(COM_REFERRER) + ' บาทต่อ 1 คำขอที่ปิดการขาย',
              'จ่ายเมื่อเบี้ยสุทธิภาคสมัครใจตั้งแต่ ' + COM_MIN_TXT + ' บาทขึ้นไป — ต่ำกว่านี้ไม่จ่ายทั้งค่าคอมและค่าแนะนำ',
