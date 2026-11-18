@@ -201,8 +201,9 @@
   #vp-quote .qpr-h span{align-self:auto;margin-left:auto}
   #vp-quote .qdisc-opts{grid-template-columns:1fr}
 }
-/* การ์ดเลื่อนทั้งใบ และแถบปุ่มท้ายการ์ด (.ft) ติดล่างอยู่แล้ว → แถบนี้ต้องลอยเหนือ .ft (--fth = ความสูง .ft วัดตอนเปิด) */
-.qbar{position:sticky;bottom:var(--fth,70px);z-index:1;display:flex;align-items:center;justify-content:space-between;
+/* ⚠️ ต้องจำกัดไว้ใต้ #vp-quote — แถบค้นหาหน้ารายการก็ใช้ชื่อคลาส .qbar (style.css) เคยชนกันจนแถบค้นหาเพี้ยน
+   การ์ดเลื่อนทั้งใบ และแถบปุ่มท้ายการ์ด (.ft) ติดล่างอยู่แล้ว → แถบนี้ต้องลอยเหนือ .ft (--fth = ความสูง .ft วัดตอนเปิด) */
+#vp-quote .qbar{position:sticky;bottom:var(--fth,70px);z-index:1;display:flex;align-items:center;justify-content:space-between;
   gap:8px 16px;flex-wrap:wrap;margin:14px -22px -16px;padding:10px 22px 11px;background:var(--panel);
   border-top:1px solid var(--line);box-shadow:0 -12px 20px -16px rgba(34,28,29,.4);
   background:linear-gradient(180deg,#fffafa,var(--panel) 70%)}
@@ -212,15 +213,15 @@
 .qbar-sum b.bad{color:var(--bad-ink)}
 .qbar-sum small{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .qbar-act{display:flex;align-items:center;gap:12px;margin-left:auto}
-.qbar .qmeta{max-width:230px;text-align:right;line-height:1.45}
+#vp-quote .qbar .qmeta{max-width:230px;text-align:right;line-height:1.45}
 .qmeta.dirty{color:var(--warn-ink);font-weight:700}
 .vpane.ro .qbar-act{display:none}
 @media (max-width:640px){
   /* จอแคบ: ยอดรวมกับปุ่มอยู่บรรทัดเดียว สถานะลงบรรทัดล่าง — แถบนี้ซ้อนบนแถบปุ่มท้ายการ์ดอีกชั้น ต้องเตี้ยที่สุด */
-  .qbar{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding-top:8px;padding-bottom:8px}
+  #vp-quote .qbar{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding-top:8px;padding-bottom:8px}
   .qbar-act{display:contents}
   .qbar-act .btn{white-space:nowrap}
-  .qbar .qmeta{grid-column:1 / -1;grid-row:2;text-align:left;max-width:none}
+  #vp-quote .qbar .qmeta{grid-column:1 / -1;grid-row:2;text-align:left;max-width:none}
   .qbar-sum b{font-size:18px}
   .qbar-sum small{display:none}
 }
@@ -558,6 +559,14 @@
             <option value="new">ใหม่สุดก่อน</option>
             <option value="old">เก่าสุดก่อน</option>
             <option value="hot">ค้างนานสุดก่อน</option>
+          </select>
+        </label>
+        <!-- ประเภทคำขอ (ผู้ใช้สั่ง 2026-11-18) — kind: refer = ลูกค้าแนะนำ · อื่น ๆ = พนักงานทำเอง -->
+        <label class="f qagent">
+          <select id="fltKind" aria-label="กรองตามประเภทคำขอ">
+            <option value="">ทุกประเภท</option>
+            <option value="refer">ลูกค้าแนะนำ</option>
+            <option value="self">พนักงานทำเอง</option>
           </select>
         </label>
         <label class="f qagent" id="agentFilterBox" hidden>
@@ -2520,11 +2529,13 @@ function sortRows(rows){
 function renderList(){
   const q = norm($('find').value), ag = isAdmin() ? $('fltAgent').value : '';
   const br = $('brandFilterBox').hidden ? '' : $('fltBrand').value;
+  const kd = $('fltKind').value;                            // '' | refer | self
   // ใบที่ผ่านตัวกรองอื่นทั้งหมด ยกเว้นสถานะ → ใช้นับตัวเลขบนแท็บ
   if(isViewer()) ST = 'done';                               // ฝ่ายบุคคล: มีแท็บเดียว (RLS ส่งมาแค่ใบปิดการขายอยู่แล้ว — กรองซ้ำกันพลาด)
   const base = LIST.filter(r=>{
     if(isViewer() && r.status !== 'done') return false;
     if(br && brandOf(r) !== br) return false;
+    if(kd && (r.kind === 'refer' ? 'refer' : 'self') !== kd) return false;
     if(ag === '__none' && r.assigned_to) return false;
     if(ag && ag !== '__none' && r.assigned_to !== ag) return false;
     if(!q) return true;
@@ -2565,7 +2576,7 @@ function renderList(){
      "ทั้งหมด" ต้องนับแบบเดียวกับแท็บ (ไม่รวมใบยกเลิก/ปิดการขาย) ไม่งั้นตัวเลข 2 ที่ขัดกันเอง
      ฝ่ายบุคคลเห็นแต่ใบปิดการขาย → นับทั้งชุดที่ได้มา */
   const total = isViewer() ? LIST.length : LIST.filter(notCx).length;
-  const anyF = !!(q || ag || br || QF || (ST && !isViewer()));
+  const anyF = !!(q || ag || br || kd || QF || (ST && !isViewer()));
   $('qCount').textContent = !LIST.length ? ''
     : ST === 'cancelled' ? 'ใบที่ยกเลิก ' + rows.length + ' ใบ'
     : ST === 'done' && !isViewer() ? 'ใบที่ปิดการขาย ' + rows.length + ' ใบ'
@@ -2584,6 +2595,7 @@ function renderList(){
       $('find').value = ''; ST = ''; QF = '';
       if(isAdmin()){ $('fltAgent').value = ''; $('fltAgent').dispatchEvent(new Event('change')); }
       if(!$('brandFilterBox').hidden) setBrandFilter('');
+      if($('fltKind').value){ $('fltKind').value = ''; const kb = $('fltKind').closest('.csel'); if(kb) cselLabel(kb); }
       renderList();
     };
     return;
@@ -2647,8 +2659,10 @@ let findTimer = null;
 $('find').addEventListener('input', ()=>{ clearTimeout(findTimer); findTimer = setTimeout(renderList, 120); });
 $('fltAgent').addEventListener('change', renderList);
 $('fltBrand').addEventListener('change', renderList);
+$('fltKind').addEventListener('change', renderList);
 $('fltSort').value = SORT;
 csel($('fltSort'));                                       // ดรอปดาวน์เรียงลำดับใช้หน้าตาเดียวกับตัวกรองอื่น
+csel($('fltKind'));
 /* เงาใต้แถบเครื่องมือ เฉพาะตอนที่มันติดขอบจอจริง ๆ — ไม่งั้นมีเส้นเงาลอยอยู่ตลอดเวลาโดยไม่มีเหตุผล */
 if(window.IntersectionObserver){
   new IntersectionObserver(([e])=> $('qSticky').classList.toggle('stuck', !e.isIntersecting),
