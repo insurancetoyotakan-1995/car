@@ -486,7 +486,8 @@
 #printSheet .pv .netrow td{font-weight:700;font-size:13px}
 #printSheet .pv .chk{display:inline-block;margin-right:18px;white-space:nowrap}
 #printSheet .pv .signs td{width:25%;height:96px;text-align:center;vertical-align:bottom;padding:8px 6px 10px}
-#printSheet .pv .sigbox{height:50px}
+#printSheet .pv .sigbox{height:50px;display:flex;align-items:flex-end;justify-content:center}
+#printSheet .pv .sigbox img{max-height:48px;max-width:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 #printSheet .pv .dots{border-top:1px dotted #000;margin-top:4px;padding-top:4px}
 #printSheet .pv .dots .srl{font-weight:600;margin-top:1px;font-size:11px}
 </style>
@@ -1739,6 +1740,10 @@ function comSheet(r){
    🔑 ช่องที่เหลือใช้ค่าตามตัวอย่าง (ไม่มี PR/PO · บันทึกภายใน 006/2569 · จ่ายเงินสด) — เปลี่ยนเมื่อไรแก้ PV_FIX ที่เดียว
    🔑 ที่อยู่หัวใบ = สาขาของเจ้าหน้าที่ผู้ดูแล (หลักแรกของรหัส) เหมือนระบบใบสำคัญจ่ายที่ใช้สาขาของผู้ส่ง
       ฮีโน่ไม่มีที่อยู่ในระบบ → แสดงชื่อบริษัทอย่างเดียว */
+/* ลายเซ็นผู้จัดการพิมพ์ลงช่อง "ผู้จัดการ" (ผู้ใช้สั่ง 2026-11-18) — เฉพาะโตโยต้า · ฮีโน่เป็นคนละบริษัท เว้นว่างให้เซ็นมือ
+   เปลี่ยนคน = แทนไฟล์ img/sig-manager.png · ไม่ใช้แล้ว = ตั้งเป็น '' */
+const PV_SIG_MANAGER = 'img/sig-manager.png';
+if(PV_SIG_MANAGER) new Image().src = PV_SIG_MANAGER;     // โหลดเก็บไว้ก่อน ตอนพิมพ์จะได้ไม่ต้องรอ
 const PV_FIX = { payType: 'ไม่มี PR/PO', remark: 'บันทึกภายใน 006/2569' };
 const PV_ADDR = {
   '1': '22 หมู่ 1 ต.ท่าล้อ อ.ท่าม่วง จ.กาญจนบุรี 71000 (สำนักงานใหญ่)',
@@ -1755,7 +1760,8 @@ function pvSheet(r){
   const amt = fmtBaht(COM_REFERRER);
   const plate = [r.car_plate, r.car_province].filter(Boolean).join(' ');
   const row = (no, desc, money) => '<tr><td class="no">' + no + '</td><td>' + cell(desc) + '</td><td class="amt">' + (money || '&nbsp;') + '</td></tr>';
-  const sig = role => '<td><div class="sigbox"></div><div class="dots"><div class="srl">' + esc(role) + '</div></div></td>';
+  const sig = (role, img) => '<td><div class="sigbox">' + (img ? '<img src="' + img + '" alt="ลายเซ็น' + esc(role) + '">' : '')
+    + '</div><div class="dots"><div class="srl">' + esc(role) + '</div></div></td>';
   return '<div class="pv">'
     + '<table><tr>'
     +   '<td class="htitle"><div class="haddr"><span class="hco">' + nb(BRAND_CO[brandOf(r)]) + '</span>'
@@ -1784,7 +1790,7 @@ function pvSheet(r){
     +   '<tr><td class="lbl">เลขบัญชี</td><td>&nbsp;</td></tr>'
     +   '<tr><td class="lbl">ลงวันที่</td><td>&nbsp;</td></tr>'
     + '</table>'
-    + '<table class="signs"><tr>' + sig('ผู้รับเงิน') + sig('ผู้จ่ายเงิน') + sig('ผู้จัดการ') + sig('กรรมการผู้จัดการ / ประธานกรรมการ') + '</tr></table>'
+    + '<table class="signs"><tr>' + sig('ผู้รับเงิน') + sig('ผู้จ่ายเงิน') + sig('ผู้จัดการ', hino ? '' : PV_SIG_MANAGER) + sig('กรรมการผู้จัดการ / ประธานกรรมการ') + '</tr></table>'
     + '</div>';
 }
 /* ใบคำขอของฮีโน่ — เลย์เอาต์ตามฟอร์มกระดาษของฮีโน่ (ผู้ใช้ส่งไฟล์มา 2026-10-05)
@@ -1970,7 +1976,7 @@ function printSheet(r){
     +   (r.assigned_to ? ' · ผู้ดูแล ' + esc(agentName(r.assigned_to)) : '') + '</span>'
     +   '<span>พิมพ์เมื่อ ' + esc(thDate(now.toISOString())) + '</span></div>';
 }
-function doPrint(r, which){
+async function doPrint(r, which){
   const com = which === 'com';
   const why = printBlock(r) || (quoteDirty(r) ? 'มีข้อมูลเสนอราคาที่ยังไม่บันทึก — กด "บันทึกข้อมูลเสนอราคา" ก่อนพิมพ์' : '');
   if(why){
@@ -1988,6 +1994,8 @@ function doPrint(r, which){
   }
   $('printSheet').innerHTML = com ? comSheet(r) : printSheet(r);
   fitSheet($('printSheet'));
+  /* รูปลายเซ็นในใบ (ใบสำคัญจ่าย) ต้องโหลดเสร็จก่อนสั่งพิมพ์ ไม่งั้นพิมพ์ออกมาช่องว่าง — โหลดไว้ล่วงหน้าแล้ว ปกติไม่ต้องรอ */
+  await Promise.all([...$('printSheet').querySelectorAll('img')].map(i => i.decode().catch(() => {})));
   document.title = r.no + (com ? ' ค่าคอมมิชชั่น' : '');   // ชื่อไฟล์ตอน "บันทึกเป็น PDF"
   document.body.classList.add('printing');
   /* ⚠️ ไม่ถอดคลาสด้วยตัวจับเวลา — iOS Safari สั่งพิมพ์แบบไม่รอ ถอดเร็วไปจะพิมพ์ได้ทั้งหน้าจอแทนใบคำขอ
